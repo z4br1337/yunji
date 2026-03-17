@@ -18,11 +18,10 @@ COPY server/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server/ .
-RUN chmod +x start.sh
 
 RUN mkdir -p /webapp/dist
 COPY --from=frontend /build/dist /webapp/dist
 
 EXPOSE 8080
 
-CMD ["sh", "start.sh"]
+CMD python manage.py migrate --noinput && python init_admin.py ; python manage.py collectstatic --noinput 2>/dev/null ; exec gunicorn yunji_server.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120 --access-logfile - --error-logfile -
