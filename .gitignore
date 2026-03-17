@@ -1,0 +1,39 @@
+# Python
+venv/
+env/
+.venv/
+bin/
+lib/
+include/
+pyvenv.cfg
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+db.sqlite3
+staticfiles/
+media/
+
+# Node
+node_modules/
+webapp/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env
+.env
+.env.local
+.env.production
+
+# Build artifacts
+*.log

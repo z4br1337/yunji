@@ -1,0 +1,33 @@
+# Python virtual env
+venv/
+env/
+.venv/
+bin/
+lib/
+include/
+pyvenv.cfg
+__pycache__/
+
+# Node (will be rebuilt in Docker)
+node_modules/
+webapp/dist/
+
+# IDE
+.idea/
+.vscode/
+
+# WeChat miniprogram (no longer used)
+miniprogram/
+cloudfunctions/
+
+# Tests & docs
+tests/
+docs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
