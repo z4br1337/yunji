@@ -10,21 +10,21 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
+ENV DB_ENGINE=sqlite
+ENV FRONTEND_DIR=/webapp/dist
+ENV DJANGO_SETTINGS_MODULE=yunji_server.settings
+
 COPY server/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server/ .
 
-# Copy frontend build output to a location FRONTEND_DIR can find
 RUN mkdir -p /webapp/dist
 COPY --from=frontend /build/dist /webapp/dist
 
-RUN python manage.py collectstatic --noinput 2>/dev/null || true
-RUN DB_ENGINE=sqlite python manage.py migrate --noinput 2>/dev/null || true
+RUN python manage.py collectstatic --noinput || true
+RUN python manage.py migrate --noinput
 
-ENV PORT=8080
-ENV FRONTEND_DIR=/webapp/dist
-ENV DB_ENGINE=sqlite
 EXPOSE 8080
 
-CMD gunicorn yunji_server.wsgi:application --bind 0.0.0.0:${PORT} --workers 2 --timeout 120
+CMD ["sh", "-c", "gunicorn yunji_server.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120"]
