@@ -50,6 +50,9 @@
       <div class="menu-item" @click="$router.push('/profile-edit')">
         <span class="menu-icon">✏️</span><span>编辑资料</span><span class="arrow">›</span>
       </div>
+      <div class="menu-item" @click="$router.push('/change-password')">
+        <span class="menu-icon">🔐</span><span>修改密码</span><span class="arrow">›</span>
+      </div>
       <div class="menu-item" @click="$router.push('/growth-book')">
         <span class="menu-icon">📖</span><span>成长手册</span><span class="arrow">›</span>
       </div>

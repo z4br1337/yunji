@@ -1,21 +1,60 @@
 import { LOCAL_TEST_MODE, API_BASE_URL } from '../utils/config.js'
 import * as mock from './mock.js'
 
-async function request(path, data = {}, method = 'POST') {
+const REQUEST_TIMEOUT_MS = 12000
+const requestCache = new Map()
+
+function buildCacheKey(path, data, method) {
+  return `${method}:${path}:${JSON.stringify(data || {})}`
+}
+
+function clearExpiredCache() {
+  const now = Date.now()
+  for (const [key, item] of requestCache.entries()) {
+    if (item.expireAt <= now) requestCache.delete(key)
+  }
+}
+
+async function request(path, data = {}, method = 'POST', options = {}) {
   if (LOCAL_TEST_MODE) return null
+  clearExpiredCache()
+
+  const cacheable = Boolean(options.cacheable)
+  const cacheTTL = options.cacheTTL || 5000
+  const cacheKey = cacheable ? buildCacheKey(path, data, method) : ''
+  if (cacheable && requestCache.has(cacheKey)) {
+    return requestCache.get(cacheKey).data
+  }
 
   const token = localStorage.getItem('token') || ''
-  const res = await fetch(API_BASE_URL + path, {
-    method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
-    body: method !== 'GET' ? JSON.stringify(data) : undefined
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let res
+  try {
+    res = await fetch(API_BASE_URL + path, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+      body: method !== 'GET' ? JSON.stringify(data) : undefined,
+      signal: controller.signal
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') throw new Error('请求超时，请稍后重试')
+    throw e
+  } finally {
+    clearTimeout(timeoutId)
+  }
   const contentType = res.headers.get('content-type') || ''
   if (!contentType.includes('application/json')) {
     throw new Error(`服务器响应异常 (${res.status})`)
   }
   const json = await res.json()
   if (json.code !== 0) throw new Error(json.message || '请求失败')
+  if (cacheable) {
+    requestCache.set(cacheKey, {
+      data: json.data,
+      expireAt: Date.now() + cacheTTL
+    })
+  }
   return json.data
 }
 
@@ -42,6 +81,11 @@ export async function updateProfile(data) {
   return request('/user/profile', data)
 }
 
+export async function changePassword(oldPassword, newPassword) {
+  if (LOCAL_TEST_MODE) return { changed: true }
+  return request('/user/change-password', { oldPassword, newPassword })
+}
+
 export async function useInviteCode(code) {
   if (LOCAL_TEST_MODE) return mock.mockUseInviteCode(code)
   return request('/user/invite', { code })
@@ -55,7 +99,7 @@ export async function getPointsLog() {
 export async function getPosts(params = {}) {
   if (LOCAL_TEST_MODE) return mock.mockGetPosts(params)
   const { page, pageSize, ...filterFields } = params
-  return request('/post/list', { filter: filterFields, page: page || 1 })
+  return request('/post/list', { filter: filterFields, page: page || 1, pageSize: pageSize || 12 }, 'POST', { cacheable: true, cacheTTL: 3500 })
 }
 
 export async function getPostDetail(postId) {
@@ -115,8 +159,9 @@ export async function getChatHistory(peerId) {
 
 export async function uploadImage(file) {
   if (LOCAL_TEST_MODE) return mock.mockUploadImage(file)
+  const optimizedFile = await optimizeImageBeforeUpload(file)
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('file', optimizedFile)
   const token = localStorage.getItem('token') || ''
   const res = await fetch(API_BASE_URL + '/upload/image', {
     method: 'POST',
@@ -126,6 +171,39 @@ export async function uploadImage(file) {
   const json = await res.json()
   if (json.code !== 0) throw new Error(json.message || '上传失败')
   return json.data
+}
+
+async function optimizeImageBeforeUpload(file) {
+  // 非图片或小图直接上传，避免额外 CPU 开销
+  if (!file || !file.type?.startsWith('image/') || file.size < 300 * 1024) return file
+  if (typeof createImageBitmap !== 'function') return file
+
+  let imageBitmap
+  try {
+    imageBitmap = await createImageBitmap(file)
+  } catch {
+    return file
+  }
+  const maxEdge = 1600
+  const scale = Math.min(1, maxEdge / Math.max(imageBitmap.width, imageBitmap.height))
+  const targetWidth = Math.max(1, Math.round(imageBitmap.width * scale))
+  const targetHeight = Math.max(1, Math.round(imageBitmap.height * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = targetWidth
+  canvas.height = targetHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return file
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight)
+
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.8)
+  })
+  if (!blob) return file
+
+  const optimized = new File([blob], `${Date.now()}-${file.name.replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' })
+  imageBitmap.close()
+  return optimized.size < file.size ? optimized : file
 }
 
 // ========== 管理员 API ==========

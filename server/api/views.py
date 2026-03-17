@@ -213,6 +213,37 @@ def user_profile(request):
 
 @csrf_exempt
 @require_POST
+def user_change_password(request):
+    openid = request.user_token
+    if not openid:
+        return err('UNAUTHORIZED', '请先登录')
+
+    body = get_body(request)
+    old_password = (body.get('oldPassword') or '').strip()
+    new_password = (body.get('newPassword') or '').strip()
+
+    if not old_password or not new_password:
+        return err('INVALID_PARAMS', '旧密码和新密码不能为空')
+    if len(new_password) < 6:
+        return err('INVALID_PARAMS', '新密码长度至少 6 位')
+    if old_password == new_password:
+        return err('INVALID_PARAMS', '新密码不能与旧密码相同')
+
+    try:
+        user = User.objects.get(openid=openid)
+    except User.DoesNotExist:
+        return err('USER_NOT_FOUND', '用户不存在')
+
+    if not user.password_hash or user.password_hash != _hash_password(old_password):
+        return err('WRONG_PASSWORD', '旧密码错误')
+
+    user.password_hash = _hash_password(new_password)
+    user.save(update_fields=['password_hash', 'updated_at'])
+    return ok({'changed': True})
+
+
+@csrf_exempt
+@require_POST
 def use_invite_code(request):
     openid = request.user_token
     body = get_body(request)
@@ -303,7 +334,9 @@ def post_list(request):
     openid = request.user_token
     body = get_body(request)
     f = body.get('filter', {})
-    page = int(body.get('page', 1))
+    page = max(int(body.get('page', 1)), 1)
+    req_page_size = int(body.get('pageSize', PAGE_SIZE))
+    page_size = min(max(req_page_size, 5), 30)
 
     user = get_or_create_user(openid)
     is_admin = user.role == 'admin'
@@ -331,12 +364,12 @@ def post_list(request):
                 qs = qs.filter(Q(status='published') | Q(author_id=openid))
 
     total = qs.count()
-    start = (page - 1) * PAGE_SIZE
-    posts = qs[start:start + PAGE_SIZE]
+    start = (page - 1) * page_size
+    posts = qs[start:start + page_size]
     return ok({
         'posts': [post_to_dict(p, reveal_author=is_admin) for p in posts],
         'total': total,
-        'hasMore': start + PAGE_SIZE < total,
+        'hasMore': start + page_size < total,
     })
 
 
