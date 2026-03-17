@@ -806,3 +806,39 @@ def admin_growth_book(request):
     except User.DoesNotExist:
         user_data = None
     return ok({'achievements': [ach_to_dict(a) for a in achs], 'user': user_data})
+
+
+@csrf_exempt
+@require_POST
+def admin_export_data(request):
+    admin, e = _check_admin(request)
+    if e: return e
+
+    data = {
+        'exported_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'users': [user_to_dict(u) for u in User.objects.all()],
+        'posts': [post_to_dict(p, reveal_author=True) for p in Post.objects.all()],
+        'comments': [
+            {'_id': str(c.id), 'postId': str(c.post_id), 'authorId': c.author_id,
+             'authorName': c.author_name, 'isAdmin': c.is_admin,
+             'content': c.content, 'createdAt': c.created_at.isoformat()}
+            for c in Comment.objects.all()
+        ],
+        'achievements': [ach_to_dict(a) for a in Achievement.objects.all()],
+        'invites': [
+            {'code': i.code, 'role': i.role, 'usedBy': i.used_by or '',
+             'createdAt': i.created_at.isoformat()}
+            for i in Invite.objects.all()
+        ],
+        'points_log': [
+            {'userId': l.user_id, 'delta': l.delta, 'reason': l.reason,
+             'relatedId': l.related_id, 'createdAt': l.created_at.isoformat()}
+            for l in PointsLog.objects.all().order_by('-created_at')[:500]
+        ],
+        'messages': [
+            {'fromId': m.from_id, 'fromName': m.from_name, 'toId': m.to_id,
+             'content': m.content, 'read': m.read, 'createdAt': m.created_at.isoformat()}
+            for m in Message.objects.all().order_by('-created_at')[:1000]
+        ],
+    }
+    return ok(data)

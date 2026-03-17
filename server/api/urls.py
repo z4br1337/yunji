@@ -53,4 +53,7 @@ urlpatterns = [
     path('admin/achievement/approve', views.admin_achievement_approve),
     path('admin/achievement/reject', views.admin_achievement_reject),
     path('admin/growth-book', views.admin_growth_book),
+
+    # 数据导出（管理员专用）
+    path('admin/export-data', views.admin_export_data),
 ]

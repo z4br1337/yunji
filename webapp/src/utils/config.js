@@ -2,7 +2,7 @@
  * 云迹 Web 版 - 运行时配置
  */
 
-export const LOCAL_TEST_MODE = true
+export const LOCAL_TEST_MODE = false
 
 export const API_BASE_URL = '/api'
 
