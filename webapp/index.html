@@ -4,11 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#4A90D9" />
-  <title>云迹 - 校园社交平台</title>
+  <meta http-equiv="X-DNS-Prefetch-Control" content="on" />
+  <link rel="dns-prefetch" href="https://ark.cn-beijing.volces.com" />
+  <title>云迹 - 哲法er交流学习平台</title>
   <link rel="icon" href="/favicon.ico" />
+  <style>
+    /* Inline critical CSS for instant skeleton render */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:#F5F7FA}
+    .app-skeleton{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(-45deg,#e8d5b7,#f5e6d3,#d4e7d0,#c8dbe8);background-size:400% 400%;animation:bg 8s ease infinite}
+    @keyframes bg{0%{background-position:0 50%}50%{background-position:100% 50%}100%{background-position:0 50%}}
+    .sk-card{background:rgba(255,255,255,.9);border-radius:16px;padding:40px 32px;width:90%;max-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.08)}
+    .sk-circle{width:80px;height:80px;border-radius:50%;background:#e8ecf0;margin:0 auto 16px;animation:pulse 1.5s ease infinite}
+    .sk-line{height:14px;border-radius:7px;background:#e8ecf0;margin:8px auto;animation:pulse 1.5s ease infinite}
+    .sk-line.w60{width:60%}.sk-line.w40{width:40%}.sk-line.w80{width:80%}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <!-- Skeleton shown before Vue mounts, auto-replaced -->
+    <div class="app-skeleton">
+      <div class="sk-card">
+        <div class="sk-circle"></div>
+        <div class="sk-line w60"></div>
+        <div class="sk-line w40"></div>
+        <div class="sk-line w80" style="margin-top:24px"></div>
+        <div class="sk-line w80"></div>
+      </div>
+    </div>
+  </div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
