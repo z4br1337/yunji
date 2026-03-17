@@ -31,7 +31,7 @@
         <p class="detail-content">{{ post.content }}</p>
 
         <div v-if="post.images && post.images.length" class="detail-images">
-          <img v-for="(img, i) in post.images" :key="i" :src="img" class="detail-img" />
+          <img v-for="(img, i) in post.images" :key="i" :src="img" class="detail-img" loading="lazy" />
         </div>
 
         <!-- Admin actions -->
@@ -90,8 +90,11 @@ async function loadData() {
   loading.value = true
   try {
     const result = await api.getPostDetail(route.params.id)
-    post.value = result.post
-    realAuthor.value = result.realAuthor
+    const p = Array.isArray(result.posts) ? result.posts[0] : result.post || result
+    post.value = p || null
+    if (isAdmin.value && p && p.authorName) {
+      realAuthor.value = { nickname: p.authorName, class: p.authorClass || '' }
+    }
     const cmtResult = await api.getComments(route.params.id)
     comments.value = cmtResult.comments || []
   } catch (e) {

@@ -94,7 +94,11 @@ function onAvatarClick(post) {
   router.push(`/chat/${post.authorId}?name=${encodeURIComponent(post.visibleAuthorName || '用户')}`)
 }
 
-onMounted(() => loadPosts())
+onMounted(() => {
+  if (state.isLoggedIn) {
+    loadPosts()
+  }
+})
 
 watch(() => state.isLoggedIn, (val) => {
   if (val && !loaded) loadPosts()

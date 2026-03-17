@@ -40,9 +40,7 @@
     <!-- Main content area -->
     <main class="main-content" :class="{ 'with-sidebar': !isMobile && isLoggedIn }">
       <router-view v-slot="{ Component }">
-        <transition name="fade">
-          <component :is="Component" :key="$route.fullPath" />
-        </transition>
+        <component :is="Component" :key="$route.fullPath" />
       </router-view>
     </main>
 

@@ -188,11 +188,8 @@ async function handleLogin() {
     const user = await login(username.value.trim(), password.value)
     showToast('登录成功')
     await nextTick()
-    if (!user.profileCompleted) {
-      router.replace('/profile-edit')
-    } else {
-      router.replace('/feed')
-    }
+    const target = user.profileCompleted ? '/feed' : '/profile-edit'
+    await router.replace(target)
   } catch (e) {
     errorMsg.value = e.message || '登录失败'
   } finally {

@@ -2,17 +2,31 @@ import os
 import mimetypes
 from django.urls import path, include, re_path
 from django.conf import settings
-from django.conf.urls.static import static
 from django.http import JsonResponse, FileResponse, Http404
 
 mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('text/css', '.css')
 
 CACHE_EXTENSIONS = {'.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.woff', '.woff2', '.ttf', '.ico'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico'}
 
 
 def health_check(request):
     return JsonResponse({'status': 'ok', 'service': 'yunji-api'})
+
+
+def serve_media(request, path=''):
+    """Serve user-uploaded media files with caching headers."""
+    file_path = os.path.join(str(settings.MEDIA_ROOT), path)
+    if not os.path.isfile(file_path):
+        raise Http404
+    resp = FileResponse(open(file_path, 'rb'))
+    ext = os.path.splitext(path)[1].lower()
+    if ext in IMAGE_EXTENSIONS:
+        resp['Cache-Control'] = 'public, max-age=604800'
+    else:
+        resp['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 
 def serve_frontend(request, path=''):
@@ -40,10 +54,8 @@ def serve_frontend(request, path=''):
 urlpatterns = [
     path('healthz', health_check),
     path('api/', include('api.urls')),
+    re_path(r'^media/(?P<path>.+)$', serve_media),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 urlpatterns += [
     re_path(r'^(?P<path>.*)$', serve_frontend),

@@ -15,7 +15,7 @@
       <p v-if="post.status === 'flagged' && isAdmin" class="flagged-content" v-html="post.flaggedHighlighted || post.content"></p>
       <p v-else class="post-content">{{ post.content }}</p>
       <div v-if="post.images && post.images.length" class="post-images">
-        <img v-for="(img, i) in post.images.slice(0, 3)" :key="i" :src="img" class="post-img" />
+        <img v-for="(img, i) in post.images.slice(0, 3)" :key="i" :src="img" class="post-img" loading="lazy" />
       </div>
     </div>
     <div class="post-footer">

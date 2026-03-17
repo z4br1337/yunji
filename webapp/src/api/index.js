@@ -64,10 +64,15 @@ export async function register(nickname, username, password) {
   return data
 }
 
+export function clearCache() {
+  requestCache.clear()
+}
+
 export async function login(username, password) {
   if (LOCAL_TEST_MODE) return mock.mockLogin(username, password)
   const data = await request('/user/login', { username, password })
   if (data.token) localStorage.setItem('token', data.token)
+  requestCache.clear()
   return data.user || data
 }
 
