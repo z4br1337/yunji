@@ -14,7 +14,7 @@
 
       <div class="form-group">
         <label class="form-label">用户名</label>
-        <input class="form-input" v-model="username" placeholder="输入用户名（admin 登录管理员）" @keyup.enter="handleLogin" />
+        <input class="form-input" v-model="username" placeholder="请输入用户名" @keyup.enter="handleLogin" />
       </div>
       <div class="form-group">
         <label class="form-label">密码</label>
@@ -37,9 +37,6 @@
         没有账号？<router-link to="/register" class="link">立即注册</router-link>
       </p>
 
-      <p class="login-hint text-sm text-muted mt-16">
-        测试模式：账号 admin / testuser，密码 123456
-      </p>
     </div>
 
     <!-- Notice Modal -->

@@ -24,6 +24,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'yunji_server.urls'
+APPEND_SLASH = False
 
 CORS_ALLOW_ALL_ORIGINS = True
 

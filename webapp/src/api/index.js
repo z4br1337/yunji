@@ -10,6 +10,10 @@ async function request(path, data = {}, method = 'POST') {
     headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
     body: method !== 'GET' ? JSON.stringify(data) : undefined
   })
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    throw new Error(`服务器响应异常 (${res.status})`)
+  }
   const json = await res.json()
   if (json.code !== 0) throw new Error(json.message || '请求失败')
   return json.data
