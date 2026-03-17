@@ -19,9 +19,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server/ .
 
-RUN mkdir -p /webapp/dist
+RUN mkdir -p /webapp/dist /app/staticfiles /app/media
 COPY --from=frontend /build/dist /webapp/dist
+
+# Create entrypoint inside Docker (guaranteed LF line endings)
+RUN printf '#!/bin/sh\nset -e\necho "[boot] Running migrate..."\npython manage.py migrate --noinput\necho "[boot] Creating admin..."\npython init_admin.py || true\necho "[boot] Collecting static..."\npython manage.py collectstatic --noinput || true\necho "[boot] Starting gunicorn on port ${PORT:-8080}..."\nexec gunicorn yunji_server.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120 --access-logfile - --error-logfile -\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 8080
 
-CMD python manage.py migrate --noinput && python init_admin.py ; python manage.py collectstatic --noinput 2>/dev/null ; exec gunicorn yunji_server.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120 --access-logfile - --error-logfile -
+ENTRYPOINT ["/entrypoint.sh"]
