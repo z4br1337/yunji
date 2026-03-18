@@ -114,7 +114,7 @@ import { POINTS_REASON_LABELS } from '../utils/config.js'
 import * as api from '../api/index.js'
 
 const router = useRouter()
-const { state, logout, updateLocal } = useUserStore()
+const { state, logout, refreshProfile } = useUserStore()
 const showToast = inject('showToast')
 
 const user = computed(() => state.userInfo)
@@ -142,8 +142,8 @@ async function togglePointsLog() {
 async function useInvite() {
   if (!inviteCode.value.trim()) { showToast('请输入邀请码'); return }
   try {
-    const result = await api.useInviteCode(inviteCode.value.trim())
-    updateLocal({ role: 'admin' })
+    await api.useInviteCode(inviteCode.value.trim())
+    await refreshProfile()
     showToast('邀请码使用成功，已升级为管理员')
     showInvite.value = false
   } catch (e) {

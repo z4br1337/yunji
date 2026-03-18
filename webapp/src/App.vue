@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, provide } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDevice } from './utils/device.js'
 import { useUserStore } from './stores/user.js'
@@ -112,7 +112,24 @@ onMounted(async () => {
       await refreshProfile()
     } catch { /* 网络异常时保留本地缓存 */ }
   }
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
+
+let visibilityDebounce = null
+function onVisibilityChange() {
+  if (document.visibilityState !== 'visible') return
+  if (!state.isLoggedIn || !localStorage.getItem('token')) return
+  clearTimeout(visibilityDebounce)
+  visibilityDebounce = setTimeout(async () => {
+    try {
+      await refreshProfile()
+    } catch { /* 静默失败，保留本地缓存 */ }
+  }, 300)
+}
 </script>
 
 <style scoped>

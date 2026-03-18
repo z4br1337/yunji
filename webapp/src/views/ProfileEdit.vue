@@ -27,7 +27,7 @@ import { useUserStore } from '../stores/user.js'
 import * as api from '../api/index.js'
 
 const router = useRouter()
-const { state, updateLocal } = useUserStore()
+const { state, refreshProfile } = useUserStore()
 const showToast = inject('showToast')
 
 const nickname = ref('')
@@ -49,7 +49,7 @@ async function handleSave() {
   saving.value = true
   try {
     await api.updateProfile({ nickname: nickname.value.trim(), class: userClass.value.trim() })
-    updateLocal({ nickname: nickname.value.trim(), class: userClass.value.trim(), profileCompleted: true })
+    await refreshProfile()
     showToast('资料保存成功')
     router.replace('/feed')
   } catch (e) {

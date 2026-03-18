@@ -83,7 +83,9 @@ export async function getProfile() {
 
 export async function updateProfile(data) {
   if (LOCAL_TEST_MODE) return mock.mockUpdateProfile(data)
-  return request('/user/profile', data)
+  const result = await request('/user/profile', data)
+  clearCache()
+  return result
 }
 
 export async function changePassword(oldPassword, newPassword) {
@@ -93,7 +95,9 @@ export async function changePassword(oldPassword, newPassword) {
 
 export async function useInviteCode(code) {
   if (LOCAL_TEST_MODE) return mock.mockUseInviteCode(code)
-  return request('/user/invite', { code })
+  const result = await request('/user/invite', { code })
+  clearCache()
+  return result
 }
 
 export async function getPointsLog() {
@@ -114,7 +118,9 @@ export async function getPostDetail(postId) {
 
 export async function createPost(data) {
   if (LOCAL_TEST_MODE) return mock.mockCreatePost(data)
-  return request('/post/create', data)
+  const result = await request('/post/create', data)
+  clearCache()
+  return result
 }
 
 export async function getComments(postId) {
@@ -124,7 +130,9 @@ export async function getComments(postId) {
 
 export async function addComment(postId, content) {
   if (LOCAL_TEST_MODE) return mock.mockAddComment(postId, content)
-  return request('/comment/add', { postId, content })
+  const result = await request('/comment/add', { postId, content })
+  clearCache()
+  return result
 }
 
 export async function getAchievements(params = {}) {
@@ -134,7 +142,9 @@ export async function getAchievements(params = {}) {
 
 export async function createAchievement(data) {
   if (LOCAL_TEST_MODE) return mock.mockCreateAchievement(data)
-  return request('/achievement/create', data)
+  const result = await request('/achievement/create', data)
+  clearCache()
+  return result
 }
 
 export async function getGrowthBook(userId) {
@@ -144,12 +154,16 @@ export async function getGrowthBook(userId) {
 
 export async function setGrowthBookPublic(isPublic) {
   if (LOCAL_TEST_MODE) return mock.mockSetGrowthBookPublic(isPublic)
-  return request('/growth-book/set-public', { isPublic })
+  const result = await request('/growth-book/set-public', { isPublic })
+  clearCache()
+  return result
 }
 
 export async function sendMessage(toId, content) {
   if (LOCAL_TEST_MODE) return mock.mockSendMessage(toId, content)
-  return request('/message/send', { toId, content })
+  const result = await request('/message/send', { toId, content })
+  clearCache()
+  return result
 }
 
 export async function getConversations() {
