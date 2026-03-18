@@ -135,18 +135,35 @@ mark { background: #FFEAA7; color: var(--danger); padding: 0 2px; border-radius:
 /* ========== Windows 性能优化（减少动画与复杂效果） ========== */
 html.is-windows { --transition: none; }
 html.is-windows .card { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-html.is-windows .btn,
-html.is-windows .form-input,
-html.is-windows .form-textarea,
-html.is-windows .nav-item,
-html.is-windows .tab-item { transition: none; }
+html.is-windows .btn, html.is-windows .form-input, html.is-windows .form-textarea,
+html.is-windows .nav-item, html.is-windows .tab-item { transition: none; }
 html.is-windows .post-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 120px;
 }
-html.is-windows .post-card:hover {
+html.is-windows .post-card:hover { transform: none; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+html.is-windows .main-content { transition: none; }
+html.is-windows .spinner { animation-duration: 1.2s; }
+
+/* ========== Android/iOS 触摸与滚动优化 ========== */
+html.is-android, html.is-ios {
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+}
+html.is-android *, html.is-ios * { -webkit-tap-highlight-color: transparent; }
+html.is-android, html.is-ios { --transition: none; }
+html.is-android .card, html.is-ios .card { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+html.is-android .btn, html.is-android .form-input, html.is-android .form-textarea,
+html.is-android .nav-item, html.is-android .tab-item,
+html.is-ios .btn, html.is-ios .form-input, html.is-ios .form-textarea,
+html.is-ios .nav-item, html.is-ios .tab-item { transition: none; }
+html.is-android .post-card, html.is-ios .post-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+html.is-android .post-card:hover, html.is-ios .post-card:hover {
   transform: none;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
-html.is-windows .main-content { transition: none; }
-html.is-windows .spinner { animation-duration: 1.2s; }
+html.is-android .main-content, html.is-ios .main-content { transition: none; }
+html.is-android .spinner, html.is-ios .spinner { animation-duration: 1.2s; }

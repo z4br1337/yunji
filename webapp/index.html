@@ -26,7 +26,16 @@
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
     .is-windows .app-skeleton{animation:none;background:linear-gradient(135deg,#e8d5b7,#d4e7d0)}
     .is-windows .sk-circle,.is-windows .sk-line{animation:none;opacity:.6}
+    .is-android .app-skeleton,.is-ios .app-skeleton{animation:none;background:linear-gradient(135deg,#e8d5b7,#d4e7d0)}
+    .is-android .sk-circle,.is-android .sk-line,.is-ios .sk-circle,.is-ios .sk-line{animation:none;opacity:.6}
   </style>
+  <script>
+    (function(){var ua=navigator.userAgent.toLowerCase(),p=(navigator.platform||'').toLowerCase();
+    if(/win|windows/.test(ua)||p==='win32'||p==='windows')document.documentElement.classList.add('is-windows');
+    if(/android/.test(ua))document.documentElement.classList.add('is-android');
+    if(/iphone|ipad|ipod/.test(ua))document.documentElement.classList.add('is-ios');
+    })();
+  </script>
 </head>
 <body>
   <div id="app">

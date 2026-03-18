@@ -1,5 +1,5 @@
 <template>
-  <div class="app-root" :class="{ 'is-mobile': isMobile, 'is-desktop': !isMobile, 'is-windows': isWindows }">
+  <div class="app-root" :class="{ 'is-mobile': isMobile, 'is-desktop': !isMobile, 'is-windows': isWindows, 'is-android': isAndroid, 'is-ios': isIOS }">
     <!-- Desktop: sidebar layout -->
     <aside v-if="!isMobile && isLoggedIn" class="sidebar">
       <div class="sidebar-brand">
@@ -76,7 +76,7 @@ import { useRoute } from 'vue-router'
 import { useDevice } from './utils/device.js'
 import { useUserStore } from './stores/user.js'
 
-const { isMobile, isWindows } = useDevice()
+const { isMobile, isWindows, isAndroid, isIOS } = useDevice()
 const { state, restoreSession, refreshProfile } = useUserStore()
 const route = useRoute()
 
@@ -102,6 +102,8 @@ function showToast(msg, duration = 2000) {
 provide('showToast', showToast)
 provide('isMobile', isMobile)
 provide('isWindows', isWindows)
+provide('isAndroid', isAndroid)
+provide('isIOS', isIOS)
 
 onMounted(async () => {
   restoreSession()

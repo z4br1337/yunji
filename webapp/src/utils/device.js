@@ -7,16 +7,30 @@ export function isWindowsOS() {
   return /win|windows/.test(ua) || plat === 'win32' || plat === 'windows'
 }
 
+export function isAndroidOS() {
+  return /android/.test(navigator.userAgent.toLowerCase())
+}
+
+export function isIOS() {
+  return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())
+}
+
 export function useDevice() {
   const isMobile = ref(false)
-  const isWindows = ref(isWindowsOS())
   const screenWidth = ref(window.innerWidth)
+  const isWindows = ref(false)
+  const isAndroid = ref(false)
+  const isIOS = ref(false)
 
   function update() {
     screenWidth.value = window.innerWidth
     const ua = navigator.userAgent.toLowerCase()
+    const p = (navigator.platform || '').toLowerCase()
     const mobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/.test(ua)
     isMobile.value = mobileUA || window.innerWidth < 768
+    isWindows.value = /win|windows/.test(ua) || p === 'win32' || p === 'windows'
+    isAndroid.value = /android/.test(ua)
+    isIOS.value = /iphone|ipad|ipod/.test(ua)
   }
 
   onMounted(() => {
@@ -25,5 +39,5 @@ export function useDevice() {
   })
   onUnmounted(() => window.removeEventListener('resize', update))
 
-  return { isMobile, isWindows, screenWidth }
+  return { isMobile, screenWidth, isWindows, isAndroid, isIOS }
 }

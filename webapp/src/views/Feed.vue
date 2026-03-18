@@ -42,8 +42,10 @@ import PostCard from '../components/PostCard.vue'
 const router = useRouter()
 const { state } = useUserStore()
 const showToast = inject('showToast')
+const isMobile = inject('isMobile', ref(false))
 
 const isAdmin = computed(() => state.isAdmin)
+const pageSize = computed(() => (isMobile.value ? 12 : 20))
 const categories = [{ key: 'all', label: '全部' }, ...POST_CATEGORIES]
 const currentCategory = ref('all')
 const posts = ref([])
@@ -56,7 +58,7 @@ async function loadPosts(reset = true) {
   if (reset) { page.value = 1; posts.value = [] }
   loading.value = true
   try {
-    const params = { page: page.value, pageSize: 20, excludeEmotion: true }
+    const params = { page: page.value, pageSize: pageSize.value, excludeEmotion: true }
     if (currentCategory.value !== 'all') params.category = currentCategory.value
     const result = await api.getPosts(params)
     if (reset) {

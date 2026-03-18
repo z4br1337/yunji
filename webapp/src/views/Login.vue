@@ -1,13 +1,13 @@
 <template>
-  <div class="login-page" :class="{ 'login-page-simple': isWindows }">
-    <!-- Animated background particles (Windows: 5, others: 20) -->
+  <div class="login-page" :class="{ 'login-page-simple': needSimpleMode }">
+    <!-- Animated background particles (mobile/Windows: 4, desktop: 20) -->
     <div class="bg-particles">
-      <span v-for="i in particleCount" :key="i" class="particle" :class="{ 'particle-simple': isWindows }" :style="particleStyle(i)"></span>
+      <span v-for="i in particleCount" :key="i" class="particle" :class="{ 'particle-simple': needSimpleMode }" :style="particleStyle(i)"></span>
     </div>
 
-    <div class="login-card" :class="{ 'login-card-simple': isWindows }">
+    <div class="login-card" :class="{ 'login-card-simple': needSimpleMode }">
       <div class="login-logo">
-        <img src="/yunji-logo.png" alt="云迹" class="logo-img" :class="{ 'logo-img-static': isWindows }" />
+        <img src="/yunji-logo.png" alt="云迹" class="logo-img" :class="{ 'logo-img-static': needSimpleMode }" />
       </div>
       <h1 class="login-title">云迹</h1>
       <p class="login-subtitle">哲法er交流学习平台</p>
@@ -118,7 +118,9 @@ const router = useRouter()
 const { login } = useUserStore()
 const showToast = inject('showToast')
 const isWindows = inject('isWindows', ref(false))
-const particleCount = computed(() => (isWindows.value ? 5 : 20))
+const isMobile = inject('isMobile', ref(false))
+const needSimpleMode = computed(() => isWindows.value || isMobile.value)
+const particleCount = computed(() => (needSimpleMode.value ? 4 : 20))
 
 const username = ref('')
 const password = ref('')
