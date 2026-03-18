@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script>
+    (function(){var ua=navigator.userAgent.toLowerCase(),p=(navigator.platform||'').toLowerCase();
+    if(/win|windows/.test(ua)||p==='win32'||p==='windows')document.documentElement.classList.add('is-windows');
+    })();
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#4A90D9" />
@@ -19,6 +24,8 @@
     .sk-line{height:14px;border-radius:7px;background:#e8ecf0;margin:8px auto;animation:pulse 1.5s ease infinite}
     .sk-line.w60{width:60%}.sk-line.w40{width:40%}.sk-line.w80{width:80%}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .is-windows .app-skeleton{animation:none;background:linear-gradient(135deg,#e8d5b7,#d4e7d0)}
+    .is-windows .sk-circle,.is-windows .sk-line{animation:none;opacity:.6}
   </style>
 </head>
 <body>

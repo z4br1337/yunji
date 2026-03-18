@@ -1,13 +1,13 @@
 <template>
-  <div class="login-page">
-    <!-- Animated background particles -->
+  <div class="login-page" :class="{ 'login-page-simple': isWindows }">
+    <!-- Animated background particles (Windows: 5, others: 20) -->
     <div class="bg-particles">
-      <span v-for="i in 20" :key="i" class="particle" :style="particleStyle(i)"></span>
+      <span v-for="i in particleCount" :key="i" class="particle" :class="{ 'particle-simple': isWindows }" :style="particleStyle(i)"></span>
     </div>
 
-    <div class="login-card">
+    <div class="login-card" :class="{ 'login-card-simple': isWindows }">
       <div class="login-logo">
-        <img src="/yunji-logo.png" alt="云迹" class="logo-img" />
+        <img src="/yunji-logo.png" alt="云迹" class="logo-img" :class="{ 'logo-img-static': isWindows }" />
       </div>
       <h1 class="login-title">云迹</h1>
       <p class="login-subtitle">哲法er交流学习平台</p>
@@ -110,13 +110,15 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, nextTick } from 'vue'
+import { ref, inject, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 
 const router = useRouter()
 const { login } = useUserStore()
 const showToast = inject('showToast')
+const isWindows = inject('isWindows', ref(false))
+const particleCount = computed(() => (isWindows.value ? 5 : 20))
 
 const username = ref('')
 const password = ref('')
@@ -206,6 +208,10 @@ async function handleLogin() {
   background-size: 400% 400%;
   animation: bgShift 18s ease infinite;
 }
+.login-page-simple {
+  animation: none;
+  background: linear-gradient(135deg, #e8d5b7 0%, #d4e7d0 50%, #c8dbe8 100%);
+}
 
 @keyframes bgShift {
   0%   { background-position: 0% 50%; }
@@ -236,6 +242,9 @@ async function handleLogin() {
   50%  { opacity: var(--o, 0.3); }
   100% { transform: translateY(-110vh) scale(0.3); opacity: 0; }
 }
+.particle-simple {
+  animation-duration: 12s;
+}
 
 .login-card {
   background: rgba(255, 255, 255, 0.92);
@@ -245,6 +254,11 @@ async function handleLogin() {
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255,255,255,0.6);
   text-align: center; position: relative; z-index: 1;
 }
+.login-card-simple {
+  backdrop-filter: none;
+  background: #fff;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+}
 .login-logo {
   margin-bottom: 8px; display: flex; justify-content: center;
 }
@@ -253,6 +267,10 @@ async function handleLogin() {
   border-radius: 50%;
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12));
   animation: logoBounce 3s ease-in-out infinite;
+}
+.logo-img-static {
+  animation: none;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.1));
 }
 
 @keyframes logoBounce {

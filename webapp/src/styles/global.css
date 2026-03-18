@@ -131,3 +131,22 @@ ul, ol { list-style: none; }
 
 /* ========== Highlight for sensitive words ========== */
 mark { background: #FFEAA7; color: var(--danger); padding: 0 2px; border-radius: 2px; font-weight: 600; }
+
+/* ========== Windows 性能优化（减少动画与复杂效果） ========== */
+html.is-windows { --transition: none; }
+html.is-windows .card { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+html.is-windows .btn,
+html.is-windows .form-input,
+html.is-windows .form-textarea,
+html.is-windows .nav-item,
+html.is-windows .tab-item { transition: none; }
+html.is-windows .post-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+html.is-windows .post-card:hover {
+  transform: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+html.is-windows .main-content { transition: none; }
+html.is-windows .spinner { animation-duration: 1.2s; }
