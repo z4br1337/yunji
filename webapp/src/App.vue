@@ -77,7 +77,7 @@ import { useDevice } from './utils/device.js'
 import { useUserStore } from './stores/user.js'
 
 const { isMobile, isWindows } = useDevice()
-const { state, restoreSession } = useUserStore()
+const { state, restoreSession, refreshProfile } = useUserStore()
 const route = useRoute()
 
 const isLoggedIn = computed(() => state.isLoggedIn)
@@ -103,7 +103,14 @@ provide('showToast', showToast)
 provide('isMobile', isMobile)
 provide('isWindows', isWindows)
 
-onMounted(() => { restoreSession() })
+onMounted(async () => {
+  restoreSession()
+  if (state.isLoggedIn && localStorage.getItem('token')) {
+    try {
+      await refreshProfile()
+    } catch { /* 网络异常时保留本地缓存 */ }
+  }
+})
 </script>
 
 <style scoped>

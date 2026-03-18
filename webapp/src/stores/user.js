@@ -20,25 +20,31 @@ export function useUserStore() {
   }
 
   async function refreshProfile() {
-    const user = await api.getProfile()
+    const data = await api.getProfile()
+    const user = data.user || data
     state.userInfo = user
     state.isAdmin = user.role === 'admin'
-    state.profileCompleted = !!user.profileCompleted
+    state.profileCompleted = !!(user.profileCompleted ?? data.profileCompleted)
     localStorage.setItem('userInfo', JSON.stringify(user))
     return user
   }
 
   function restoreSession() {
+    const token = localStorage.getItem('token')
     const stored = localStorage.getItem('userInfo')
-    if (stored) {
-      try {
-        const user = JSON.parse(stored)
-        state.userInfo = user
-        state.isLoggedIn = true
-        state.isAdmin = user.role === 'admin'
-        state.profileCompleted = !!user.profileCompleted
-      } catch { /* ignore */ }
+    if (!token || !stored) {
+      if (stored && !token) {
+        localStorage.removeItem('userInfo')
+      }
+      return
     }
+    try {
+      const user = JSON.parse(stored)
+      state.userInfo = user
+      state.isLoggedIn = true
+      state.isAdmin = user.role === 'admin'
+      state.profileCompleted = !!user.profileCompleted
+    } catch { /* ignore */ }
   }
 
   function logout() {
