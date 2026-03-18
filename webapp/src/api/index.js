@@ -220,7 +220,7 @@ export async function adminGetReports() {
 
 export async function adminOverridePost(postId, action) {
   if (LOCAL_TEST_MODE) return mock.mockAdminOverridePost(postId, action)
-  return request('/admin/post/override', { postId, action })
+  return request('/admin/post/override', { postId, newStatus: action })
 }
 
 export async function adminPinPost(postId) {
@@ -240,12 +240,12 @@ export async function adminGetPendingAchievements() {
 
 export async function adminApproveAchievement(id, level) {
   if (LOCAL_TEST_MODE) return mock.mockAdminApproveAchievement(id, level)
-  return request('/admin/achievement/approve', { id, level })
+  return request('/admin/achievement/approve', { achievementId: id, level })
 }
 
 export async function adminRejectAchievement(id, reason) {
   if (LOCAL_TEST_MODE) return mock.mockAdminRejectAchievement(id, reason)
-  return request('/admin/achievement/reject', { id, reason })
+  return request('/admin/achievement/reject', { achievementId: id, reason })
 }
 
 export async function adminGetUserList() {

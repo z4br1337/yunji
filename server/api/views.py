@@ -789,8 +789,11 @@ def admin_achievement_approve(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
+    ach_id = body.get('achievementId') or body.get('id')
+    if not ach_id:
+        return err('INVALID_PARAMS', '缺少成果ID')
     try:
-        a = Achievement.objects.get(id=int(body['achievementId']), status='pending')
+        a = Achievement.objects.get(id=int(ach_id), status='pending')
     except Achievement.DoesNotExist:
         return err('NOT_FOUND', '成果不存在或已处理')
 
@@ -821,7 +824,10 @@ def admin_achievement_reject(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    Achievement.objects.filter(id=int(body['achievementId'])).update(status='rejected')
+    ach_id = body.get('achievementId') or body.get('id')
+    if not ach_id:
+        return err('INVALID_PARAMS', '缺少成果ID')
+    Achievement.objects.filter(id=int(ach_id)).update(status='rejected')
     return ok()
 
 
