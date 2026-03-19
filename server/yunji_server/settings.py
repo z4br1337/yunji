@@ -3,6 +3,11 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# 持久化数据目录：部署时挂载 Volume 到 /data，升级版本后数据可保留
+# 本地开发时使用 BASE_DIR，Docker 部署时使用 /data
+DATA_DIR = Path(os.environ.get('DATA_DIR', str(BASE_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me-in-production')
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = ['*']
@@ -57,7 +62,7 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': str(DATA_DIR / 'db.sqlite3'),
         }
     }
 
@@ -77,7 +82,7 @@ STORAGES = {
 
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = DATA_DIR / 'media'
 
 UPLOAD_MAX_SIZE_MB = 10
 
