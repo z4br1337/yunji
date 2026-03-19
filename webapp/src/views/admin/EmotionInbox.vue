@@ -7,7 +7,7 @@
 
     <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
     <template v-else-if="posts.length">
-      <div v-for="p in posts" :key="p._id" class="card mb-8 emotion-card">
+      <div v-for="p in posts" :key="p._id" class="card mb-8 emotion-card clickable" @click="goToDetail(p._id)">
         <div class="flex justify-between items-center mb-4">
           <span class="font-bold">匿名倾诉</span>
           <span class="text-xs text-muted">{{ p.createdAt }}</span>
@@ -29,8 +29,10 @@
 
 <script setup>
 import { ref, onMounted, inject } from 'vue'
+import { useRouter } from 'vue-router'
 import * as api from '../../api/index.js'
 
+const router = useRouter()
 const showToast = inject('showToast')
 const posts = ref([])
 const loading = ref(false)
@@ -47,6 +49,10 @@ async function loadData() {
   }
 }
 
+function goToDetail(postId) {
+  router.push(`/post/${postId}`)
+}
+
 onMounted(() => loadData())
 </script>
 
@@ -54,5 +60,7 @@ onMounted(() => loadData())
 .page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
 .page-header { margin-bottom: 16px; }
 .emotion-card { border-left: 3px solid #42A5F5; }
+.emotion-card.clickable { cursor: pointer; transition: opacity 0.2s; }
+.emotion-card.clickable:hover { opacity: 0.9; }
 .offline-info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #FFF8E1; padding: 8px 12px; border-radius: var(--radius-sm); }
 </style>

@@ -39,11 +39,21 @@
     <!-- My Emotion Posts -->
     <h3 class="mb-8">我的倾诉记录</h3>
     <div v-if="posts.length">
-      <div v-for="p in posts" :key="p._id" class="card mb-8">
+      <div v-for="p in posts" :key="p._id" class="card mb-8 emotion-post-card">
         <p class="text-sm">{{ p.content }}</p>
         <div class="flex justify-between mt-8 text-xs text-muted">
           <span>{{ p.createdAt }}</span>
           <span v-if="p.needOffline">需要线下辅导: {{ p.offlineTime }} {{ p.offlinePlace }}</span>
+        </div>
+        <!-- 导生回复 -->
+        <div v-if="getComments(p._id).length" class="replies-section mt-12 pt-12 border-t border-gray-200">
+          <div class="text-xs font-medium text-muted mb-8">导生回复</div>
+          <div v-for="c in getComments(p._id)" :key="c._id" class="reply-item">
+            <span class="font-medium reply-author">{{ c.authorName }}</span>
+            <span v-if="c.isAdmin" class="badge badge-sm ml-4">导生</span>
+            <span class="text-xs text-muted ml-8">{{ c.createdAt }}</span>
+            <p class="text-sm mt-4">{{ c.content }}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -65,11 +75,27 @@ const offlineTime = ref('')
 const offlinePlace = ref('')
 const submitting = ref(false)
 const posts = ref([])
+const commentsMap = ref({})
+
+function getComments(postId) {
+  return commentsMap.value[postId] || []
+}
 
 async function loadPosts() {
   try {
     const result = await api.getPosts({ category: 'emotion' })
-    posts.value = (result.posts || []).filter(p => p.category === 'emotion')
+    const list = (result.posts || []).filter(p => p.category === 'emotion')
+    posts.value = list
+    const map = {}
+    await Promise.all(list.map(async (p) => {
+      try {
+        const cmt = await api.getComments(p._id)
+        map[p._id] = cmt.comments || []
+      } catch {
+        map[p._id] = []
+      }
+    }))
+    commentsMap.value = map
   } catch { /* ignore */ }
 }
 
@@ -107,4 +133,9 @@ onMounted(() => loadPosts())
 .toggle:checked { background: var(--primary); }
 .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: var(--transition); }
 .toggle:checked::after { left: 22px; }
+.replies-section { border-top-color: var(--border, #e5e7eb); }
+.reply-item { padding: 8px 0; }
+.reply-item:not(:last-child) { border-bottom: 1px solid var(--border, #e5e7eb); }
+.badge-sm { font-size: 0.65rem; padding: 1px 4px; }
+.reply-author { color: var(--primary); }
 </style>
