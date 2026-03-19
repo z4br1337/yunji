@@ -7,10 +7,16 @@
     <!-- Profile Card -->
     <div class="profile-card card mb-16" v-if="user">
       <div class="profile-top flex items-center gap-16">
-        <div class="avatar avatar-lg">
-        <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
-        <span v-else>{{ (user.nickname || '?')[0] }}</span>
-      </div>
+        <div class="profile-left flex items-center gap-12">
+          <div class="avatar avatar-lg">
+            <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
+            <span v-else>{{ (user.nickname || '?')[0] }}</span>
+          </div>
+          <div class="level-display">
+            <span class="level-num">Lv{{ levelInfo.level }}</span>
+            <span class="level-title">{{ levelInfo.title }}</span>
+          </div>
+        </div>
         <div class="profile-info">
           <h3>{{ user.nickname }}</h3>
           <p class="text-sm text-secondary">{{ user.class }}</p>
@@ -37,10 +43,6 @@
         <div class="stat-item text-center clickable" @click="$router.push('/my-files')">
           <div class="stat-num">{{ fileShareCount }}</div>
           <div class="stat-label text-xs text-muted">我分享的文件</div>
-        </div>
-        <div class="stat-item text-center">
-          <div class="stat-num">Lv{{ levelInfo.level }}</div>
-          <div class="stat-label text-xs text-muted">{{ levelInfo.title }}</div>
         </div>
       </div>
       <!-- EXP progress -->
@@ -116,7 +118,10 @@ const showToast = inject('showToast')
 const user = computed(() => state.userInfo)
 const isAdmin = computed(() => state.isAdmin)
 const levelInfo = computed(() => getLevelInfo(user.value?.exp))
-const badges = computed(() => user.value ? getUserBadges(user.value) : [])
+const badges = computed(() => {
+  const b = user.value ? getUserBadges(user.value) : []
+  return b.filter(x => x.type !== 'level')
+})
 
 const fileShareCount = ref(0)
 const showInvite = ref(false)
@@ -151,6 +156,19 @@ function handleLogout() {
 .page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
 .page-header { margin-bottom: 16px; }
 .profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.profile-left { display: flex; align-items: center; gap: 12px; }
+.level-display {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.level-num {
+  font-size: 1.4rem; font-weight: 700;
+  color: #7EC8E3; text-shadow: 0 1px 2px rgba(126,200,227,0.4);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0.08em;
+}
+.level-title {
+  font-size: 0.7rem; color: #7EC8E3; opacity: 0.9;
+}
 .profile-stats { flex-wrap: wrap; gap: 8px; }
 .stat-item { min-width: 60px; }
 .stat-num { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }

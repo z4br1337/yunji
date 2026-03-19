@@ -985,6 +985,37 @@ def admin_file_share_approve(request):
 
 @csrf_exempt
 @require_POST
+def admin_file_share_list(request):
+    """导生获取文件列表：支持 status 筛选 pending / approved"""
+    admin, e = _check_admin(request)
+    if e: return e
+    body = get_body(request)
+    status = body.get('status', '')
+    qs = FileShare.objects.all().order_by('-created_at')
+    if status == 'pending':
+        qs = qs.filter(status='pending')
+    elif status == 'approved':
+        qs = qs.filter(status='approved')
+    items = list(qs[:100])
+    return ok({'items': [_file_share_to_dict(f) for f in items]})
+
+
+@csrf_exempt
+@require_POST
+def admin_file_share_delete(request):
+    """导生删除已发布的文件"""
+    admin, e = _check_admin(request)
+    if e: return e
+    body = get_body(request)
+    fid = body.get('fileShareId')
+    if not fid:
+        return err('INVALID_PARAMS', '缺少文件ID')
+    deleted, _ = FileShare.objects.filter(id=int(fid)).delete()
+    return ok({'deleted': deleted})
+
+
+@csrf_exempt
+@require_POST
 def shop_items(request):
     openid = request.user_token
     items = ShopItem.objects.filter(stock__gt=0).order_by('sort_order', 'price')

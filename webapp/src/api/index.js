@@ -243,9 +243,21 @@ export async function adminGetPendingFileShares() {
   return request('/admin/file-share/pending')
 }
 
+export async function adminGetFileShareList(status) {
+  if (LOCAL_TEST_MODE) return { items: [] }
+  return request('/admin/file-share/list', { status })
+}
+
 export async function adminApproveFileShare(fileShareId) {
   if (LOCAL_TEST_MODE) return {}
   const result = await request('/admin/file-share/approve', { fileShareId })
+  clearCache()
+  return result
+}
+
+export async function adminDeleteFileShare(fileShareId) {
+  if (LOCAL_TEST_MODE) return {}
+  const result = await request('/admin/file-share/delete', { fileShareId })
   clearCache()
   return result
 }
@@ -332,9 +344,9 @@ export async function adminRejectAchievement(id, reason) {
   return request('/admin/achievement/reject', { achievementId: id, reason })
 }
 
-export async function adminGetUserList() {
+export async function adminGetUserList(keyword = '') {
   if (LOCAL_TEST_MODE) return mock.mockAdminGetUserList()
-  return request('/admin/user/list')
+  return request('/admin/user/list', { keyword })
 }
 
 export async function adminGetUserProfile(userId) {

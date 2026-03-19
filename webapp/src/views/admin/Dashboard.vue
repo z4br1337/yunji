@@ -91,14 +91,20 @@
 
     <!-- Users -->
     <div v-if="activeTab === 'users'" class="tab-panel">
+      <div class="user-search mb-16">
+        <input class="form-input" v-model="userKeyword" placeholder="搜索昵称、班级、ID..." @input="debouncedLoadUsers" style="max-width: 280px" />
+      </div>
       <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
-      <template v-else-if="users.length">
-        <div v-for="u in users" :key="u._id" class="card mb-8 user-card" @click="$router.push(`/admin/user/${u._id}`)">
-          <div class="flex items-center gap-12">
-            <div class="avatar">{{ (u.nickname || '?')[0] }}</div>
-            <div>
-              <div class="font-bold">{{ u.nickname }}</div>
-              <div class="text-xs text-muted">{{ u.class }} | {{ u.role === 'admin' ? '导生' : '用户' }} | Exp: {{ u.exp || 0 }}</div>
+      <template v-else-if="usersGroupedByClass.length">
+        <div v-for="g in usersGroupedByClass" :key="g.class" class="user-group mb-16">
+          <h4 class="group-title mb-8">{{ g.class || '未填写班级' }}</h4>
+          <div v-for="u in g.users" :key="u._id" class="card mb-8 user-card" @click="$router.push(`/admin/user/${u._id}`)">
+            <div class="flex items-center gap-12">
+              <div class="avatar">{{ (u.nickname || '?')[0] }}</div>
+              <div>
+                <div class="font-bold">{{ u.nickname }}</div>
+                <div class="text-xs text-muted">{{ u.role === 'admin' ? '导生' : '用户' }} | Exp: {{ u.exp || 0 }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -106,19 +112,38 @@
       <div v-else class="empty-state"><div class="icon">👥</div><div class="text">暂无用户</div></div>
     </div>
 
-    <!-- Pending File Shares -->
+    <!-- File Management -->
     <div v-if="activeTab === 'fileShare'" class="tab-panel">
-      <p class="text-sm text-muted mb-8">以下文件分享待审核，通过后其他用户可见。</p>
+      <div class="file-mgmt-tabs mb-16">
+        <button class="tab-btn" :class="{ active: fileSubTab === 'pending' }" @click="fileSubTab = 'pending'; loadFileTab()">待审核</button>
+        <button class="tab-btn" :class="{ active: fileSubTab === 'approved' }" @click="fileSubTab = 'approved'; loadFileTab()">已发布</button>
+      </div>
       <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
-      <template v-else-if="pendingFiles.length">
-        <div v-for="f in pendingFiles" :key="f._id" class="card mb-8">
-          <h4 class="mb-4">{{ f.title }}</h4>
-          <p v-if="f.description" class="text-sm text-secondary mb-4">{{ f.description }}</p>
-          <p class="text-xs text-muted mb-8">{{ f.authorName }} · {{ f.fileName || '文件' }}</p>
-          <button class="btn btn-success btn-sm" @click="approveFile(f._id)">通过</button>
-        </div>
+      <template v-else-if="fileSubTab === 'pending'">
+        <p class="text-sm text-muted mb-8">以下文件分享待审核，通过后其他用户可见。</p>
+        <template v-if="pendingFiles.length">
+          <div v-for="f in pendingFiles" :key="f._id" class="card mb-8">
+            <h4 class="mb-4">{{ f.title }}</h4>
+            <p v-if="f.description" class="text-sm text-secondary mb-4">{{ f.description }}</p>
+            <p class="text-xs text-muted mb-8">{{ f.authorName }} · {{ f.fileName || '文件' }}</p>
+            <button class="btn btn-success btn-sm" @click="approveFile(f._id)">通过</button>
+          </div>
+        </template>
+        <div v-else class="empty-state"><div class="icon">📁</div><div class="text">暂无待审核文件</div></div>
       </template>
-      <div v-else class="empty-state"><div class="icon">📁</div><div class="text">暂无待审核文件</div></div>
+      <template v-else>
+        <p class="text-sm text-muted mb-8">已通过审核的文件，可在此删除。</p>
+        <template v-if="approvedFiles.length">
+          <div v-for="f in approvedFiles" :key="f._id" class="card mb-8">
+            <h4 class="mb-4">{{ f.title }}</h4>
+            <p v-if="f.description" class="text-sm text-secondary mb-4">{{ f.description }}</p>
+            <p class="text-xs text-muted mb-8">{{ f.authorName }} · {{ f.fileName || '文件' }}</p>
+            <a :href="f.fileUrl" target="_blank" rel="noopener" class="btn btn-primary btn-sm mr-8">下载</a>
+            <button class="btn btn-danger btn-sm" @click="deleteFile(f._id)">删除</button>
+          </div>
+        </template>
+        <div v-else class="empty-state"><div class="icon">📂</div><div class="text">暂无已发布文件</div></div>
+      </template>
     </div>
 
     <!-- Shop Stock -->
@@ -157,7 +182,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { REVIEW_LEVEL_GUIDE, ACHIEVEMENT_CATEGORIES, POST_STATUS_LABELS } from '../../utils/config.js'
 import * as api from '../../api/index.js'
 
@@ -173,7 +198,7 @@ const tabs = [
   { key: 'achievements', label: '成果审核' },
   { key: 'flagged', label: '违规帖子' },
   { key: 'allPosts', label: '全部帖子' },
-  { key: 'fileShare', label: '文件审核' },
+  { key: 'fileShare', label: '文件管理' },
   { key: 'shop', label: '积分商店' },
   { key: 'users', label: '用户' },
   { key: 'invite', label: '邀请码' }
@@ -185,10 +210,29 @@ const pendingAchs = ref([])
 const flaggedPosts = ref([])
 const allPosts = ref([])
 const pendingFiles = ref([])
+const approvedFiles = ref([])
+const fileSubTab = ref('pending')
 const shopItems = ref([])
 const users = ref([])
+const userKeyword = ref('')
 const generating = ref(false)
 const generatedCode = ref('')
+
+const usersGroupedByClass = computed(() => {
+  const groups = {}
+  for (const u of users.value) {
+    const c = (u.class || '').trim() || '__none__'
+    if (!groups[c]) groups[c] = { class: c === '__none__' ? '' : c, users: [] }
+    groups[c].users.push(u)
+  }
+  return Object.values(groups).sort((a, b) => (a.class || 'zzz').localeCompare(b.class || 'zzz'))
+})
+
+let userSearchTimer = null
+function debouncedLoadUsers() {
+  clearTimeout(userSearchTimer)
+  userSearchTimer = setTimeout(() => loadTabData(), 300)
+}
 
 async function switchTab(key) {
   activeTab.value = key
@@ -215,8 +259,7 @@ async function loadTabData() {
         break
       }
       case 'fileShare': {
-        const r = await api.adminGetPendingFileShares()
-        pendingFiles.value = r.items || []
+        await loadFileTab()
         break
       }
       case 'shop': {
@@ -225,7 +268,7 @@ async function loadTabData() {
         break
       }
       case 'users': {
-        const r = await api.adminGetUserList()
+        const r = await api.adminGetUserList(userKeyword.value.trim())
         users.value = r.users || []
         break
       }
@@ -273,11 +316,34 @@ async function unpinPost(id) {
   await loadTabData()
 }
 
+async function loadFileTab() {
+  loadingTab.value = true
+  try {
+    if (fileSubTab.value === 'pending') {
+      const r = await api.adminGetPendingFileShares()
+      pendingFiles.value = r.items || []
+    } else {
+      const r = await api.adminGetFileShareList('approved')
+      approvedFiles.value = r.items || []
+    }
+  } catch (e) { showToast(e.message || '加载失败') }
+  finally { loadingTab.value = false }
+}
+
 async function approveFile(id) {
   try {
     await api.adminApproveFileShare(id)
     showToast('已通过')
     pendingFiles.value = pendingFiles.value.filter(f => f._id !== id)
+  } catch (e) { showToast(e.message || '操作失败') }
+}
+
+async function deleteFile(id) {
+  if (!confirm('确定要删除该文件吗？')) return
+  try {
+    await api.adminDeleteFileShare(id)
+    showToast('已删除')
+    approvedFiles.value = approvedFiles.value.filter(f => f._id !== id)
   } catch (e) { showToast(e.message || '操作失败') }
 }
 
@@ -315,6 +381,10 @@ onMounted(() => loadTabData())
 .user-card { cursor: pointer; transition: var(--transition); }
 .user-card:hover { box-shadow: var(--shadow-lg); }
 .guide-row { align-items: center; }
+.file-mgmt-tabs { display: flex; gap: 8px; }
+.file-mgmt-tabs .tab-btn { padding: 6px 14px; font-size: 0.85rem; }
+.user-group .group-title { font-size: 0.95rem; color: var(--primary); }
+.mr-8 { margin-right: 8px; }
 
 @media (min-width: 768px) {
   .admin-page { padding: 24px 32px; }

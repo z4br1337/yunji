@@ -61,7 +61,9 @@ urlpatterns = [
     path('admin/achievement/reject', views.admin_achievement_reject),
     path('admin/growth-book', views.admin_growth_book),
     path('admin/file-share/pending', views.admin_file_share_pending),
+    path('admin/file-share/list', views.admin_file_share_list),
     path('admin/file-share/approve', views.admin_file_share_approve),
+    path('admin/file-share/delete', views.admin_file_share_delete),
 
     # 积分商店
     path('shop/items', views.shop_items),
