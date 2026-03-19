@@ -17,7 +17,7 @@
             <h3>{{ userData.user.nickname }}</h3>
             <p class="text-sm text-secondary">{{ userData.user.class }}</p>
             <div class="flex gap-8 mt-4">
-              <span class="badge badge-primary">{{ userData.user.role === 'admin' ? '管理员' : '用户' }}</span>
+              <span class="badge badge-primary">{{ userData.user.role === 'admin' ? '导生' : '用户' }}</span>
               <span class="badge badge-success">Exp: {{ userData.user.exp || 0 }}</span>
             </div>
           </div>

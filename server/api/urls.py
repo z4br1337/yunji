@@ -60,6 +60,15 @@ urlpatterns = [
     path('admin/achievement/approve', views.admin_achievement_approve),
     path('admin/achievement/reject', views.admin_achievement_reject),
     path('admin/growth-book', views.admin_growth_book),
+    path('admin/file-share/pending', views.admin_file_share_pending),
+    path('admin/file-share/approve', views.admin_file_share_approve),
+
+    # 积分商店
+    path('shop/items', views.shop_items),
+    path('shop/exchange', views.shop_exchange),
+    path('shop/my-exchanges', views.shop_my_exchanges),
+    path('admin/shop/items', views.admin_shop_items),
+    path('admin/shop/update-stock', views.admin_shop_update_stock),
 
     # 数据导出（管理员专用）
     path('admin/export-data', views.admin_export_data),

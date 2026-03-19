@@ -9,17 +9,26 @@
     <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
       <div class="modal-card card">
         <h4 class="mb-16">分享学习文件</h4>
+        <p class="text-xs text-muted mb-16">≤10MB 可上传，>10MB 请填写下载链接。提交后需导生审核通过才会展示。</p>
         <div class="form-group">
           <label class="form-label">标题 *</label>
           <input class="form-input" v-model="createForm.title" placeholder="例如：高等数学复习资料" />
         </div>
         <div class="form-group">
           <label class="form-label">描述（可选）</label>
-          <textarea class="form-textarea" v-model="createForm.description" placeholder="简要描述文件内容" rows="3"></textarea>
+          <textarea class="form-textarea" v-model="createForm.description" placeholder="简要描述文件内容" rows="2"></textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">文件 *</label>
-          <div class="file-upload-row">
+          <label class="form-label">方式</label>
+          <div class="chip-group mb-8">
+            <button class="chip" :class="{ active: createForm.useUrl }" @click="createForm.useUrl = true">填写链接</button>
+            <button class="chip" :class="{ active: !createForm.useUrl }" @click="createForm.useUrl = false; createForm.file = null; createForm.fileName = ''">上传文件(≤10MB)</button>
+          </div>
+          <div v-if="createForm.useUrl" class="form-group">
+            <input class="form-input" v-model="createForm.fileUrl" placeholder="https://..." />
+            <input class="form-input mt-8" v-model="createForm.fileName" placeholder="文件名（可选）" />
+          </div>
+          <div v-else class="file-upload-row">
             <label class="btn btn-ghost btn-sm">
               <input type="file" accept="*" hidden @change="onFileSelect" />
               {{ createForm.fileName || '选择文件' }}
@@ -30,7 +39,7 @@
         <div class="flex gap-8 mt-16">
           <button class="btn btn-ghost" @click="showCreate = false">取消</button>
           <button class="btn btn-primary" :disabled="submitting" @click="submitFile">
-            {{ submitting ? '上传中...' : '发布' }}
+            {{ submitting ? '提交中...' : '提交审核' }}
           </button>
         </div>
       </div>
@@ -85,7 +94,8 @@ const createForm = ref({
   fileUrl: '',
   fileName: '',
   file: null,
-  fileError: ''
+  fileError: '',
+  useUrl: false
 })
 
 function formatTime(ts) {
@@ -111,22 +121,32 @@ function onFileSelect(e) {
 async function submitFile() {
   const f = createForm.value
   if (!f.title.trim()) { showToast('请输入标题'); return }
-  if (!f.file) { showToast('请选择文件'); return }
+  let fileUrl = ''
+  let fileName = f.fileName || ''
+  if (f.useUrl) {
+    fileUrl = (f.fileUrl || '').trim()
+    if (!fileUrl) { showToast('请填写文件链接'); return }
+  } else {
+    if (!f.file) { showToast('请选择文件'); return }
+    if (f.file.size > 10 * 1024 * 1024) { showToast('文件超过10MB，请使用链接方式'); return }
+    const uploadResult = await api.uploadFile(f.file)
+    fileUrl = uploadResult.url
+    fileName = uploadResult.fileName || f.fileName
+  }
   submitting.value = true
   try {
-    const uploadResult = await api.uploadFile(f.file)
     await api.createFileShare({
       title: f.title.trim(),
       description: f.description.trim(),
-      fileUrl: uploadResult.url,
-      fileName: uploadResult.fileName || f.fileName
+      fileUrl,
+      fileName
     })
-    showToast('分享成功')
+    showToast('已提交，等待导生审核')
     showCreate.value = false
-    createForm.value = { title: '', description: '', fileUrl: '', fileName: '', file: null, fileError: '' }
+    createForm.value = { title: '', description: '', fileUrl: '', fileName: '', file: null, fileError: '', useUrl: false }
     loadItems(true)
   } catch (e) {
-    showToast(e.message || '发布失败')
+    showToast(e.message || '提交失败')
   } finally {
     submitting.value = false
   }
@@ -168,8 +188,11 @@ onMounted(() => loadItems())
   display: flex; align-items: center; justify-content: center; z-index: 1000;
   padding: 16px;
 }
-.modal-card { max-width: 480px; width: 100%; }
+.modal-card { max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; }
 .file-upload-row { display: flex; align-items: center; gap: 12px; }
+.chip-group { display: flex; gap: 8px; }
+.chip { padding: 6px 12px; border-radius: 100px; font-size: 0.85rem; background: var(--bg); border: 1px solid var(--border); }
+.chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .text-danger { color: var(--danger); }
 .load-more { text-align: center; padding: 16px; }
 .flex-1 { flex: 1; }

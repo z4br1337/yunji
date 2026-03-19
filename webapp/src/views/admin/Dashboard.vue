@@ -98,12 +98,46 @@
             <div class="avatar">{{ (u.nickname || '?')[0] }}</div>
             <div>
               <div class="font-bold">{{ u.nickname }}</div>
-              <div class="text-xs text-muted">{{ u.class }} | {{ u.role === 'admin' ? '管理员' : '用户' }} | Exp: {{ u.exp || 0 }}</div>
+              <div class="text-xs text-muted">{{ u.class }} | {{ u.role === 'admin' ? '导生' : '用户' }} | Exp: {{ u.exp || 0 }}</div>
             </div>
           </div>
         </div>
       </template>
       <div v-else class="empty-state"><div class="icon">👥</div><div class="text">暂无用户</div></div>
+    </div>
+
+    <!-- Pending File Shares -->
+    <div v-if="activeTab === 'fileShare'" class="tab-panel">
+      <p class="text-sm text-muted mb-8">以下文件分享待审核，通过后其他用户可见。</p>
+      <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
+      <template v-else-if="pendingFiles.length">
+        <div v-for="f in pendingFiles" :key="f._id" class="card mb-8">
+          <h4 class="mb-4">{{ f.title }}</h4>
+          <p v-if="f.description" class="text-sm text-secondary mb-4">{{ f.description }}</p>
+          <p class="text-xs text-muted mb-8">{{ f.authorName }} · {{ f.fileName || '文件' }}</p>
+          <button class="btn btn-success btn-sm" @click="approveFile(f._id)">通过</button>
+        </div>
+      </template>
+      <div v-else class="empty-state"><div class="icon">📁</div><div class="text">暂无待审核文件</div></div>
+    </div>
+
+    <!-- Shop Stock -->
+    <div v-if="activeTab === 'shop'" class="tab-panel">
+      <p class="text-sm text-muted mb-8">修改积分商店商品剩余数量。</p>
+      <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
+      <template v-else-if="shopItems.length">
+        <div v-for="item in shopItems" :key="item._id" class="card mb-8 flex justify-between items-center">
+          <div>
+            <h4>{{ item.title }}</h4>
+            <p class="text-sm text-muted">{{ item.price }} 积分 · 剩余 {{ item.stock }}</p>
+          </div>
+          <div class="flex gap-8 items-center">
+            <input type="number" class="form-input" v-model.number="item.editStock" min="0" style="width:80px" />
+            <button class="btn btn-primary btn-sm" @click="updateStock(item)">保存</button>
+          </div>
+        </div>
+      </template>
+      <div v-else class="empty-state"><div class="icon">🛒</div><div class="text">暂无商品</div></div>
     </div>
 
     <!-- Invite -->
@@ -139,6 +173,8 @@ const tabs = [
   { key: 'achievements', label: '成果审核' },
   { key: 'flagged', label: '违规帖子' },
   { key: 'allPosts', label: '全部帖子' },
+  { key: 'fileShare', label: '文件审核' },
+  { key: 'shop', label: '积分商店' },
   { key: 'users', label: '用户' },
   { key: 'invite', label: '邀请码' }
 ]
@@ -148,6 +184,8 @@ const loadingTab = ref(false)
 const pendingAchs = ref([])
 const flaggedPosts = ref([])
 const allPosts = ref([])
+const pendingFiles = ref([])
+const shopItems = ref([])
 const users = ref([])
 const generating = ref(false)
 const generatedCode = ref('')
@@ -174,6 +212,16 @@ async function loadTabData() {
       case 'allPosts': {
         const r = await api.adminGetReports()
         allPosts.value = r.allPosts || []
+        break
+      }
+      case 'fileShare': {
+        const r = await api.adminGetPendingFileShares()
+        pendingFiles.value = r.items || []
+        break
+      }
+      case 'shop': {
+        const r = await api.adminGetShopItems()
+        shopItems.value = (r.items || []).map(i => ({ ...i, editStock: i.stock }))
         break
       }
       case 'users': {
@@ -223,6 +271,22 @@ async function unpinPost(id) {
   await api.adminUnpinPost(id)
   showToast('已取消置顶')
   await loadTabData()
+}
+
+async function approveFile(id) {
+  try {
+    await api.adminApproveFileShare(id)
+    showToast('已通过')
+    pendingFiles.value = pendingFiles.value.filter(f => f._id !== id)
+  } catch (e) { showToast(e.message || '操作失败') }
+}
+
+async function updateStock(item) {
+  try {
+    await api.adminUpdateShopStock(item.itemKey, item.editStock)
+    showToast('已保存')
+    item.stock = item.editStock
+  } catch (e) { showToast(e.message || '操作失败') }
 }
 
 async function generateInvite() {

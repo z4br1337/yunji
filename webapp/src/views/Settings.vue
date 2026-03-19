@@ -32,7 +32,11 @@
         </div>
         <div class="stat-item text-center clickable" @click="$router.push('/my-posts')">
           <div class="stat-num">{{ user.postCount || 0 }}</div>
-          <div class="stat-label text-xs text-muted">帖子</div>
+          <div class="stat-label text-xs text-muted">我发布过的帖子</div>
+        </div>
+        <div class="stat-item text-center clickable" @click="$router.push('/my-files')">
+          <div class="stat-num">{{ fileShareCount }}</div>
+          <div class="stat-label text-xs text-muted">我分享的文件</div>
         </div>
         <div class="stat-item text-center">
           <div class="stat-num">Lv{{ levelInfo.level }}</div>
@@ -65,18 +69,8 @@
       <div v-if="!isAdmin" class="menu-item" @click="$router.push('/emotion-help')">
         <span class="menu-icon">💙</span><span>情感倾诉专线</span><span class="arrow">›</span>
       </div>
-      <div class="menu-item" @click="togglePointsLog">
-        <span class="menu-icon">📊</span><span>积分记录</span><span class="arrow">{{ showPoints ? '⌃' : '›' }}</span>
-      </div>
-      <!-- Points Log -->
-      <div v-if="showPoints" class="points-log">
-        <div v-for="log in pointsLog" :key="log._id" class="log-item flex justify-between">
-          <span class="text-sm">{{ reasonLabel(log.reason) }}</span>
-          <span class="text-sm font-bold" :class="log.delta > 0 ? 'text-success' : 'text-danger'">
-            {{ log.delta > 0 ? '+' : '' }}{{ log.delta }}
-          </span>
-        </div>
-        <div v-if="!pointsLog.length" class="text-muted text-sm text-center p-16">暂无记录</div>
+      <div class="menu-item" @click="$router.push('/points-shop')">
+        <span class="menu-icon">🛒</span><span>萤火积分兑换商店</span><span class="arrow">›</span>
       </div>
 
       <!-- Invite Code -->
@@ -113,7 +107,6 @@ import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { getLevelInfo, getUserBadges } from '../utils/level.js'
-import { POINTS_REASON_LABELS } from '../utils/config.js'
 import * as api from '../api/index.js'
 
 const router = useRouter()
@@ -125,22 +118,16 @@ const isAdmin = computed(() => state.isAdmin)
 const levelInfo = computed(() => getLevelInfo(user.value?.exp))
 const badges = computed(() => user.value ? getUserBadges(user.value) : [])
 
-const showPoints = ref(false)
-const pointsLog = ref([])
+const fileShareCount = ref(0)
 const showInvite = ref(false)
 const inviteCode = ref('')
 
-function reasonLabel(reason) { return POINTS_REASON_LABELS[reason] || reason }
-
-async function togglePointsLog() {
-  showPoints.value = !showPoints.value
-  if (showPoints.value && !pointsLog.value.length) {
-    try {
-      const result = await api.getPointsLog()
-      pointsLog.value = result.logs || []
-    } catch { /* ignore */ }
-  }
-}
+onMounted(async () => {
+  try {
+    const r = await api.getFileShareList({ myFiles: true, pageSize: 1 })
+    fileShareCount.value = r.total || 0
+  } catch { /* ignore */ }
+})
 
 async function useInvite() {
   if (!inviteCode.value.trim()) { showToast('请输入邀请码'); return }
@@ -164,6 +151,8 @@ function handleLogout() {
 .page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
 .page-header { margin-bottom: 16px; }
 .profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.profile-stats { flex-wrap: wrap; gap: 8px; }
+.stat-item { min-width: 60px; }
 .stat-num { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }
 .stat-item.clickable { cursor: pointer; transition: var(--transition); }
 .stat-item.clickable:hover .stat-num { color: var(--primary); }

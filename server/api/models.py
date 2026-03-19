@@ -129,8 +129,36 @@ class FileShare(models.Model):
     description = models.TextField(default='')
     file_url = models.CharField(max_length=512)
     file_name = models.CharField(max_length=256, default='')
+    status = models.CharField(max_length=16, default='pending')  # pending / approved
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'file_shares'
+        ordering = ['-created_at']
+
+
+class ShopItem(models.Model):
+    item_key = models.CharField(max_length=64, unique=True, db_index=True)
+    title = models.CharField(max_length=128)
+    image_url = models.CharField(max_length=512, default='')
+    price = models.IntegerField(default=0)  # 积分
+    stock = models.IntegerField(default=0)
+    sort_order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'shop_items'
+        ordering = ['sort_order', 'price']
+
+
+class ExchangeRecord(models.Model):
+    user_id = models.CharField(max_length=128, db_index=True)
+    item_key = models.CharField(max_length=64)
+    item_title = models.CharField(max_length=128)
+    price = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'exchange_records'
         ordering = ['-created_at']

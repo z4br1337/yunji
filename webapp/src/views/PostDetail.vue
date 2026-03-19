@@ -50,7 +50,7 @@
           <div class="flex items-center gap-8 mb-4">
             <div class="avatar avatar-sm">{{ (c.authorName || '?')[0] }}</div>
             <span class="font-bold text-sm">{{ c.authorName }}</span>
-            <span v-if="c.isAdmin" class="badge badge-danger">管理员</span>
+            <span v-if="c.isAdmin" class="badge badge-danger">导生</span>
             <span class="text-xs text-muted" style="margin-left:auto">{{ c.createdAt }}</span>
           </div>
           <p class="text-sm" style="margin-left:40px">{{ c.content }}</p>

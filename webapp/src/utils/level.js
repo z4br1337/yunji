@@ -70,7 +70,7 @@ export function getPostCountTitle(postCount) {
 
 export function getUserBadges(user) {
   const badges = []
-  if (user.role === 'admin') badges.push({ type: 'role', label: '管理员', color: '#E74C3C', priority: 1 })
+  if (user.role === 'admin') badges.push({ type: 'role', label: '导生', color: '#E74C3C', priority: 1 })
   const lvl = getLevelInfo(user.exp)
   badges.push({ type: 'level', label: `Lv${lvl.level} ${lvl.title}`, color: '#4A90D9', priority: 2 })
   const highest = getHighestAchievementTitle(user.achievementCounts)

@@ -16,9 +16,10 @@ from django.db import models as db_models
 from django.db.models import Q, F, Count, Max
 from django.conf import settings
 
-from .models import User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare
+from .models import User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare, ShopItem, ExchangeRecord
 
 EXP_PER_POST = 10
+EXP_TO_SCORE_RATIO = 5  # 每5经验值=1积分
 ACHIEVEMENT_BASE_EXP = 500
 ACHIEVEMENT_LEVEL_MULTIPLIER = 500
 ACHIEVEMENT_MAX_EXP = 2500
@@ -43,7 +44,7 @@ def get_body(request):
 def get_or_create_user(openid):
     user, created = User.objects.get_or_create(
         openid=openid,
-        defaults={'exp': 10, 'score': 10, 'achievement_counts': {}}
+        defaults={'exp': 10, 'score': 10 // EXP_TO_SCORE_RATIO, 'achievement_counts': {}}
     )
     return user
 
@@ -148,7 +149,7 @@ def user_register(request):
         password_hash=_hash_password(password),
         nickname=nickname,
         profile_completed=False,
-        exp=10, score=10, achievement_counts={},
+        exp=10, score=10 // EXP_TO_SCORE_RATIO, achievement_counts={},
     )
     return ok({
         'user': user_to_dict(user),
@@ -321,9 +322,10 @@ def post_create(request):
     exp_gain = 0
     if not is_flagged:
         exp_gain = EXP_PER_POST
+        score_gain = exp_gain // EXP_TO_SCORE_RATIO
         User.objects.filter(openid=openid).update(
             exp=F('exp') + exp_gain,
-            score=F('score') + exp_gain,
+            score=F('score') + score_gain,
             post_count=F('post_count') + 1,
         )
         PointsLog.objects.create(
@@ -619,6 +621,24 @@ def upload_file(request):
 
 # ======================== 文件分享 ========================
 
+def _file_share_to_dict(f, include_author=True):
+    d = {
+        '_id': str(f.id), 'userId': f.user_id, 'title': f.title,
+        'description': f.description, 'fileUrl': f.file_url, 'fileName': f.file_name,
+        'status': f.status,
+        'createdAt': f.created_at.isoformat() if f.created_at else '',
+    }
+    if include_author:
+        try:
+            u = User.objects.get(openid=f.user_id)
+            d['authorName'] = u.nickname
+            d['authorAvatarUrl'] = u.avatar_url or ''
+        except User.DoesNotExist:
+            d['authorName'] = '未知'
+            d['authorAvatarUrl'] = ''
+    return d
+
+
 @csrf_exempt
 @require_POST
 def file_share_create(request):
@@ -637,6 +657,7 @@ def file_share_create(request):
         description=body.get('description', ''),
         file_url=file_url,
         file_name=body.get('fileName', ''),
+        status='pending',
     )
     return ok({'id': str(fs.id)})
 
@@ -648,26 +669,19 @@ def file_share_list(request):
     body = get_body(request)
     page = max(int(body.get('page', 1)), 1)
     page_size = min(max(int(body.get('pageSize', 20)), 5), 50)
-    qs = FileShare.objects.all().order_by('-created_at')
+    my_files = body.get('myFiles')
+    if my_files:
+        qs = FileShare.objects.filter(user_id=openid).order_by('-created_at')
+    else:
+        qs = FileShare.objects.filter(status='approved').order_by('-created_at')
     total = qs.count()
     start = (page - 1) * page_size
     items = qs[start:start + page_size]
-    result_items = []
-    for f in items:
-        d = {
-            '_id': str(f.id), 'userId': f.user_id, 'title': f.title,
-            'description': f.description, 'fileUrl': f.file_url, 'fileName': f.file_name,
-            'createdAt': f.created_at.isoformat() if f.created_at else '',
-        }
-        try:
-            u = User.objects.get(openid=f.user_id)
-            d['authorName'] = u.nickname
-            d['authorAvatarUrl'] = u.avatar_url or ''
-        except User.DoesNotExist:
-            d['authorName'] = '未知'
-            d['authorAvatarUrl'] = ''
-        result_items.append(d)
-    return ok({'items': result_items, 'total': total, 'hasMore': start + page_size < total})
+    return ok({
+        'items': [_file_share_to_dict(f) for f in items],
+        'total': total,
+        'hasMore': start + page_size < total,
+    })
 
 
 # ======================== 管理员接口 ========================
@@ -772,10 +786,10 @@ def admin_user_score(request):
     tid = body.get('userId') or body.get('targetUserId')
     if not tid:
         return err('INVALID_PARAMS', '缺少用户ID')
-    score_val = body.get('delta', body.get('score', 0))
-    delta = int(score_val) * 2
-    User.objects.filter(openid=tid).update(exp=F('exp') + delta, score=F('score') + delta)
-    PointsLog.objects.create(user_id=tid, delta=delta, log_type='exp', reason='admin_score')
+    score_val = int(body.get('delta', body.get('score', 0)))
+    score_delta = score_val * 2  # 导生评分×2
+    User.objects.filter(openid=tid).update(score=F('score') + score_delta)
+    PointsLog.objects.create(user_id=tid, delta=score_delta, log_type='score', reason='admin_score')
     return ok({'pointsDelta': delta})
 
 
@@ -906,8 +920,9 @@ def admin_achievement_approve(request):
     user = get_or_create_user(a.user_id)
     counts = user.achievement_counts or {}
     counts[cat_field] = counts.get(cat_field, 0) + 1
+    score_gain = exp_gain // EXP_TO_SCORE_RATIO
     User.objects.filter(openid=a.user_id).update(
-        exp=F('exp') + exp_gain, score=F('score') + exp_gain,
+        exp=F('exp') + exp_gain, score=F('score') + score_gain,
         achievement_counts=counts,
     )
     PointsLog.objects.create(
@@ -944,6 +959,104 @@ def admin_growth_book(request):
     except User.DoesNotExist:
         user_data = None
     return ok({'achievements': [ach_to_dict(a) for a in achs], 'user': user_data})
+
+
+@csrf_exempt
+@require_POST
+def admin_file_share_pending(request):
+    admin, e = _check_admin(request)
+    if e: return e
+    items = FileShare.objects.filter(status='pending').order_by('-created_at')[:50]
+    return ok({'items': [_file_share_to_dict(f) for f in items]})
+
+
+@csrf_exempt
+@require_POST
+def admin_file_share_approve(request):
+    admin, e = _check_admin(request)
+    if e: return e
+    body = get_body(request)
+    fid = body.get('fileShareId')
+    if not fid:
+        return err('INVALID_PARAMS', '缺少文件ID')
+    FileShare.objects.filter(id=int(fid), status='pending').update(status='approved')
+    return ok()
+
+
+@csrf_exempt
+@require_POST
+def shop_items(request):
+    openid = request.user_token
+    items = ShopItem.objects.filter(stock__gt=0).order_by('sort_order', 'price')
+    return ok({'items': [{
+        '_id': str(i.id), 'itemKey': i.item_key, 'title': i.title,
+        'imageUrl': i.image_url, 'price': i.price, 'stock': i.stock,
+    } for i in items]})
+
+
+@csrf_exempt
+@require_POST
+def shop_exchange(request):
+    openid = request.user_token
+    body = get_body(request)
+    item_key = body.get('itemKey') or ''
+    if not item_key:
+        return err('INVALID_PARAMS', '请选择兑换商品')
+    try:
+        user = User.objects.get(openid=openid)
+    except User.DoesNotExist:
+        return err('UNAUTHORIZED', '请先登录')
+    try:
+        item = ShopItem.objects.get(item_key=item_key, stock__gt=0)
+    except ShopItem.DoesNotExist:
+        return err('NOT_FOUND', '商品不存在或已售罄')
+    if user.score < item.price:
+        return err('INSUFFICIENT_SCORE', '积分不足')
+    user.score -= item.price
+    user.save(update_fields=['score'])
+    item.stock -= 1
+    item.save(update_fields=['stock'])
+    ExchangeRecord.objects.create(
+        user_id=openid, item_key=item_key, item_title=item.title, price=item.price
+    )
+    return ok({'score': user.score})
+
+
+@csrf_exempt
+@require_POST
+def shop_my_exchanges(request):
+    openid = request.user_token
+    records = ExchangeRecord.objects.filter(user_id=openid).order_by('-created_at')[:50]
+    return ok({'records': [{
+        '_id': str(r.id), 'itemKey': r.item_key, 'itemTitle': r.item_title,
+        'price': r.price, 'createdAt': r.created_at.isoformat() if r.created_at else '',
+    } for r in records]})
+
+
+@csrf_exempt
+@require_POST
+def admin_shop_items(request):
+    admin, e = _check_admin(request)
+    if e: return e
+    items = ShopItem.objects.all().order_by('sort_order', 'price')
+    return ok({'items': [{
+        '_id': str(i.id), 'itemKey': i.item_key, 'title': i.title,
+        'imageUrl': i.image_url, 'price': i.price, 'stock': i.stock,
+    } for i in items]})
+
+
+@csrf_exempt
+@require_POST
+def admin_shop_update_stock(request):
+    admin, e = _check_admin(request)
+    if e: return e
+    body = get_body(request)
+    item_key = body.get('itemKey') or ''
+    stock = int(body.get('stock', 0))
+    if not item_key:
+        return err('INVALID_PARAMS', '缺少商品标识')
+    ShopItem.objects.filter(item_key=item_key).update(stock=max(0, stock))
+    return ok()
 
 
 @csrf_exempt

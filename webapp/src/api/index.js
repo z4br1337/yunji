@@ -221,6 +221,47 @@ export async function getFileShareList(params = {}) {
   return request('/file-share/list', params)
 }
 
+export async function getShopItems() {
+  if (LOCAL_TEST_MODE) return { items: [] }
+  return request('/shop/items')
+}
+
+export async function shopExchange(itemKey) {
+  if (LOCAL_TEST_MODE) return { score: 0 }
+  const result = await request('/shop/exchange', { itemKey })
+  clearCache()
+  return result
+}
+
+export async function getMyExchanges() {
+  if (LOCAL_TEST_MODE) return { records: [] }
+  return request('/shop/my-exchanges')
+}
+
+export async function adminGetPendingFileShares() {
+  if (LOCAL_TEST_MODE) return { items: [] }
+  return request('/admin/file-share/pending')
+}
+
+export async function adminApproveFileShare(fileShareId) {
+  if (LOCAL_TEST_MODE) return {}
+  const result = await request('/admin/file-share/approve', { fileShareId })
+  clearCache()
+  return result
+}
+
+export async function adminGetShopItems() {
+  if (LOCAL_TEST_MODE) return { items: [] }
+  return request('/admin/shop/items')
+}
+
+export async function adminUpdateShopStock(itemKey, stock) {
+  if (LOCAL_TEST_MODE) return {}
+  const result = await request('/admin/shop/update-stock', { itemKey, stock })
+  clearCache()
+  return result
+}
+
 async function optimizeImageBeforeUpload(file) {
   // 非图片或小图直接上传，避免额外 CPU 开销
   if (!file || !file.type?.startsWith('image/') || file.size < 300 * 1024) return file
