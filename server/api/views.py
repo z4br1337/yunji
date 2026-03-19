@@ -53,7 +53,10 @@ def require_admin(user):
     return user.role == 'admin'
 
 
-def user_to_dict(u):
+def user_to_dict(u, post_count_exclude_emotion=False):
+    post_count = u.post_count
+    if post_count_exclude_emotion:
+        post_count = Post.objects.filter(author_id=u.openid).exclude(category='emotion').count()
     return {
         '_id': u.openid,
         'username': u.username or '',
@@ -61,7 +64,7 @@ def user_to_dict(u):
         'avatarUrl': u.avatar_url,
         'profileCompleted': u.profile_completed,
         'role': u.role, 'exp': u.exp, 'score': u.score,
-        'postCount': u.post_count,
+        'postCount': post_count,
         'achievementCounts': u.achievement_counts or {},
         'growthBookPublic': u.growth_book_public,
         'inviteUsed': u.invite_used,
@@ -152,7 +155,7 @@ def user_register(request):
         exp=10, score=10 // EXP_TO_SCORE_RATIO, achievement_counts={},
     )
     return ok({
-        'user': user_to_dict(user),
+        'user': user_to_dict(user, post_count_exclude_emotion=True),
         'token': openid,
     })
 
@@ -172,7 +175,7 @@ def user_login(request):
         if user.password_hash != _hash_password(password):
             return err('WRONG_PASSWORD', '密码错误')
         return ok({
-            'user': user_to_dict(user),
+            'user': user_to_dict(user, post_count_exclude_emotion=True),
             'token': user.openid,
             'profileCompleted': user.profile_completed,
         })
@@ -182,7 +185,7 @@ def user_login(request):
         return err('UNAUTHORIZED', '请先登录')
     user = get_or_create_user(token)
     return ok({
-        'user': user_to_dict(user),
+        'user': user_to_dict(user, post_count_exclude_emotion=True),
         'token': user.openid,
         'profileCompleted': user.profile_completed,
     })
@@ -215,7 +218,7 @@ def user_profile(request):
         user.profile_completed = True
 
     user.save()
-    return ok({'user': user_to_dict(user), 'profileCompleted': user.profile_completed})
+    return ok({'user': user_to_dict(user, post_count_exclude_emotion=True), 'profileCompleted': user.profile_completed})
 
 
 @csrf_exempt
@@ -354,6 +357,8 @@ def post_list(request):
         qs = qs.filter(id=int(f['_id']))
     elif f.get('myPosts'):
         qs = qs.filter(author_id=openid)
+        if f.get('excludeEmotion'):
+            qs = qs.exclude(category='emotion')
         if f.get('status'):
             qs = qs.filter(status=f['status'])
     else:
@@ -396,6 +401,8 @@ def post_detail(request):
         return err('NOT_FOUND', '帖子不存在')
     openid = request.user_token
     user = get_or_create_user(openid)
+    if p.category == 'emotion' and user.role != 'admin' and p.author_id != openid:
+        return err('FORBIDDEN', '无权查看该情感倾诉')
     return ok({'posts': [post_to_dict(p, reveal_author=user.role == 'admin')], 'total': 1, 'hasMore': False})
 
 
@@ -807,7 +814,7 @@ def admin_user_profile(request):
     except User.DoesNotExist:
         return err('NOT_FOUND', '用户不存在')
 
-    post_count = Post.objects.filter(author_id=tid).count()
+    post_count = Post.objects.filter(author_id=tid).exclude(category='emotion').count()
     ach_count = Achievement.objects.filter(user_id=tid).count()
     logs = PointsLog.objects.filter(user_id=tid)[:10]
     return ok({

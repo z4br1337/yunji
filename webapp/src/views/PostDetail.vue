@@ -34,8 +34,8 @@
           <img v-for="(img, i) in post.images" :key="i" :src="img" class="detail-img" loading="lazy" />
         </div>
 
-        <!-- Admin actions -->
-        <div v-if="isAdmin" class="admin-actions mt-16">
+        <!-- Admin actions (情感倾诉使用独立详情页，不显示) -->
+        <div v-if="isAdmin && post.category !== 'emotion'" class="admin-actions mt-16">
           <button class="btn btn-sm btn-success" @click="onAction('published')">通过</button>
           <button class="btn btn-sm btn-warning" @click="onAction('archived')">封存</button>
           <button v-if="!post.pinned" class="btn btn-sm btn-ghost" @click="onPin">置顶</button>

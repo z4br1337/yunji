@@ -150,11 +150,13 @@ export async function mockGetPointsLog() {
 
 export async function mockGetPosts(params = {}) {
   await delay()
-  const { category, page = 1, pageSize = 20, excludeEmotion } = params
+  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts } = params
   const user = cur()
   const isAdmin = user && user.role === 'admin'
 
   let filtered = _posts.filter(p => {
+    if (myPosts && p.authorId !== _currentUserId) return false
+    if (myPosts && excludeEmotion && p.category === 'emotion') return false
     if (p.status === 'flagged' && !isAdmin) return false
     if (p.status === 'archived' && !isAdmin) return false
     if (excludeEmotion && p.category === 'emotion') return false
@@ -178,9 +180,20 @@ export async function mockGetPostDetail(postId) {
   const post = _posts.find(p => p._id === postId)
   if (!post) throw new Error('帖子不存在')
   const user = cur()
+  if (post.category === 'emotion') {
+    if (!user) throw new Error('请先登录')
+    const isAdmin = user.role === 'admin'
+    const isAuthor = post.authorId === user._id
+    if (!isAdmin && !isAuthor) throw new Error('无权查看该情感倾诉')
+  }
   const isAdmin = user && user.role === 'admin'
-  const realAuthor = isAdmin ? _users[post.authorId] : null
-  return { post: { ...post }, realAuthor: realAuthor ? { nickname: realAuthor.nickname, class: realAuthor.class } : null }
+  const authorUser = _users[post.authorId]
+  const postData = { ...post }
+  if (isAdmin && authorUser) {
+    postData.authorName = authorUser.nickname
+    postData.authorClass = authorUser.class || ''
+  }
+  return { posts: [postData], total: 1, hasMore: false }
 }
 
 export async function mockCreatePost(data) {

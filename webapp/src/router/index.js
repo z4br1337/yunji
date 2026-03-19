@@ -22,8 +22,10 @@ const routes = [
   { path: '/chat', name: 'ChatList', component: () => import('../views/ChatList.vue') },
   { path: '/chat/:peerId', name: 'ChatDetail', component: () => import('../views/ChatDetail.vue') },
   { path: '/emotion-help', name: 'EmotionHelp', component: () => import('../views/EmotionHelp.vue') },
+  { path: '/emotion-help/:id', name: 'EmotionPostDetail', component: () => import('../views/EmotionPostDetail.vue') },
   { path: '/admin', name: 'AdminDashboard', component: () => import('../views/admin/Dashboard.vue'), meta: { admin: true } },
   { path: '/admin/emotion-inbox', name: 'EmotionInbox', component: () => import('../views/admin/EmotionInbox.vue'), meta: { admin: true } },
+  { path: '/admin/emotion-inbox/:postId', name: 'EmotionInboxDetail', component: () => import('../views/admin/EmotionInboxDetail.vue'), meta: { admin: true } },
   { path: '/admin/user/:userId', name: 'AdminUserProfile', component: () => import('../views/admin/UserProfile.vue'), meta: { admin: true } }
 ]
 

@@ -57,7 +57,8 @@ async function loadBoth() {
     const archived = []
     while (more) {
       const result = await api.getPosts({
-        filter: { myPosts: true },
+        myPosts: true,
+        excludeEmotion: true,
         page: p,
         pageSize: 50
       })

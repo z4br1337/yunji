@@ -50,7 +50,7 @@ async function loadData() {
 }
 
 function goToDetail(postId) {
-  router.push(`/post/${postId}`)
+  router.push(`/admin/emotion-inbox/${postId}`)
 }
 
 onMounted(() => loadData())
