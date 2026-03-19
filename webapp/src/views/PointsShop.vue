@@ -15,7 +15,7 @@
     <div v-else class="shop-grid">
       <div v-for="item in items" :key="item._id" class="shop-card card">
         <div class="shop-img-wrap">
-          <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.title" />
+          <img v-if="getItemImage(item)" :src="getItemImage(item)" :alt="item.title" />
           <div v-else class="shop-placeholder">📦</div>
         </div>
         <h4 class="shop-title">{{ item.title }}</h4>
@@ -54,6 +54,17 @@ const userScore = ref(state.userInfo?.score || 0)
 const items = ref([])
 const myRecords = ref([])
 const loading = ref(false)
+
+const SHOP_IMAGE_MAP = {
+  file_bag: '/shop-images/file_bag.png',
+  brooch: '/shop-images/brooch.png',
+  fridge_magnet: '/shop-images/fridge_magnet.png',
+  fan: '/shop-images/fan.png',
+  mousepad: '/shop-images/mousepad.png'
+}
+function getItemImage(item) {
+  return item.imageUrl || (item.itemKey && SHOP_IMAGE_MAP[item.itemKey]) || ''
+}
 
 function formatTime(ts) {
   if (!ts) return ''
