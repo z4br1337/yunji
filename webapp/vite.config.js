@@ -8,9 +8,21 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // 缓存静态资源，首次访问后二次加载更快
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024
+        // 不预缓存 index.html，确保版本更新后能获取最新入口
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // 导航请求优先走网络，保证部署后用户能拿到新版本
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
       },
       manifest: {
         name: '云迹',

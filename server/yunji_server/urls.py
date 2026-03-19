@@ -45,7 +45,9 @@ def serve_frontend(request, path=''):
     index_path = os.path.join(str(frontend_dir), 'index.html')
     if os.path.isfile(index_path):
         resp = FileResponse(open(index_path, 'rb'), content_type='text/html')
-        resp['Cache-Control'] = 'no-cache'
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp['Pragma'] = 'no-cache'
+        resp['Expires'] = '0'
         return resp
 
     raise Http404
