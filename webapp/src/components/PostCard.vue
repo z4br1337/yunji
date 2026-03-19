@@ -2,7 +2,8 @@
   <div class="post-card" :class="{ 'post-pinned': post.pinned, 'post-flagged': post.status === 'flagged' }" @click="$emit('click', post)">
     <div class="post-header">
       <div class="avatar avatar-sm" :class="{ clickable: !post.isAnonymous }" @click.stop="onAvatarClick">
-        {{ post.isAnonymous ? '匿' : (post.visibleAuthorName || '?')[0] }}
+        <img v-if="!post.isAnonymous && post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" />
+        <span v-else>{{ post.isAnonymous ? '匿' : (post.visibleAuthorName || '?')[0] }}</span>
       </div>
       <div class="post-meta">
         <span class="post-author">{{ post.visibleAuthorName || '匿名用户' }}</span>

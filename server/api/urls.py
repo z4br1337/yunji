@@ -34,6 +34,11 @@ urlpatterns = [
 
     # 图片上传
     path('upload/image', views.upload_image),
+    path('upload/file', views.upload_file),
+
+    # 文件分享
+    path('file-share/create', views.file_share_create),
+    path('file-share/list', views.file_share_list),
 
     # 管理员
     path('admin/reports', views.admin_reports),
@@ -48,6 +53,7 @@ urlpatterns = [
     path('admin/user/list', views.admin_user_list),
     path('admin/user/posts', views.admin_user_posts),
     path('admin/user/contact', views.admin_user_contact),
+    path('admin/emotion/list', views.admin_emotion_list),
     path('admin/invite/generate', views.admin_invite_generate),
     path('admin/comment/add', views.admin_comment_add),
     path('admin/achievement/pending', views.admin_achievement_pending),

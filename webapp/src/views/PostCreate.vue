@@ -17,26 +17,6 @@
         </div>
       </div>
 
-      <!-- Emotion extra: need offline -->
-      <template v-if="category === 'emotion'">
-        <div class="form-group">
-          <label class="switch-row">
-            <span>是否需要线下辅导</span>
-            <input type="checkbox" v-model="needOffline" class="toggle" />
-          </label>
-        </div>
-        <template v-if="needOffline">
-          <div class="form-group">
-            <label class="form-label">时间</label>
-            <input class="form-input" v-model="offlineTime" placeholder="例如：周三下午2点" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">地点</label>
-            <input class="form-input" v-model="offlinePlace" placeholder="例如：图书馆一楼" />
-          </div>
-        </template>
-      </template>
-
       <!-- Content -->
       <div class="form-group">
         <label class="form-label">内容</label>
@@ -59,8 +39,8 @@
         </div>
       </div>
 
-      <!-- Anonymous (not for emotion) -->
-      <div v-if="category !== 'emotion'" class="form-group">
+      <!-- Anonymous -->
+      <div class="form-group">
         <label class="switch-row">
           <span>匿名发布</span>
           <input type="checkbox" v-model="isAnonymous" class="toggle" />
@@ -84,15 +64,11 @@ import * as api from '../api/index.js'
 const router = useRouter()
 const showToast = inject('showToast')
 
-const allCategories = [{ key: 'emotion', label: '情感倾诉' }, ...POST_CATEGORIES]
-const categories = allCategories
+const categories = POST_CATEGORIES
 const category = ref('cognition')
 const content = ref('')
 const images = ref([])
 const isAnonymous = ref(false)
-const needOffline = ref(false)
-const offlineTime = ref('')
-const offlinePlace = ref('')
 const submitting = ref(false)
 
 function onFileSelect(e) {
@@ -121,9 +97,7 @@ async function handleSubmit() {
     const data = {
       content: content.value, images: uploadedImages,
       category: category.value,
-      isAnonymous: category.value === 'emotion' ? true : isAnonymous.value,
-      needOffline: needOffline.value,
-      offlineTime: offlineTime.value, offlinePlace: offlinePlace.value,
+      isAnonymous: isAnonymous.value,
       flagged: !checkResult.pass,
       flaggedWords: checkResult.words,
       flaggedCategories: checkResult.categories,

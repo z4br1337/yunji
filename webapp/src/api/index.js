@@ -88,6 +88,8 @@ export async function updateProfile(data) {
   return result
 }
 
+export const AVATAR_MAX_SIZE_BYTES = 700 * 1024  // 700KB
+
 export async function changePassword(oldPassword, newPassword) {
   if (LOCAL_TEST_MODE) return { changed: true }
   return request('/user/change-password', { oldPassword, newPassword })
@@ -190,6 +192,33 @@ export async function uploadImage(file) {
   const json = await res.json()
   if (json.code !== 0) throw new Error(json.message || '上传失败')
   return json.data
+}
+
+export async function uploadFile(file) {
+  if (LOCAL_TEST_MODE) return { url: '/media/uploads/test.pdf', fileName: file.name }
+  const formData = new FormData()
+  formData.append('file', file)
+  const token = localStorage.getItem('token') || ''
+  const res = await fetch(API_BASE_URL + '/upload/file', {
+    method: 'POST',
+    headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+    body: formData
+  })
+  const json = await res.json()
+  if (json.code !== 0) throw new Error(json.message || '上传失败')
+  return json.data
+}
+
+export async function createFileShare(data) {
+  if (LOCAL_TEST_MODE) return { id: 'mock_fs_001' }
+  const result = await request('/file-share/create', data)
+  clearCache()
+  return result
+}
+
+export async function getFileShareList(params = {}) {
+  if (LOCAL_TEST_MODE) return { items: [], total: 0, hasMore: false }
+  return request('/file-share/list', params)
 }
 
 async function optimizeImageBeforeUpload(file) {

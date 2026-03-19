@@ -11,6 +11,7 @@ const routes = [
   { path: '/post/:id', name: 'PostDetail', component: () => import('../views/PostDetail.vue') },
   { path: '/achievements', name: 'Achievements', component: () => import('../views/Achievements.vue') },
   { path: '/achievement/create', name: 'AchievementCreate', component: () => import('../views/AchievementCreate.vue') },
+  { path: '/file-share', name: 'FileShare', component: () => import('../views/FileShare.vue') },
   { path: '/ai-chat', name: 'AiChat', component: () => import('../views/AiChat.vue') },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
   { path: '/growth-book', name: 'GrowthBook', component: () => import('../views/GrowthBook.vue') },

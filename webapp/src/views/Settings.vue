@@ -7,7 +7,10 @@
     <!-- Profile Card -->
     <div class="profile-card card mb-16" v-if="user">
       <div class="profile-top flex items-center gap-16">
-        <div class="avatar avatar-lg">{{ (user.nickname || '?')[0] }}</div>
+        <div class="avatar avatar-lg">
+        <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
+        <span v-else>{{ (user.nickname || '?')[0] }}</span>
+      </div>
         <div class="profile-info">
           <h3>{{ user.nickname }}</h3>
           <p class="text-sm text-secondary">{{ user.class }}</p>

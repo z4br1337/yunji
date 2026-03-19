@@ -16,7 +16,7 @@ from django.db import models as db_models
 from django.db.models import Q, F, Count, Max
 from django.conf import settings
 
-from .models import User, Post, Comment, Achievement, Invite, PointsLog, Message
+from .models import User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare
 
 EXP_PER_POST = 10
 ACHIEVEMENT_BASE_EXP = 500
@@ -86,12 +86,15 @@ def post_to_dict(p, reveal_author=False):
         'createdAt': p.created_at.isoformat() if p.created_at else '',
         'updatedAt': p.updated_at.isoformat() if p.updated_at else '',
     }
-    if reveal_author:
-        try:
-            author = User.objects.get(openid=p.author_id)
+    try:
+        author = User.objects.get(openid=p.author_id)
+        d['authorAvatarUrl'] = author.avatar_url or ''
+        if reveal_author:
             d['authorName'] = author.nickname
             d['authorClass'] = author.user_class
-        except User.DoesNotExist:
+    except User.DoesNotExist:
+        d['authorAvatarUrl'] = ''
+        if reveal_author:
             d['authorName'] = '未知'
             d['authorClass'] = ''
     return d
@@ -196,6 +199,7 @@ def user_profile(request):
     nickname = body.get('nickname')
     user_class = body.get('class')
     growth_book_public = body.get('growthBookPublic')
+    avatar_url = body.get('avatarUrl')
 
     if nickname is not None:
         user.nickname = nickname
@@ -203,6 +207,8 @@ def user_profile(request):
         user.user_class = user_class
     if growth_book_public is not None:
         user.growth_book_public = bool(growth_book_public)
+    if avatar_url is not None:
+        user.avatar_url = avatar_url
 
     if nickname and user_class:
         user.profile_completed = True
@@ -586,6 +592,80 @@ def upload_image(request):
     return ok({'url': url})
 
 
+@csrf_exempt
+@require_POST
+def upload_file(request):
+    f = request.FILES.get('file')
+    if not f:
+        return err('INVALID_PARAMS', '未收到文件')
+    max_size = 10 * 1024 * 1024  # 10MB
+    if f.size > max_size:
+        return err('INVALID_PARAMS', '文件大小不能超过10MB')
+    ext = f.name.rsplit('.', 1)[-1] if '.' in f.name else 'bin'
+    filename = f'{uuid.uuid4().hex}.{ext}'
+    save_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+    with open(save_path, 'wb') as dest:
+        for chunk in f.chunks():
+            dest.write(chunk)
+    url = f'{settings.MEDIA_URL}uploads/{filename}'
+    return ok({'url': url, 'fileName': f.name})
+
+
+# ======================== 文件分享 ========================
+
+@csrf_exempt
+@require_POST
+def file_share_create(request):
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    if not user.profile_completed:
+        return err('PROFILE_INCOMPLETE', '请先完善个人资料')
+    body = get_body(request)
+    title = (body.get('title') or '').strip()
+    file_url = body.get('fileUrl') or ''
+    if not title or not file_url:
+        return err('INVALID_PARAMS', '标题和文件链接为必填')
+    fs = FileShare.objects.create(
+        user_id=openid,
+        title=title,
+        description=body.get('description', ''),
+        file_url=file_url,
+        file_name=body.get('fileName', ''),
+    )
+    return ok({'id': str(fs.id)})
+
+
+@csrf_exempt
+@require_POST
+def file_share_list(request):
+    openid = request.user_token
+    body = get_body(request)
+    page = max(int(body.get('page', 1)), 1)
+    page_size = min(max(int(body.get('pageSize', 20)), 5), 50)
+    qs = FileShare.objects.all().order_by('-created_at')
+    total = qs.count()
+    start = (page - 1) * page_size
+    items = qs[start:start + page_size]
+    result_items = []
+    for f in items:
+        d = {
+            '_id': str(f.id), 'userId': f.user_id, 'title': f.title,
+            'description': f.description, 'fileUrl': f.file_url, 'fileName': f.file_name,
+            'createdAt': f.created_at.isoformat() if f.created_at else '',
+        }
+        try:
+            u = User.objects.get(openid=f.user_id)
+            d['authorName'] = u.nickname
+            d['authorAvatarUrl'] = u.avatar_url or ''
+        except User.DoesNotExist:
+            d['authorName'] = '未知'
+            d['authorAvatarUrl'] = ''
+        result_items.append(d)
+    return ok({'items': result_items, 'total': total, 'hasMore': start + page_size < total})
+
+
 # ======================== 管理员接口 ========================
 
 def _check_admin(request):
@@ -685,9 +765,13 @@ def admin_user_score(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    delta = int(body.get('score', 0)) * 2
-    User.objects.filter(openid=body['targetUserId']).update(exp=F('exp') + delta, score=F('score') + delta)
-    PointsLog.objects.create(user_id=body['targetUserId'], delta=delta, log_type='exp', reason='admin_score')
+    tid = body.get('userId') or body.get('targetUserId')
+    if not tid:
+        return err('INVALID_PARAMS', '缺少用户ID')
+    score_val = body.get('delta', body.get('score', 0))
+    delta = int(score_val) * 2
+    User.objects.filter(openid=tid).update(exp=F('exp') + delta, score=F('score') + delta)
+    PointsLog.objects.create(user_id=tid, delta=delta, log_type='exp', reason='admin_score')
     return ok({'pointsDelta': delta})
 
 
@@ -697,7 +781,9 @@ def admin_user_profile(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    tid = body['targetUserId']
+    tid = body.get('userId') or body.get('targetUserId')
+    if not tid:
+        return err('INVALID_PARAMS', '缺少用户ID')
     try:
         u = User.objects.get(openid=tid)
     except User.DoesNotExist:
@@ -745,6 +831,15 @@ def admin_user_contact(request):
     admin, e = _check_admin(request)
     if e: return e
     return ok()
+
+
+@csrf_exempt
+@require_POST
+def admin_emotion_list(request):
+    admin, e = _check_admin(request)
+    if e: return e
+    posts = Post.objects.filter(category='emotion').order_by('-created_at')[:100]
+    return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
 
 
 @csrf_exempt

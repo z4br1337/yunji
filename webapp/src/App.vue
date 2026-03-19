@@ -19,6 +19,9 @@
         <router-link to="/achievements" class="nav-item" active-class="active">
           <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
         </router-link>
+        <router-link to="/file-share" class="nav-item" active-class="active">
+          <span class="nav-icon">📁</span><span class="nav-label">文件分享</span>
+        </router-link>
         <router-link to="/chat" class="nav-item" active-class="active">
           <span class="nav-icon">💌</span><span class="nav-label">私信</span>
         </router-link>
@@ -31,7 +34,10 @@
       </nav>
       <div class="sidebar-footer">
         <div class="user-brief" v-if="userInfo">
-          <div class="avatar avatar-sm">{{ (userInfo.nickname || '?')[0] }}</div>
+          <div class="avatar avatar-sm">
+          <img v-if="userInfo.avatarUrl" :src="userInfo.avatarUrl" alt="" />
+          <span v-else>{{ (userInfo.nickname || '?')[0] }}</span>
+        </div>
           <span class="user-name">{{ userInfo.nickname }}</span>
         </div>
       </div>
@@ -57,6 +63,9 @@
       </router-link>
       <router-link to="/achievements" class="tab-item" active-class="active">
         <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
+      </router-link>
+      <router-link to="/file-share" class="tab-item" active-class="active">
+        <span class="tab-icon">📁</span><span class="tab-label">文件分享</span>
       </router-link>
       <router-link to="/settings" class="tab-item" active-class="active">
         <span class="tab-icon">👤</span><span class="tab-label">我的</span>

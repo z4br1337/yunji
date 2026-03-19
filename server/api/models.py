@@ -121,3 +121,16 @@ class Message(models.Model):
     class Meta:
         db_table = 'messages'
         ordering = ['created_at']
+
+
+class FileShare(models.Model):
+    user_id = models.CharField(max_length=128, db_index=True)
+    title = models.CharField(max_length=128)
+    description = models.TextField(default='')
+    file_url = models.CharField(max_length=512)
+    file_name = models.CharField(max_length=256, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'file_shares'
+        ordering = ['-created_at']

@@ -9,7 +9,10 @@
     <template v-else-if="userData">
       <div class="card mb-16">
         <div class="flex items-center gap-12 mb-8">
-          <div class="avatar avatar-lg">{{ (userData.user.nickname || '?')[0] }}</div>
+          <div class="avatar avatar-lg">
+          <img v-if="userData.user.avatarUrl" :src="userData.user.avatarUrl" alt="" />
+          <span v-else>{{ (userData.user.nickname || '?')[0] }}</span>
+        </div>
           <div>
             <h3>{{ userData.user.nickname }}</h3>
             <p class="text-sm text-secondary">{{ userData.user.class }}</p>
