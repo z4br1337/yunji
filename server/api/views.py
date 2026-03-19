@@ -350,6 +350,10 @@ def post_list(request):
 
     if f.get('_id'):
         qs = qs.filter(id=int(f['_id']))
+    elif f.get('myPosts'):
+        qs = qs.filter(author_id=openid)
+        if f.get('status'):
+            qs = qs.filter(status=f['status'])
     else:
         if f.get('status') == 'flagged':
             qs = qs.filter(status='flagged')

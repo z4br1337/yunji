@@ -13,14 +13,14 @@
         <router-link to="/post/create" class="nav-item" active-class="active">
           <span class="nav-icon">✏️</span><span class="nav-label">发布</span>
         </router-link>
-        <router-link to="/ai-chat" class="nav-item" active-class="active">
-          <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
+        <router-link to="/file-share" class="nav-item" active-class="active">
+          <span class="nav-icon">📁</span><span class="nav-label">文件分享</span>
         </router-link>
         <router-link to="/achievements" class="nav-item" active-class="active">
           <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
         </router-link>
-        <router-link to="/file-share" class="nav-item" active-class="active">
-          <span class="nav-icon">📁</span><span class="nav-label">文件分享</span>
+        <router-link to="/ai-chat" class="nav-item" active-class="active">
+          <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
         </router-link>
         <router-link to="/chat" class="nav-item" active-class="active">
           <span class="nav-icon">💌</span><span class="nav-label">私信</span>
@@ -58,14 +58,14 @@
       <router-link to="/post/create" class="tab-item" active-class="active">
         <span class="tab-icon">✏️</span><span class="tab-label">发布</span>
       </router-link>
-      <router-link to="/ai-chat" class="tab-item" active-class="active">
-        <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
+      <router-link to="/file-share" class="tab-item" active-class="active">
+        <span class="tab-icon">📁</span><span class="tab-label">文件分享</span>
       </router-link>
       <router-link to="/achievements" class="tab-item" active-class="active">
         <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
       </router-link>
-      <router-link to="/file-share" class="tab-item" active-class="active">
-        <span class="tab-icon">📁</span><span class="tab-label">文件分享</span>
+      <router-link to="/ai-chat" class="tab-item" active-class="active">
+        <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
       </router-link>
       <router-link to="/settings" class="tab-item" active-class="active">
         <span class="tab-icon">👤</span><span class="tab-label">我的</span>

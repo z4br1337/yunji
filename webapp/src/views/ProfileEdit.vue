@@ -64,7 +64,7 @@ const selectedAvatar = ref('')
 const avatarError = ref('')
 const saving = ref(false)
 
-const presetAvatars = Array.from({ length: 9 }, (_, i) => `/avatars/avatar${i + 1}.png`)
+const presetAvatars = [1, 2, 4, 5, 6, 7, 8, 9].map(i => `/avatars/avatar${i}.png`)
 
 onMounted(() => {
   if (state.userInfo) {

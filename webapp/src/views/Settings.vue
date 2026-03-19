@@ -30,7 +30,7 @@
           <div class="stat-num">{{ user.score || 0 }}</div>
           <div class="stat-label text-xs text-muted">积分</div>
         </div>
-        <div class="stat-item text-center">
+        <div class="stat-item text-center clickable" @click="$router.push('/my-posts')">
           <div class="stat-num">{{ user.postCount || 0 }}</div>
           <div class="stat-label text-xs text-muted">帖子</div>
         </div>
@@ -165,6 +165,8 @@ function handleLogout() {
 .page-header { margin-bottom: 16px; }
 .profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .stat-num { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }
+.stat-item.clickable { cursor: pointer; transition: var(--transition); }
+.stat-item.clickable:hover .stat-num { color: var(--primary); }
 .exp-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
 .exp-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; transition: width 0.5s ease; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; cursor: pointer; transition: var(--transition); }

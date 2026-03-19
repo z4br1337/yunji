@@ -14,6 +14,7 @@ const routes = [
   { path: '/file-share', name: 'FileShare', component: () => import('../views/FileShare.vue') },
   { path: '/ai-chat', name: 'AiChat', component: () => import('../views/AiChat.vue') },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
+  { path: '/my-posts', name: 'MyPosts', component: () => import('../views/MyPosts.vue') },
   { path: '/growth-book', name: 'GrowthBook', component: () => import('../views/GrowthBook.vue') },
   { path: '/chat', name: 'ChatList', component: () => import('../views/ChatList.vue') },
   { path: '/chat/:peerId', name: 'ChatDetail', component: () => import('../views/ChatDetail.vue') },
