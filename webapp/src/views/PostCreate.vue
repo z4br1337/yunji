@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <div class="page-header flex justify-between items-center">
+    <div v-if="!embedded" class="page-header flex justify-between items-center">
       <h2>发布动态</h2>
       <button class="btn btn-ghost btn-sm" @click="$router.back()">返回</button>
     </div>
@@ -57,6 +57,8 @@
 <script setup>
 import { ref, inject } from 'vue'
 import { useRouter } from 'vue-router'
+
+const props = defineProps({ embedded: { type: Boolean, default: false } })
 import { POST_CATEGORIES } from '../utils/config.js'
 import { check as sensitiveCheck } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
@@ -111,7 +113,7 @@ async function handleSubmit() {
     } else {
       showToast(`发布成功！经验+${result.expGain || 0}`)
     }
-    router.back()
+    props.embedded ? router.replace('/publish') : router.back()
   } catch (e) {
     showToast(e.message || '发布失败')
   } finally {

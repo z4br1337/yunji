@@ -7,6 +7,7 @@ const routes = [
   { path: '/profile-edit', name: 'ProfileEdit', component: () => import('../views/ProfileEdit.vue') },
   { path: '/change-password', name: 'ChangePassword', component: () => import('../views/ChangePassword.vue') },
   { path: '/feed', name: 'Feed', component: () => import('../views/Feed.vue') },
+  { path: '/publish', name: 'PublishContent', component: () => import('../views/PublishContent.vue') },
   { path: '/post/create', name: 'PostCreate', component: () => import('../views/PostCreate.vue') },
   { path: '/post/:id', name: 'PostDetail', component: () => import('../views/PostDetail.vue') },
   { path: '/achievements', name: 'Achievements', component: () => import('../views/Achievements.vue') },

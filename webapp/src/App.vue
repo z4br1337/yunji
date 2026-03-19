@@ -10,14 +10,11 @@
         <router-link to="/feed" class="nav-item" active-class="active">
           <span class="nav-icon">🏠</span><span class="nav-label">广场</span>
         </router-link>
-        <router-link to="/post/create" class="nav-item" active-class="active">
-          <span class="nav-icon">✏️</span><span class="nav-label">发布</span>
+        <router-link to="/publish" class="nav-item" active-class="active">
+          <span class="nav-icon">✏️</span><span class="nav-label">发布内容</span>
         </router-link>
-        <router-link to="/file-share" class="nav-item" active-class="active">
-          <span class="nav-icon">📁</span><span class="nav-label">文件分享</span>
-        </router-link>
-        <router-link to="/achievements" class="nav-item" active-class="active">
-          <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
+        <router-link to="/points-shop" class="nav-item" active-class="active">
+          <span class="nav-icon">🛒</span><span class="nav-label">萤火商店</span>
         </router-link>
         <router-link to="/ai-chat" class="nav-item" active-class="active">
           <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
@@ -55,14 +52,11 @@
       <router-link to="/feed" class="tab-item" active-class="active">
         <span class="tab-icon">🏠</span><span class="tab-label">广场</span>
       </router-link>
-      <router-link to="/post/create" class="tab-item" active-class="active">
-        <span class="tab-icon">✏️</span><span class="tab-label">发布</span>
+      <router-link to="/publish" class="tab-item" active-class="active">
+        <span class="tab-icon">✏️</span><span class="tab-label">发布内容</span>
       </router-link>
-      <router-link to="/file-share" class="tab-item" active-class="active">
-        <span class="tab-icon">📁</span><span class="tab-label">文件分享</span>
-      </router-link>
-      <router-link to="/achievements" class="tab-item" active-class="active">
-        <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
+      <router-link to="/points-shop" class="tab-item" active-class="active">
+        <span class="tab-icon">🛒</span><span class="tab-label">萤火商店</span>
       </router-link>
       <router-link to="/ai-chat" class="tab-item" active-class="active">
         <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
@@ -93,7 +87,7 @@ const isLoggedIn = computed(() => state.isLoggedIn)
 const isAdmin = computed(() => state.isAdmin)
 const userInfo = computed(() => state.userInfo)
 
-const hideTabBarRoutes = ['/login', '/profile-edit', '/post/create', '/achievement/create', '/emotion-help']
+const hideTabBarRoutes = ['/login', '/profile-edit', '/achievement/create', '/emotion-help']
 const showTabBar = computed(() => {
   return !hideTabBarRoutes.some(r => route.path.startsWith(r))
     && !route.path.startsWith('/chat/')

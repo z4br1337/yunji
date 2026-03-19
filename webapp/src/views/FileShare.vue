@@ -1,7 +1,8 @@
 <template>
   <div class="page-container">
-    <div class="page-header flex justify-between items-center">
-      <h2>文件分享</h2>
+    <div class="page-header flex justify-between items-center" :class="{ 'mb-8': embedded }">
+      <h2 v-if="!embedded">文件分享</h2>
+      <span v-else></span>
       <button class="btn btn-primary btn-sm" @click="showCreate = true">分享文件</button>
     </div>
 
@@ -80,6 +81,8 @@
 <script setup>
 import { ref, onMounted, inject } from 'vue'
 import * as api from '../api/index.js'
+
+defineProps({ embedded: { type: Boolean, default: false } })
 
 const showToast = inject('showToast')
 const items = ref([])

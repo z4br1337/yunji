@@ -1,7 +1,8 @@
 <template>
   <div class="page-container">
-    <div class="page-header flex justify-between items-center">
-      <h2>闪光时刻</h2>
+    <div class="page-header flex justify-between items-center" :class="{ 'mb-8': embedded }">
+      <h2 v-if="!embedded">闪光时刻</h2>
+      <span v-else></span>
       <button class="btn btn-primary btn-sm" @click="$router.push('/achievement/create')">+ 提交闪光时刻</button>
     </div>
 
@@ -47,6 +48,8 @@
 
 <script setup>
 import { ref, computed, onMounted, inject } from 'vue'
+
+defineProps({ embedded: { type: Boolean, default: false } })
 import { useUserStore } from '../stores/user.js'
 import { ACHIEVEMENT_CATEGORIES, POST_STATUS_LABELS } from '../utils/config.js'
 import * as api from '../api/index.js'
