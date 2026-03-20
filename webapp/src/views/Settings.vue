@@ -55,12 +55,14 @@
     </div>
 
     <!-- Menu -->
-    <div class="card">
-      <div class="menu-item" @click="$router.push('/profile-edit')">
-        <span class="menu-icon">✏️</span><span>编辑资料</span><span class="arrow">›</span>
-      </div>
-      <div class="menu-item" @click="$router.push('/change-password')">
-        <span class="menu-icon">🔐</span><span>修改密码</span><span class="arrow">›</span>
+    <div class="card menu-card">
+      <div class="menu-item menu-item-feature" @click="$router.push('/settings/preferences')">
+        <span class="menu-icon-wrap">🔧</span>
+        <div class="menu-text">
+          <span class="menu-title">设置</span>
+          <span class="menu-sub">个人资料 · 修改密码</span>
+        </div>
+        <span class="arrow">›</span>
       </div>
       <div class="menu-item" @click="$router.push('/growth-book')">
         <span class="menu-icon">📖</span><span>成长手册</span><span class="arrow">›</span>
@@ -158,6 +160,23 @@ function handleLogout() {
 <style scoped>
 .page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
 .page-header { margin-bottom: 16px; }
+.menu-card { overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); }
+.menu-item-feature {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.06), rgba(107, 165, 231, 0.04));
+  border-bottom: 1px solid var(--border);
+  padding: 16px 12px !important;
+}
+.menu-item-feature:hover { background: linear-gradient(135deg, rgba(74, 144, 217, 0.1), rgba(107, 165, 231, 0.06)); }
+.menu-icon-wrap {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.35rem; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(74, 144, 217, 0.15);
+}
+.menu-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.menu-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+.menu-sub { font-size: 0.75rem; color: var(--text-muted); }
 .profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .profile-left { display: flex; align-items: center; gap: 12px; }
 .level-display {
@@ -181,7 +200,7 @@ function handleLogout() {
 .exp-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; transition: width 0.5s ease; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; cursor: pointer; transition: var(--transition); }
 .menu-item:hover { background: var(--bg); }
-.menu-item span:nth-child(2) { flex: 1; font-size: 0.95rem; }
+.menu-item:not(.menu-item-feature) span:nth-child(2) { flex: 1; font-size: 0.95rem; }
 .arrow { color: var(--text-muted); font-size: 1.2rem; }
 .menu-danger span { color: var(--danger); }
 .divider { height: 1px; background: var(--border); margin: 4px 0; }

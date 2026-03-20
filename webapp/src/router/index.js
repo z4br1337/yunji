@@ -15,6 +15,7 @@ const routes = [
   { path: '/file-share', name: 'FileShare', component: () => import('../views/FileShare.vue') },
   { path: '/ai-chat', name: 'AiChat', component: () => import('../views/AiChat.vue') },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
+  { path: '/settings/preferences', name: 'SettingsPreferences', component: () => import('../views/SettingsPreferences.vue') },
   { path: '/my-posts', name: 'MyPosts', component: () => import('../views/MyPosts.vue') },
   { path: '/my-files', name: 'MyFileShares', component: () => import('../views/MyFileShares.vue') },
   { path: '/points-shop', name: 'PointsShop', component: () => import('../views/PointsShop.vue') },
@@ -52,7 +53,7 @@ router.beforeEach((to, from, next) => {
     return next('/login')
   }
   const profileOk = !!user.profileCompleted
-  const allowIncomplete = to.path === '/profile-edit' || to.path === '/change-password'
+  const allowIncomplete = to.path === '/profile-edit' || to.path === '/change-password' || to.path === '/settings/preferences'
   if (!profileOk && !allowIncomplete) {
     return next('/profile-edit')
   }

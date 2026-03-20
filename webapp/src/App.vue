@@ -25,9 +25,6 @@
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">👤</span><span class="nav-label">我的</span>
         </router-link>
-        <router-link v-if="isAdmin" to="/admin/review-history" class="nav-item" active-class="active">
-          <span class="nav-icon">📜</span><span class="nav-label">处理历史</span>
-        </router-link>
         <router-link v-if="isAdmin" to="/admin" class="nav-item" active-class="active">
           <span class="nav-icon">⚙️</span><span class="nav-label">管理后台</span>
         </router-link>
@@ -90,7 +87,7 @@ const isLoggedIn = computed(() => state.isLoggedIn)
 const isAdmin = computed(() => state.isAdmin)
 const userInfo = computed(() => state.userInfo)
 
-const hideTabBarRoutes = ['/login', '/profile-edit', '/achievement/create', '/emotion-help']
+const hideTabBarRoutes = ['/login', '/profile-edit', '/settings/preferences', '/achievement/create', '/emotion-help']
 const showTabBar = computed(() => {
   return !hideTabBarRoutes.some(r => route.path.startsWith(r))
     && !route.path.startsWith('/chat/')
