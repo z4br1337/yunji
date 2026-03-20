@@ -69,11 +69,31 @@
 | `MYSQL_*` | MySQL 连接（当 DB_ENGINE=mysql 时） | - |
 | `EMAIL_BACKEND` | Django 邮件后端 | `DEBUG=true` 时为控制台输出；生产一般为 SMTP |
 | `EMAIL_HOST` / `EMAIL_PORT` | SMTP 服务器 | 生产发信必填（找回密码、绑定邮箱） |
-| `EMAIL_USE_TLS` | 是否 TLS | 默认 `true` |
+| `EMAIL_USE_TLS` | 是否 STARTTLS（常见于 587） | 默认 `true` |
+| `EMAIL_USE_SSL` | 是否 SSL 直连（常见于 465） | 默认 `false`；为 `true` 时一般需 `EMAIL_USE_TLS=false` |
+| `EMAIL_TIMEOUT` | SMTP 连接/读写超时（秒） | 默认 `45`（海外机房建议 `60`～`90`） |
+| `EMAIL_SMTP_MAX_RETRIES` | 验证码邮件发送失败时的重试次数 | 默认 `3` |
+| `EMAIL_SMTP_RETRY_DELAY_SEC` | 重试基础间隔（秒，会按次数递增） | 默认 `2` |
 | `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | SMTP 账号密码 | 视服务商要求 |
 | `DEFAULT_FROM_EMAIL` | 发件人地址 | 默认同 `EMAIL_HOST_USER` 或占位值 |
 
 > **找回密码 / 绑定邮箱** 依赖邮件发送。部署到 Zeabur 等环境时，请配置上述 SMTP 相关变量；未配置时接口会返回「邮件发送失败」类错误。
+
+### 服务器在海外（如东京）发信超时怎么办？
+
+跨境连接 **QQ / 163 等国内 SMTP** 经常出现 **连接超时或极慢**，仅靠加长超时无法根本解决，建议按优先级处理：
+
+1. **推荐：换用全球/亚太有节点的发信服务（SMTP 与服务器同区域或就近）**  
+   例如 **Amazon SES**（可选 `ap-northeast-1` 东京）、**Resend**、**SendGrid**、**Mailgun** 等，在控制台开启 SMTP 后，把 `EMAIL_HOST` 填成服务商提供的 **就近 SMTP 主机名**，超时问题通常会消失。
+
+2. **仍使用国内邮箱 SMTP 时，可尝试**  
+   - 将 `EMAIL_TIMEOUT` 设为 **`60` 或 `90`**。  
+   - 部分邮箱 **465 + SSL** 比 **587 + TLS** 更稳定，可尝试：  
+     `EMAIL_PORT=465`、`EMAIL_USE_SSL=true`、`EMAIL_USE_TLS=false`（以邮箱官方文档为准）。  
+   - 若仍频繁超时，说明链路质量差，应改用第 1 种方案。
+
+3. **代码侧已做优化**  
+   对 **网络类错误**（超时、断连等）会自动 **重试若干次**（见上表 `EMAIL_SMTP_*`），减轻偶发抖动；**认证失败（如密码错误）不会重试**。
 
 ---
 
