@@ -95,6 +95,65 @@
 3. **代码侧已做优化**  
    对 **网络类错误**（超时、断连等）会自动 **重试若干次**（见上表 `EMAIL_SMTP_*`），减轻偶发抖动；**认证失败（如密码错误）不会重试**。
 
+### Postmark 配置步骤（与云迹 SMTP 对接）
+
+云迹使用 Django 标准 `send_mail`，**无需改代码**，在 Postmark 完成发件人验证后，在 Zeabur（或本地）配置以下环境变量即可。
+
+#### 1. 注册与创建 Server
+
+1. 打开 [Postmark](https://postmarkapp.com) 注册并登录。  
+2. 创建一个 **Server**（可命名为 `yunji`）。每个 Server 对应一套发信配置与统计。
+
+#### 2. 验证发件域名或发件邮箱（必做）
+
+Postmark **只允许已验证的发件地址** 发信：
+
+- **推荐**：在 **Sender Signatures** 验证你的域名（如 `yourdomain.com`），之后可用 `noreply@yourdomain.com` 等任意该域地址作为发件人。  
+- **或**：先添加并验证单个 **邮箱地址**（会收到验证邮件），用于测试。
+
+未验证的地址会导致发送被拒（错误信息里会说明）。
+
+#### 3. 获取 SMTP 凭据
+
+1. 进入该 **Server** → **API Tokens**（或设置中的 API / SMTP 说明页）。  
+2. 复制 **Server API Token**（**不是** Account API Token）。  
+3. Postmark SMTP 规则（Transactional 事务邮件）：  
+   - **主机**：`smtp.postmarkapp.com`  
+   - **端口**：`587`，启用 **STARTTLS**（与云迹默认 `EMAIL_USE_TLS=true` 一致）  
+   - **用户名**：填 **Server API Token**  
+   - **密码**：再填 **同一串 Server API Token**（用户名与密码相同，这是 Postmark 官方用法）
+
+> 若使用 **SMTP Token**（在 Outbound Stream 里生成的 Access Key / Secret Key），则用户名为 Access Key、密码为 Secret Key；一般直接用 Server API Token 即可。
+
+#### 4. 在云迹（Zeabur）中填写环境变量
+
+在跑 Django 的服务里新增/修改变量（示例值请换成你自己的）：
+
+| 变量 | 示例 / 说明 |
+|------|-------------|
+| `EMAIL_BACKEND` | 可不设；生产 `DEBUG=false` 时默认已是 SMTP |
+| `EMAIL_HOST` | `smtp.postmarkapp.com` |
+| `EMAIL_PORT` | `587` |
+| `EMAIL_USE_TLS` | `true` |
+| `EMAIL_USE_SSL` | `false` |
+| `EMAIL_HOST_USER` | 你的 **Server API Token** |
+| `EMAIL_HOST_PASSWORD` | **同上**（与 USER 完全一致） |
+| `DEFAULT_FROM_EMAIL` | 已在 Postmark 验证过的发件邮箱，如 `noreply@yourdomain.com` |
+| `EMAIL_TIMEOUT` | 可选 `30`～`60`（Postmark 通常较快） |
+
+保存后 **重新部署** 服务。
+
+#### 5. 自测
+
+1. 登录云迹 → **设置 → 绑定邮箱**，向自己的邮箱发验证码。  
+2. 或在 Postmark 后台 **Activity** 查看是否入队、是否被拒及原因。
+
+#### 6. 常见问题
+
+- **发件人被拒**：检查 `DEFAULT_FROM_EMAIL` 是否在 Postmark 里已验证（域名或单邮箱）。  
+- **认证失败**：确认用的是 **Server API Token**，且 USER / PASSWORD 均为同一 Token。  
+- **广播类邮件**：若将来走 Broadcast Stream，SMTP 主机可能为 `smtp-broadcasts.postmarkapp.com`；云迹验证码属 **Transactional**，用 `smtp.postmarkapp.com` 即可。
+
 ---
 
 ## 本地开发
