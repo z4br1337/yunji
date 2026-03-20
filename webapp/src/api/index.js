@@ -368,3 +368,13 @@ export async function adminGetEmotionPosts() {
   if (LOCAL_TEST_MODE) return mock.mockAdminGetEmotionPosts()
   return request('/admin/emotion/list')
 }
+
+export async function adminGetEmotionHistory() {
+  if (LOCAL_TEST_MODE) return mock.mockAdminGetEmotionHistory()
+  return request('/admin/emotion/history')
+}
+
+export async function adminGetReviewHistory() {
+  if (LOCAL_TEST_MODE) return mock.mockAdminGetReviewHistory()
+  return request('/admin/review/history')
+}

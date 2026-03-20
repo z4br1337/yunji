@@ -13,10 +13,14 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.db import models as db_models
-from django.db.models import Q, F, Count, Max
+from django.db.models import Q, F, Count, Max, Exists, OuterRef
 from django.conf import settings
 
-from .models import User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare, ShopItem, ExchangeRecord
+from .constants import ALLOWED_CLASSES, is_allowed_class
+from .models import (
+    User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare,
+    ShopItem, ExchangeRecord, AdminActionLog,
+)
 
 EXP_PER_POST = 10
 EXP_TO_SCORE_RATIO = 5  # 每5经验值=1积分
@@ -24,6 +28,51 @@ ACHIEVEMENT_BASE_EXP = 500
 ACHIEVEMENT_LEVEL_MULTIPLIER = 500
 ACHIEVEMENT_MAX_EXP = 2500
 PAGE_SIZE = 20
+
+
+def _log_admin_action(admin, action, target_type, target_id, detail):
+    AdminActionLog.objects.create(
+        admin_id=admin.openid,
+        action=action,
+        target_type=target_type,
+        target_id=str(target_id),
+        detail=detail or {},
+    )
+
+
+def _admin_class_err(admin):
+    if not is_allowed_class(admin.user_class):
+        return err('PROFILE_INCOMPLETE', '请先在「我的」完善资料并选择班级')
+    return None
+
+
+def _admin_class_value(admin):
+    return (admin.user_class or '').strip()
+
+
+def _user_in_admin_class(admin, author_openid):
+    ac = _admin_class_value(admin)
+    if not is_allowed_class(ac):
+        return False
+    try:
+        u = User.objects.get(openid=author_openid)
+        return (u.user_class or '').strip() == ac
+    except User.DoesNotExist:
+        return False
+
+
+def _ensure_post_admin_scope(admin, post_id):
+    e = _admin_class_err(admin)
+    if e:
+        return None, e
+    try:
+        pid = int(post_id)
+        p = Post.objects.get(id=pid)
+    except (Post.DoesNotExist, ValueError, TypeError):
+        return None, err('NOT_FOUND', '帖子不存在')
+    if not _user_in_admin_class(admin, p.author_id):
+        return None, err('FORBIDDEN', '无权操作其他班级的帖子')
+    return p, None
 
 
 def ok(data=None, message='ok'):
@@ -208,14 +257,18 @@ def user_profile(request):
     if nickname is not None:
         user.nickname = nickname
     if user_class is not None:
-        user.user_class = user_class
+        ucls = (user_class or '').strip()
+        if ucls and not is_allowed_class(ucls):
+            return err('INVALID_PARAMS', '请从列表中选择合法班级')
+        user.user_class = ucls
     if growth_book_public is not None:
         user.growth_book_public = bool(growth_book_public)
     if avatar_url is not None:
         user.avatar_url = avatar_url
 
-    if nickname and user_class:
-        user.profile_completed = True
+    user.profile_completed = bool(
+        (user.nickname or '').strip() and is_allowed_class(user.user_class)
+    )
 
     user.save()
     return ok({'user': user_to_dict(user, post_count_exclude_emotion=True), 'profileCompleted': user.profile_completed})
@@ -401,8 +454,12 @@ def post_detail(request):
         return err('NOT_FOUND', '帖子不存在')
     openid = request.user_token
     user = get_or_create_user(openid)
-    if p.category == 'emotion' and user.role != 'admin' and p.author_id != openid:
-        return err('FORBIDDEN', '无权查看该情感倾诉')
+    if p.category == 'emotion':
+        if user.role == 'admin':
+            if not _user_in_admin_class(user, p.author_id):
+                return err('FORBIDDEN', '无权查看该情感倾诉')
+        elif p.author_id != openid:
+            return err('FORBIDDEN', '无权查看该情感倾诉')
     return ok({'posts': [post_to_dict(p, reveal_author=user.role == 'admin')], 'total': 1, 'hasMore': False})
 
 
@@ -414,8 +471,18 @@ def comment_add(request):
     openid = request.user_token
     user = get_or_create_user(openid)
     body = get_body(request)
+    try:
+        p = Post.objects.get(id=int(body.get('postId')))
+    except (Post.DoesNotExist, ValueError, TypeError):
+        return err('NOT_FOUND', '帖子不存在')
+    if user.role == 'admin':
+        e2 = _admin_class_err(user)
+        if e2:
+            return e2
+        if not _user_in_admin_class(user, p.author_id):
+            return err('FORBIDDEN', '无权评论其他班级的帖子')
     c = Comment.objects.create(
-        post_id=int(body.get('postId')),
+        post_id=p.id,
         author_id=openid,
         author_name=user.nickname,
         is_admin=user.role == 'admin',
@@ -429,7 +496,19 @@ def comment_add(request):
 def comment_list(request):
     body = get_body(request)
     post_id = body.get('postId')
-    comments = Comment.objects.filter(post_id=int(post_id))
+    try:
+        p = Post.objects.get(id=int(post_id))
+    except (Post.DoesNotExist, ValueError, TypeError):
+        return err('NOT_FOUND', '帖子不存在')
+    openid = request.user_token
+    viewer = get_or_create_user(openid)
+    if p.category == 'emotion':
+        if viewer.role == 'admin':
+            if not _user_in_admin_class(viewer, p.author_id):
+                return err('FORBIDDEN', '无权查看')
+        elif p.author_id != openid:
+            return err('FORBIDDEN', '无权查看')
+    comments = Comment.objects.filter(post_id=p.id)
     return ok({'comments': [{
         '_id': str(c.id), 'postId': str(c.post_id), 'authorId': c.author_id,
         'authorName': c.author_name, 'isAdmin': c.is_admin, 'content': c.content,
@@ -705,17 +784,21 @@ def _check_admin(request):
 def admin_reports(request):
     admin, e = _check_admin(request)
     if e: return e
-    body = get_body(request)
-    f = body.get('filter', {})
-    page = int(body.get('page', 1))
-    qs = Post.objects.all()
-    if f.get('status'):
-        qs = qs.filter(status=f['status'])
-    total = qs.count()
-    start = (page - 1) * PAGE_SIZE
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    base = Post.objects.filter(author__user_class=ac).exclude(category='emotion')
+    flagged_qs = base.filter(status='flagged').order_by('-created_at')[:100]
+    all_qs = base.order_by('-pinned', '-created_at')[:200]
+    flagged_list = [post_to_dict(p, reveal_author=True) for p in flagged_qs]
+    all_list = [post_to_dict(p, reveal_author=True) for p in all_qs]
     return ok({
-        'posts': [post_to_dict(p, reveal_author=True) for p in qs[start:start + PAGE_SIZE]],
-        'total': total, 'hasMore': start + PAGE_SIZE < total,
+        'flagged': flagged_list,
+        'allPosts': all_list,
+        'posts': all_list,
+        'total': len(all_list),
+        'hasMore': False,
     })
 
 
@@ -725,7 +808,21 @@ def admin_post_override(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    Post.objects.filter(id=int(body['postId'])).update(status=body['newStatus'])
+    p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
+    if e2:
+        return e2
+    new_status = body.get('newStatus', '')
+    Post.objects.filter(id=p.id).update(status=new_status)
+    try:
+        author = User.objects.get(openid=p.author_id)
+        _log_admin_action(admin, 'post_override', 'post', p.id, {
+            'newStatus': new_status,
+            'summary': (p.content or '')[:120],
+            'authorNickname': author.nickname,
+            'authorClass': author.user_class or '',
+        })
+    except User.DoesNotExist:
+        _log_admin_action(admin, 'post_override', 'post', p.id, {'newStatus': new_status})
     return ok()
 
 
@@ -735,7 +832,10 @@ def admin_post_category(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    Post.objects.filter(id=int(body['postId'])).update(category=body['newCategory'])
+    p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
+    if e2:
+        return e2
+    Post.objects.filter(id=p.id).update(category=body['newCategory'])
     return ok()
 
 
@@ -744,10 +844,34 @@ def admin_post_category(request):
 def admin_post_batch_override(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     ids = body.get('postIds', [])
-    Post.objects.filter(id__in=[int(i) for i in ids]).update(status=body['newStatus'])
-    return ok({'count': len(ids)})
+    new_status = body.get('newStatus', '')
+    ac = _admin_class_value(admin)
+    allowed_ids = list(
+        Post.objects.filter(
+            id__in=[int(i) for i in ids],
+            author__user_class=ac,
+        ).values_list('id', flat=True)
+    )
+    if allowed_ids:
+        Post.objects.filter(id__in=allowed_ids).update(status=new_status)
+        for pid in allowed_ids:
+            try:
+                p = Post.objects.get(id=pid)
+                author = User.objects.get(openid=p.author_id)
+                _log_admin_action(admin, 'post_override', 'post', pid, {
+                    'newStatus': new_status,
+                    'batch': True,
+                    'authorNickname': author.nickname,
+                    'authorClass': author.user_class or '',
+                })
+            except (Post.DoesNotExist, User.DoesNotExist):
+                pass
+    return ok({'count': len(allowed_ids)})
 
 
 @csrf_exempt
@@ -758,6 +882,8 @@ def admin_post_real_author(request):
     body = get_body(request)
     try:
         p = Post.objects.get(id=int(body['postId']))
+        if not _user_in_admin_class(admin, p.author_id):
+            return ok(None)
         u = User.objects.get(openid=p.author_id)
         return ok({'authorId': p.author_id, 'nickname': u.nickname, 'class': u.user_class})
     except (Post.DoesNotExist, User.DoesNotExist):
@@ -770,7 +896,10 @@ def admin_post_pin(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    Post.objects.filter(id=int(body['postId'])).update(pinned=True)
+    p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
+    if e2:
+        return e2
+    Post.objects.filter(id=p.id).update(pinned=True)
     return ok()
 
 
@@ -780,7 +909,10 @@ def admin_post_unpin(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
-    Post.objects.filter(id=int(body['postId'])).update(pinned=False)
+    p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
+    if e2:
+        return e2
+    Post.objects.filter(id=p.id).update(pinned=False)
     return ok()
 
 
@@ -789,15 +921,20 @@ def admin_post_unpin(request):
 def admin_user_score(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     tid = body.get('userId') or body.get('targetUserId')
     if not tid:
         return err('INVALID_PARAMS', '缺少用户ID')
+    if not _user_in_admin_class(admin, tid):
+        return err('FORBIDDEN', '无权操作其他班级用户')
     score_val = int(body.get('delta', body.get('score', 0)))
     score_delta = score_val * 2  # 导生评分×2
     User.objects.filter(openid=tid).update(score=F('score') + score_delta)
     PointsLog.objects.create(user_id=tid, delta=score_delta, log_type='score', reason='admin_score')
-    return ok({'pointsDelta': delta})
+    return ok({'pointsDelta': score_delta})
 
 
 @csrf_exempt
@@ -809,10 +946,15 @@ def admin_user_profile(request):
     tid = body.get('userId') or body.get('targetUserId')
     if not tid:
         return err('INVALID_PARAMS', '缺少用户ID')
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     try:
         u = User.objects.get(openid=tid)
     except User.DoesNotExist:
         return err('NOT_FOUND', '用户不存在')
+    if not _user_in_admin_class(admin, tid):
+        return err('FORBIDDEN', '无权查看其他班级用户')
 
     post_count = Post.objects.filter(author_id=tid).exclude(category='emotion').count()
     ach_count = Achievement.objects.filter(user_id=tid).count()
@@ -832,12 +974,16 @@ def admin_user_profile(request):
 def admin_user_list(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     kw = body.get('keyword', '')
-    qs = User.objects.all()
+    ac = _admin_class_value(admin)
+    qs = User.objects.filter(user_class=ac)
     if kw:
-        qs = qs.filter(Q(nickname__icontains=kw) | Q(user_class__icontains=kw) | Q(openid__icontains=kw))
-    return ok({'users': [user_to_dict(u) for u in qs[:50]]})
+        qs = qs.filter(Q(nickname__icontains=kw) | Q(openid__icontains=kw))
+    return ok({'users': [user_to_dict(u) for u in qs[:80]]})
 
 
 @csrf_exempt
@@ -845,8 +991,14 @@ def admin_user_list(request):
 def admin_user_posts(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
-    posts = Post.objects.filter(author_id=body['targetUserId'])
+    tid = body.get('targetUserId')
+    if not tid or not _user_in_admin_class(admin, tid):
+        return err('FORBIDDEN', '无权查看')
+    posts = Post.objects.filter(author_id=tid)
     return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
 
 
@@ -863,8 +1015,62 @@ def admin_user_contact(request):
 def admin_emotion_list(request):
     admin, e = _check_admin(request)
     if e: return e
-    posts = Post.objects.filter(category='emotion').order_by('-created_at')[:100]
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    posts = Post.objects.filter(
+        category='emotion', author__user_class=ac,
+    ).order_by('-created_at')[:100]
     return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
+
+
+@csrf_exempt
+@require_POST
+def admin_emotion_history(request):
+    """本导生已回复过的同班情感倾诉"""
+    admin, e = _check_admin(request)
+    if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    commented_by_me = Comment.objects.filter(
+        post_id=OuterRef('pk'),
+        author_id=admin.openid,
+        is_admin=True,
+    )
+    posts = Post.objects.filter(
+        category='emotion',
+        author__user_class=ac,
+    ).annotate(
+        _has_my_reply=Exists(commented_by_me),
+    ).filter(_has_my_reply=True).order_by('-created_at')[:100]
+    return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
+
+
+@csrf_exempt
+@require_POST
+def admin_review_history(request):
+    """本导生对本班的处理记录"""
+    admin, e = _check_admin(request)
+    if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    logs = AdminActionLog.objects.filter(
+        admin_id=admin.openid,
+        detail__authorClass=ac,
+    ).order_by('-created_at')[:200]
+    return ok({'logs': [{
+        '_id': str(l.id),
+        'action': l.action,
+        'targetType': l.target_type,
+        'targetId': l.target_id,
+        'detail': l.detail,
+        'createdAt': l.created_at.isoformat() if l.created_at else '',
+    } for l in logs]})
 
 
 @csrf_exempt
@@ -884,8 +1090,11 @@ def admin_comment_add(request):
     admin, e = _check_admin(request)
     if e: return e
     body = get_body(request)
+    p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
+    if e2:
+        return e2
     c = Comment.objects.create(
-        post_id=int(body['postId']),
+        post_id=p.id,
         author_id=admin.openid,
         author_name=admin.nickname,
         is_admin=True,
@@ -899,7 +1108,11 @@ def admin_comment_add(request):
 def admin_achievement_pending(request):
     admin, e = _check_admin(request)
     if e: return e
-    achs = Achievement.objects.filter(status='pending')
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    achs = Achievement.objects.filter(status='pending', user__user_class=ac)
     return ok({'achievements': [ach_to_dict(a) for a in achs]})
 
 
@@ -908,6 +1121,9 @@ def admin_achievement_pending(request):
 def admin_achievement_approve(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     ach_id = body.get('achievementId') or body.get('id')
     if not ach_id:
@@ -916,6 +1132,8 @@ def admin_achievement_approve(request):
         a = Achievement.objects.get(id=int(ach_id), status='pending')
     except Achievement.DoesNotExist:
         return err('NOT_FOUND', '成果不存在或已处理')
+    if not _user_in_admin_class(admin, a.user_id):
+        return err('FORBIDDEN', '无权审核其他班级的成果')
 
     level = min(max(a.level, 1), 5)
     exp_gain = min(ACHIEVEMENT_BASE_EXP + (level - 1) * ACHIEVEMENT_LEVEL_MULTIPLIER, ACHIEVEMENT_MAX_EXP)
@@ -936,6 +1154,16 @@ def admin_achievement_approve(request):
         user_id=a.user_id, delta=exp_gain, log_type='exp',
         reason='achievement_approved', related_id=str(a.id),
     )
+    try:
+        author = User.objects.get(openid=a.user_id)
+        _log_admin_action(admin, 'achievement_approve', 'achievement', a.id, {
+            'title': a.title,
+            'authorNickname': author.nickname,
+            'authorClass': author.user_class or '',
+            'expGain': exp_gain,
+        })
+    except User.DoesNotExist:
+        _log_admin_action(admin, 'achievement_approve', 'achievement', a.id, {'title': a.title})
     return ok({'expGain': exp_gain})
 
 
@@ -944,11 +1172,30 @@ def admin_achievement_approve(request):
 def admin_achievement_reject(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     ach_id = body.get('achievementId') or body.get('id')
     if not ach_id:
         return err('INVALID_PARAMS', '缺少成果ID')
-    Achievement.objects.filter(id=int(ach_id)).update(status='rejected')
+    try:
+        a = Achievement.objects.get(id=int(ach_id), status='pending')
+    except Achievement.DoesNotExist:
+        return err('NOT_FOUND', '成果不存在或已处理')
+    if not _user_in_admin_class(admin, a.user_id):
+        return err('FORBIDDEN', '无权审核其他班级的成果')
+    Achievement.objects.filter(id=a.id).update(status='rejected')
+    try:
+        author = User.objects.get(openid=a.user_id)
+        _log_admin_action(admin, 'achievement_reject', 'achievement', a.id, {
+            'title': a.title,
+            'reason': (body.get('reason') or '')[:200],
+            'authorNickname': author.nickname,
+            'authorClass': author.user_class or '',
+        })
+    except User.DoesNotExist:
+        _log_admin_action(admin, 'achievement_reject', 'achievement', a.id, {'title': a.title})
     return ok()
 
 
@@ -957,8 +1204,13 @@ def admin_achievement_reject(request):
 def admin_growth_book(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     tid = body['targetUserId']
+    if not _user_in_admin_class(admin, tid):
+        return err('FORBIDDEN', '无权查看其他班级用户')
     achs = Achievement.objects.filter(user_id=tid, status='approved')
     try:
         u = User.objects.get(openid=tid)
@@ -968,12 +1220,21 @@ def admin_growth_book(request):
     return ok({'achievements': [ach_to_dict(a) for a in achs], 'user': user_data})
 
 
+def _file_share_user_ids_in_class(admin_class):
+    return User.objects.filter(user_class=admin_class).values_list('openid', flat=True)
+
+
 @csrf_exempt
 @require_POST
 def admin_file_share_pending(request):
     admin, e = _check_admin(request)
     if e: return e
-    items = FileShare.objects.filter(status='pending').order_by('-created_at')[:50]
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    uids = _file_share_user_ids_in_class(ac)
+    items = FileShare.objects.filter(status='pending', user_id__in=uids).order_by('-created_at')[:50]
     return ok({'items': [_file_share_to_dict(f) for f in items]})
 
 
@@ -982,11 +1243,29 @@ def admin_file_share_pending(request):
 def admin_file_share_approve(request):
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     fid = body.get('fileShareId')
     if not fid:
         return err('INVALID_PARAMS', '缺少文件ID')
-    FileShare.objects.filter(id=int(fid), status='pending').update(status='approved')
+    try:
+        fs = FileShare.objects.get(id=int(fid), status='pending')
+    except FileShare.DoesNotExist:
+        return err('NOT_FOUND', '文件不存在或已审核')
+    if not _user_in_admin_class(admin, fs.user_id):
+        return err('FORBIDDEN', '无权审核其他班级的文件')
+    FileShare.objects.filter(id=fs.id).update(status='approved')
+    try:
+        author = User.objects.get(openid=fs.user_id)
+        _log_admin_action(admin, 'file_approve', 'file_share', fs.id, {
+            'title': fs.title,
+            'authorNickname': author.nickname,
+            'authorClass': author.user_class or '',
+        })
+    except User.DoesNotExist:
+        _log_admin_action(admin, 'file_approve', 'file_share', fs.id, {'title': fs.title})
     return ok()
 
 
@@ -996,9 +1275,14 @@ def admin_file_share_list(request):
     """导生获取文件列表：支持 status 筛选 pending / approved"""
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    ac = _admin_class_value(admin)
+    uids = _file_share_user_ids_in_class(ac)
     body = get_body(request)
     status = body.get('status', '')
-    qs = FileShare.objects.all().order_by('-created_at')
+    qs = FileShare.objects.filter(user_id__in=uids).order_by('-created_at')
     if status == 'pending':
         qs = qs.filter(status='pending')
     elif status == 'approved':
@@ -1013,11 +1297,29 @@ def admin_file_share_delete(request):
     """导生删除已发布的文件"""
     admin, e = _check_admin(request)
     if e: return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
     body = get_body(request)
     fid = body.get('fileShareId')
     if not fid:
         return err('INVALID_PARAMS', '缺少文件ID')
-    deleted, _ = FileShare.objects.filter(id=int(fid)).delete()
+    try:
+        fs = FileShare.objects.get(id=int(fid))
+    except FileShare.DoesNotExist:
+        return err('NOT_FOUND', '文件不存在')
+    if not _user_in_admin_class(admin, fs.user_id):
+        return err('FORBIDDEN', '无权删除其他班级的文件')
+    deleted, _ = FileShare.objects.filter(id=fs.id).delete()
+    try:
+        author = User.objects.get(openid=fs.user_id)
+        _log_admin_action(admin, 'file_delete', 'file_share', fid, {
+            'title': fs.title,
+            'authorNickname': author.nickname,
+            'authorClass': author.user_class or '',
+        })
+    except User.DoesNotExist:
+        _log_admin_action(admin, 'file_delete', 'file_share', fid, {'title': fs.title})
     return ok({'deleted': deleted})
 
 

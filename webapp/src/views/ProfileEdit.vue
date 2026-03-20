@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>完善个人资料</h2>
-      <p class="text-secondary text-sm">请填写以下必填信息后方可使用完整功能</p>
+      <p class="text-secondary text-sm">请填写昵称并从列表中选择班级，完成后方可使用完整功能</p>
     </div>
     <div class="card">
       <!-- Avatar -->
@@ -39,7 +39,10 @@
       </div>
       <div class="form-group">
         <label class="form-label">班级 *</label>
-        <input class="form-input" v-model="userClass" placeholder="例如：计科2301" maxlength="20" />
+        <select class="form-input form-select" v-model="userClass" required>
+          <option value="" disabled>请选择班级</option>
+          <option v-for="c in schoolClasses" :key="c" :value="c">{{ c }}</option>
+        </select>
       </div>
       <button class="btn btn-primary btn-block mt-16" :disabled="saving" @click="handleSave">
         {{ saving ? '保存中...' : '保存并继续' }}
@@ -52,7 +55,10 @@
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
+import { SCHOOL_CLASSES } from '../utils/config.js'
 import * as api from '../api/index.js'
+
+const schoolClasses = SCHOOL_CLASSES
 
 const router = useRouter()
 const { state, refreshProfile } = useUserStore()
@@ -69,7 +75,8 @@ const presetAvatars = [1, 2, 4, 5, 6, 7, 8, 9].map(i => `/avatars/avatar${i}.png
 onMounted(() => {
   if (state.userInfo) {
     nickname.value = state.userInfo.nickname || ''
-    userClass.value = state.userInfo.class || ''
+    const c = state.userInfo.class || ''
+    userClass.value = schoolClasses.includes(c) ? c : ''
     selectedAvatar.value = state.userInfo.avatarUrl || ''
   }
 })
@@ -101,8 +108,8 @@ async function onAvatarUpload(e) {
 }
 
 async function handleSave() {
-  if (!nickname.value.trim() || !userClass.value.trim()) {
-    showToast('请填写所有必填项')
+  if (!nickname.value.trim() || !userClass.value.trim() || !schoolClasses.includes(userClass.value)) {
+    showToast('请填写所有必填项并从列表中选择班级')
     return
   }
   saving.value = true
@@ -154,4 +161,5 @@ async function handleSave() {
 .preset-btn img { width: 100%; height: 100%; object-fit: cover; }
 .upload-row { display: flex; align-items: center; gap: 12px; }
 .text-danger { color: var(--danger); }
+.form-select { cursor: pointer; appearance: auto; min-height: 44px; }
 </style>

@@ -26,7 +26,8 @@ const routes = [
   { path: '/admin', name: 'AdminDashboard', component: () => import('../views/admin/Dashboard.vue'), meta: { admin: true } },
   { path: '/admin/emotion-inbox', name: 'EmotionInbox', component: () => import('../views/admin/EmotionInbox.vue'), meta: { admin: true } },
   { path: '/admin/emotion-inbox/:postId', name: 'EmotionInboxDetail', component: () => import('../views/admin/EmotionInboxDetail.vue'), meta: { admin: true } },
-  { path: '/admin/user/:userId', name: 'AdminUserProfile', component: () => import('../views/admin/UserProfile.vue'), meta: { admin: true } }
+  { path: '/admin/user/:userId', name: 'AdminUserProfile', component: () => import('../views/admin/UserProfile.vue'), meta: { admin: true } },
+  { path: '/admin/review-history', name: 'AdminReviewHistory', component: () => import('../views/admin/AdminReviewHistory.vue'), meta: { admin: true } }
 ]
 
 const router = createRouter({
@@ -44,11 +45,20 @@ router.beforeEach((to, from, next) => {
     }
     return next('/login')
   }
+  let user
+  try {
+    user = JSON.parse(stored)
+  } catch {
+    return next('/login')
+  }
+  const profileOk = !!user.profileCompleted
+  const allowIncomplete = to.path === '/profile-edit' || to.path === '/change-password'
+  if (!profileOk && !allowIncomplete) {
+    return next('/profile-edit')
+  }
   if (to.meta.admin) {
-    try {
-      const user = JSON.parse(stored)
-      if (user.role !== 'admin') return next('/feed')
-    } catch { return next('/login') }
+    if (user.role !== 'admin') return next('/feed')
+    if (!profileOk) return next('/profile-edit')
   }
   next()
 })

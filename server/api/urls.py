@@ -54,6 +54,8 @@ urlpatterns = [
     path('admin/user/posts', views.admin_user_posts),
     path('admin/user/contact', views.admin_user_contact),
     path('admin/emotion/list', views.admin_emotion_list),
+    path('admin/emotion/history', views.admin_emotion_history),
+    path('admin/review/history', views.admin_review_history),
     path('admin/invite/generate', views.admin_invite_generate),
     path('admin/comment/add', views.admin_comment_add),
     path('admin/achievement/pending', views.admin_achievement_pending),

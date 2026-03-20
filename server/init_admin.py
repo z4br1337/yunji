@@ -34,8 +34,8 @@ except User.DoesNotExist:
         password_hash=pw_hash,
         nickname='导生',
         role='admin',
-        profile_completed=True,
-        user_class='管理员',
+        profile_completed=False,
+        user_class='',
         exp=100, score=100,
         achievement_counts={},
     )

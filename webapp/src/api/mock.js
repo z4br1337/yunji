@@ -1,7 +1,7 @@
 /**
  * Mock 数据层 —— 本地测试用，脱离服务器独立运行
  */
-import { EXP_RULES } from '../utils/config.js'
+import { EXP_RULES, SCHOOL_CLASSES } from '../utils/config.js'
 import { calcPostExp, calcAchievementExp } from '../utils/level.js'
 
 let _nextId = 100
@@ -14,7 +14,7 @@ let _currentUserId = null
 const _users = {
   test_user_001: {
     _id: 'test_user_001', username: 'testuser', password: '123456',
-    nickname: '测试同学', class: '计科2301', profileCompleted: true, role: 'user',
+    nickname: '测试同学', class: '25行管1班', profileCompleted: true, role: 'user',
     exp: 80, score: 80, postCount: 3,
     achievementCounts: { moral: 0, intellectual: 0, physical: 1, aesthetic: 0, labor: 1 },
     growthBookPublic: false, inviteUsed: null,
@@ -22,7 +22,7 @@ const _users = {
   },
   test_admin_001: {
     _id: 'test_admin_001', username: 'admin', password: '123456',
-    nickname: '导生小王', class: '计科2201', profileCompleted: true, role: 'admin',
+    nickname: '导生小王', class: '25行管1班', profileCompleted: true, role: 'admin',
     exp: 1200, score: 1200, postCount: 5,
     achievementCounts: { moral: 2, intellectual: 3, physical: 1, aesthetic: 0, labor: 0 },
     growthBookPublic: true, inviteUsed: 'ADMIN2026',
@@ -51,7 +51,8 @@ const _comments = [
 
 const _achievements = [
   { _id: 'ach_001', userId: 'test_user_001', title: '校运会100米短跑第三名', description: '在2026年春季校运会中获得百米第三名', category: 'physical', dimension: '', subcategory: '', level: 3, points: 0, expAwarded: 1500, images: [], status: 'approved', createdAt: '2026-03-08T10:00:00Z' },
-  { _id: 'ach_002', userId: 'test_user_001', title: '参与校园清洁志愿活动', description: '连续3天参与图书馆外的绿化清洁', category: 'labor', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-05T14:00:00Z' }
+  { _id: 'ach_002', userId: 'test_user_001', title: '参与校园清洁志愿活动', description: '连续3天参与图书馆外的绿化清洁', category: 'labor', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-05T14:00:00Z' },
+  { _id: 'ach_pending_001', userId: 'test_user_001', title: '待审核德育活动', description: '示例待审核成果', category: 'moral', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 0, images: [], status: 'pending', createdAt: '2026-03-10T12:00:00Z' }
 ]
 
 const _pointsLog = [
@@ -66,7 +67,33 @@ const _invites = [
 
 const _messages = []
 
+/** mock 导生操作记录 */
+let _adminLogs = []
+
 function cur() { return _users[_currentUserId] || null }
+
+function _authorClass(authorId) {
+  const u = _users[authorId]
+  return u ? (u.class || '').trim() : ''
+}
+
+function _adminClass() {
+  const a = cur()
+  return a ? (a.class || '').trim() : ''
+}
+
+function _pushAdminLog(action, targetType, targetId, detail) {
+  const a = cur()
+  if (!a || a.role !== 'admin') return
+  _adminLogs.unshift({
+    _id: genId(),
+    action,
+    targetType,
+    targetId: String(targetId),
+    detail: { ...detail, authorClass: detail.authorClass || _adminClass() },
+    createdAt: now(),
+  })
+}
 
 function addExp(user, amount, reason, relatedId) {
   user.exp = (user.exp || 0) + amount
@@ -124,10 +151,14 @@ export async function mockUpdateProfile(data) {
   const user = cur()
   if (!user) return {}
   if (data.nickname) user.nickname = data.nickname
-  if (data.class) user.class = data.class
-  user.profileCompleted = true
+  if (data.class !== undefined && data.class !== null) {
+    const c = (data.class || '').trim()
+    if (c && !SCHOOL_CLASSES.includes(c)) throw new Error('请从列表中选择合法班级')
+    user.class = c
+  }
+  user.profileCompleted = !!(user.nickname && user.nickname.trim() && SCHOOL_CLASSES.includes(user.class))
   user.updatedAt = now()
-  return safeUser(user)
+  return { user: safeUser(user), profileCompleted: user.profileCompleted }
 }
 
 export async function mockUseInviteCode(code) {
@@ -184,7 +215,14 @@ export async function mockGetPostDetail(postId) {
     if (!user) throw new Error('请先登录')
     const isAdmin = user.role === 'admin'
     const isAuthor = post.authorId === user._id
-    if (!isAdmin && !isAuthor) throw new Error('无权查看该情感倾诉')
+    if (isAdmin) {
+      const ac = _adminClass()
+      if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
+        throw new Error('无权查看该情感倾诉')
+      }
+    } else if (!isAuthor) {
+      throw new Error('无权查看该情感倾诉')
+    }
   }
   const isAdmin = user && user.role === 'admin'
   const authorUser = _users[post.authorId]
@@ -231,6 +269,13 @@ export async function mockGetComments(postId) {
 export async function mockAddComment(postId, content) {
   await delay()
   const user = cur()
+  const post = _posts.find(p => p._id === postId)
+  if (user && user.role === 'admin' && post) {
+    const ac = _adminClass()
+    if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
+      throw new Error('无权评论其他班级的帖子')
+    }
+  }
   const comment = { _id: genId(), postId, authorId: _currentUserId, authorName: user ? user.nickname : '未知', isAdmin: user ? user.role === 'admin' : false, content, createdAt: now() }
   _comments.push(comment)
   return { commentId: comment._id }
@@ -322,39 +367,74 @@ export async function mockUploadImage(file) {
 
 export async function mockAdminGetReports() {
   await delay()
-  return { flagged: _posts.filter(p => p.status === 'flagged'), allPosts: _posts.filter(p => p.category !== 'emotion'), total: _posts.length }
+  const ac = _adminClass()
+  const inClass = (p) => _authorClass(p.authorId) === ac && SCHOOL_CLASSES.includes(ac)
+  const base = _posts.filter(p => inClass(p) && p.category !== 'emotion')
+  return {
+    flagged: base.filter(p => p.status === 'flagged'),
+    allPosts: base,
+    posts: base,
+    total: base.length,
+    hasMore: false,
+  }
 }
 
 export async function mockAdminOverridePost(postId, action) {
   await delay()
   const post = _posts.find(p => p._id === postId)
-  if (post) { post.status = action; post.updatedAt = now() }
+  if (!post) return {}
+  const ac = _adminClass()
+  if (_authorClass(post.authorId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权操作其他班级的帖子')
+  post.status = action
+  post.updatedAt = now()
+  const au = _users[post.authorId]
+  _pushAdminLog('post_override', 'post', postId, {
+    newStatus: action,
+    summary: (post.content || '').slice(0, 120),
+    authorNickname: au ? au.nickname : '',
+    authorClass: au ? au.class : ac,
+  })
   return {}
 }
 
 export async function mockAdminPinPost(postId) {
   await delay()
   const post = _posts.find(p => p._id === postId)
-  if (post) { post.pinned = true; post.updatedAt = now() }
+  if (!post) return {}
+  const ac = _adminClass()
+  if (_authorClass(post.authorId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权操作')
+  post.pinned = true
+  post.updatedAt = now()
   return {}
 }
 
 export async function mockAdminUnpinPost(postId) {
   await delay()
   const post = _posts.find(p => p._id === postId)
-  if (post) { post.pinned = false; post.updatedAt = now() }
+  if (!post) return {}
+  const ac = _adminClass()
+  if (_authorClass(post.authorId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权操作')
+  post.pinned = false
+  post.updatedAt = now()
   return {}
 }
 
 export async function mockAdminGetPendingAchievements() {
   await delay()
-  return { achievements: _achievements.filter(a => a.status === 'pending') }
+  const ac = _adminClass()
+  return {
+    achievements: _achievements.filter(
+      a => a.status === 'pending' && _authorClass(a.userId) === ac && SCHOOL_CLASSES.includes(ac)
+    ),
+  }
 }
 
 export async function mockAdminApproveAchievement(id, level) {
   await delay()
   const ach = _achievements.find(a => a._id === id)
   if (!ach) return {}
+  const ac = _adminClass()
+  if (_authorClass(ach.userId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权审核其他班级的成果')
   ach.status = 'approved'
   if (level) ach.level = level
   const user = _users[ach.userId]
@@ -365,19 +445,36 @@ export async function mockAdminApproveAchievement(id, level) {
     if (!user.achievementCounts) user.achievementCounts = {}
     user.achievementCounts[ach.category] = (user.achievementCounts[ach.category] || 0) + 1
   }
+  _pushAdminLog('achievement_approve', 'achievement', id, {
+    title: ach.title,
+    authorNickname: user ? user.nickname : '',
+    authorClass: user ? user.class : ac,
+    expGain: ach.expAwarded,
+  })
   return { expGain: ach.expAwarded }
 }
 
 export async function mockAdminRejectAchievement(id) {
   await delay()
   const ach = _achievements.find(a => a._id === id)
-  if (ach) ach.status = 'rejected'
+  if (!ach) return {}
+  const ac = _adminClass()
+  if (_authorClass(ach.userId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权审核其他班级的成果')
+  ach.status = 'rejected'
+  const user = _users[ach.userId]
+  _pushAdminLog('achievement_reject', 'achievement', id, {
+    title: ach.title,
+    authorNickname: user ? user.nickname : '',
+    authorClass: user ? user.class : ac,
+  })
   return {}
 }
 
 export async function mockAdminGetUserList() {
   await delay()
-  return { users: Object.values(_users).map(safeUser) }
+  const ac = _adminClass()
+  const list = Object.values(_users).filter(u => (u.class || '').trim() === ac && SCHOOL_CLASSES.includes(ac))
+  return { users: list.map(safeUser) }
 }
 
 export async function mockAdminGetUserProfile(userId) {
@@ -406,5 +503,31 @@ export async function mockAdminGenerateInvite() {
 
 export async function mockAdminGetEmotionPosts() {
   await delay()
-  return { posts: _posts.filter(p => p.category === 'emotion') }
+  const ac = _adminClass()
+  return {
+    posts: _posts.filter(
+      p => p.category === 'emotion' && _authorClass(p.authorId) === ac && SCHOOL_CLASSES.includes(ac)
+    ),
+  }
+}
+
+export async function mockAdminGetEmotionHistory() {
+  await delay()
+  const ac = _adminClass()
+  const aid = _currentUserId
+  return {
+    posts: _posts.filter(p => {
+      if (p.category !== 'emotion' || _authorClass(p.authorId) !== ac) return false
+      return _comments.some(
+        c => c.postId === p._id && c.authorId === aid && c.isAdmin
+      )
+    }),
+  }
+}
+
+export async function mockAdminGetReviewHistory() {
+  await delay()
+  const ac = _adminClass()
+  const logs = _adminLogs.filter(l => (l.detail && l.detail.authorClass) === ac)
+  return { logs }
 }

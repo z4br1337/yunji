@@ -94,6 +94,9 @@
         <div class="menu-item" @click="$router.push('/admin/emotion-inbox')">
           <span class="menu-icon">📬</span><span>情感倾诉信息</span><span class="arrow">›</span>
         </div>
+        <div class="menu-item" @click="$router.push('/admin/review-history')">
+          <span class="menu-icon">📜</span><span>处理历史记录</span><span class="arrow">›</span>
+        </div>
       </template>
 
       <div class="divider"></div>

@@ -162,3 +162,17 @@ class ExchangeRecord(models.Model):
     class Meta:
         db_table = 'exchange_records'
         ordering = ['-created_at']
+
+
+class AdminActionLog(models.Model):
+    """导生处理记录（帖子/文件/闪光时刻）"""
+    admin_id = models.CharField(max_length=128, db_index=True)
+    action = models.CharField(max_length=32)  # post_override, achievement_approve, achievement_reject, file_approve, file_delete
+    target_type = models.CharField(max_length=32)  # post, achievement, file_share
+    target_id = models.CharField(max_length=64)
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'admin_action_logs'
+        ordering = ['-created_at']

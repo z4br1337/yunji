@@ -8,6 +8,20 @@ export const API_BASE_URL = '/api'
 
 export const PAGE_SIZE = 20
 
+/** 可选班级（与后端 api/constants.py 保持一致） */
+export const SCHOOL_CLASSES = [
+  '25行管1班',
+  '25行管2班',
+  '25人资1班',
+  '25人资2班',
+  '25法学1班',
+  '25法学2班',
+  '25哲学1班',
+  '25社保1班',
+  '25思政道法1班',
+  '25社工1班',
+]
+
 export const ACHIEVEMENT_CATEGORIES = [
   { key: 'moral', label: '德', icon: '🏅', color: '#E74C3C' },
   { key: 'intellectual', label: '智', icon: '📚', color: '#3498DB' },

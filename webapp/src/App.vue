@@ -25,6 +25,9 @@
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">👤</span><span class="nav-label">我的</span>
         </router-link>
+        <router-link v-if="isAdmin" to="/admin/review-history" class="nav-item" active-class="active">
+          <span class="nav-icon">📜</span><span class="nav-label">处理历史</span>
+        </router-link>
         <router-link v-if="isAdmin" to="/admin" class="nav-item" active-class="active">
           <span class="nav-icon">⚙️</span><span class="nav-label">管理后台</span>
         </router-link>
