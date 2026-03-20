@@ -13,8 +13,8 @@
       <p class="login-subtitle">哲法er交流学习平台</p>
 
       <div class="form-group">
-        <label class="form-label">用户名</label>
-        <input class="form-input" v-model="username" placeholder="请输入用户名" @keyup.enter="handleLogin" />
+        <label class="form-label">用户名或邮箱</label>
+        <input class="form-input" v-model="username" placeholder="用户名，或已绑定邮箱登录" @keyup.enter="handleLogin" />
       </div>
       <div class="form-group">
         <label class="form-label">密码</label>
@@ -33,6 +33,9 @@
       </button>
       <p v-if="!hasAgreed" class="agree-hint">请先阅读并同意《用户使用须知》后方可登录</p>
 
+      <p class="forgot-row">
+        <router-link to="/forgot-password" class="link">忘记密码？</router-link>
+      </p>
       <p class="switch-text">
         没有账号？<router-link to="/register" class="link">立即注册</router-link>
       </p>
@@ -184,7 +187,7 @@ function onCloseNotice() {
 
 async function handleLogin() {
   if (!hasAgreed.value) { showToast('请先阅读并同意《用户使用须知》'); return }
-  if (!username.value.trim()) { errorMsg.value = '请输入账号'; return }
+  if (!username.value.trim()) { errorMsg.value = '请输入用户名或邮箱'; return }
   if (!password.value) { errorMsg.value = '请输入密码'; return }
   loading.value = true
   errorMsg.value = ''
@@ -367,8 +370,9 @@ async function handleLogin() {
   margin-bottom: 10px; font-weight: 500;
 }
 
+.forgot-row { margin-top: 12px; font-size: 0.85rem; text-align: center; }
 /* Register link */
-.switch-text { margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary); }
+.switch-text { margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary); }
 .link { color: var(--primary); font-weight: 600; }
 .link:hover { text-decoration: underline; }
 </style>

@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   { path: '/', redirect: '/feed' },
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { public: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPassword.vue'), meta: { public: true } },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue'), meta: { public: true } },
   { path: '/profile-edit', name: 'ProfileEdit', component: () => import('../views/ProfileEdit.vue') },
   { path: '/change-password', name: 'ChangePassword', component: () => import('../views/ChangePassword.vue') },

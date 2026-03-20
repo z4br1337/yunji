@@ -5,6 +5,10 @@ urlpatterns = [
     # 用户
     path('user/register', views.user_register),
     path('user/login', views.user_login),
+    path('user/forgot-password/send', views.forgot_password_send),
+    path('user/forgot-password/reset', views.forgot_password_reset),
+    path('user/bind-email/send', views.bind_email_send),
+    path('user/bind-email/confirm', views.bind_email_confirm),
     path('user/profile', views.user_profile),
     path('user/change-password', views.user_change_password),
     path('user/invite', views.use_invite_code),

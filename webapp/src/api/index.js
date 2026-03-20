@@ -95,6 +95,28 @@ export async function changePassword(oldPassword, newPassword) {
   return request('/user/change-password', { oldPassword, newPassword })
 }
 
+export async function forgotPasswordSend(email) {
+  if (LOCAL_TEST_MODE) return mock.mockForgotPasswordSend(email)
+  return request('/user/forgot-password/send', { email })
+}
+
+export async function forgotPasswordReset(email, code, newPassword) {
+  if (LOCAL_TEST_MODE) return mock.mockForgotPasswordReset(email, code, newPassword)
+  return request('/user/forgot-password/reset', { email, code, newPassword })
+}
+
+export async function bindEmailSend(email) {
+  if (LOCAL_TEST_MODE) return mock.mockBindEmailSend(email)
+  return request('/user/bind-email/send', { email })
+}
+
+export async function bindEmailConfirm(email, code) {
+  if (LOCAL_TEST_MODE) return mock.mockBindEmailConfirm(email, code)
+  const data = await request('/user/bind-email/confirm', { email, code })
+  clearCache()
+  return data
+}
+
 export async function useInviteCode(code) {
   if (LOCAL_TEST_MODE) return mock.mockUseInviteCode(code)
   const result = await request('/user/invite', { code })

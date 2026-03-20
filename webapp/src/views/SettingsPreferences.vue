@@ -29,6 +29,16 @@
       >
         账号安全
       </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'email'"
+        class="tab-pill"
+        :class="{ active: tab === 'email' }"
+        @click="tab = 'email'"
+      >
+        绑定邮箱
+      </button>
     </nav>
 
     <!-- 个人资料 -->
@@ -111,11 +121,60 @@
       </button>
       <p class="hint text-xs text-muted mt-12">修改成功后需重新登录</p>
     </div>
+
+    <!-- 绑定邮箱 -->
+    <div v-show="tab === 'email'" class="panel card-elevated">
+      <div class="panel-head">
+        <span class="panel-icon">📧</span>
+        <div>
+          <h2>绑定邮箱</h2>
+          <p class="panel-desc">用于找回密码与使用邮箱登录</p>
+        </div>
+      </div>
+
+      <template v-if="boundEmail">
+        <p class="bound-tip">当前已绑定：<strong>{{ boundEmail }}</strong></p>
+        <p class="text-xs text-muted">每个账号仅可绑定一次邮箱。如需更换请联系管理员。</p>
+      </template>
+      <template v-else>
+        <div class="form-group">
+          <label class="form-label">邮箱</label>
+          <input
+            v-model.trim="bindEmailInput"
+            class="form-input input-soft"
+            type="email"
+            placeholder="请输入常用邮箱"
+            autocomplete="email"
+          />
+        </div>
+        <button
+          type="button"
+          class="btn btn-ghost btn-block mb-12"
+          :disabled="bindSendLoading || bindCooldown > 0"
+          @click="sendBindCode"
+        >
+          {{ bindCooldown > 0 ? `${bindCooldown}s 后可重发` : (bindSendLoading ? '发送中...' : '发送验证码') }}
+        </button>
+        <div class="form-group">
+          <label class="form-label">5 位验证码</label>
+          <input
+            v-model.trim="bindCodeInput"
+            class="form-input input-soft"
+            inputmode="numeric"
+            maxlength="5"
+            placeholder="查收邮件后填写"
+          />
+        </div>
+        <button class="btn btn-primary btn-block btn-save" :disabled="bindConfirmLoading" @click="confirmBind">
+          {{ bindConfirmLoading ? '提交中...' : '确认绑定' }}
+        </button>
+      </template>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted, watch } from 'vue'
+import { ref, reactive, inject, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { SCHOOL_CLASSES } from '../utils/config.js'
@@ -143,6 +202,18 @@ const pwdForm = reactive({
 })
 const pwdLoading = ref(false)
 
+const bindEmailInput = ref('')
+const bindCodeInput = ref('')
+const bindSendLoading = ref(false)
+const bindConfirmLoading = ref(false)
+const bindCooldown = ref(0)
+let bindCooldownTimer = null
+
+const boundEmail = computed(() => {
+  const e = (state.userInfo && state.userInfo.email) ? String(state.userInfo.email).trim() : ''
+  return e
+})
+
 function loadProfileFields() {
   if (state.userInfo) {
     nickname.value = state.userInfo.nickname || ''
@@ -156,11 +227,13 @@ onMounted(() => {
   loadProfileFields()
   const q = route.query.tab
   if (q === 'password' || q === 'security') tab.value = 'security'
+  if (q === 'email') tab.value = 'email'
 })
 
 watch(() => route.query.tab, (q) => {
   if (q === 'password' || q === 'security') tab.value = 'security'
   if (q === 'profile') tab.value = 'profile'
+  if (q === 'email') tab.value = 'email'
 })
 
 function selectPreset(url) {
@@ -207,6 +280,49 @@ async function handleSaveProfile() {
     showToast(e.message || '保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+async function sendBindCode() {
+  if (!bindEmailInput.value) {
+    showToast('请输入邮箱')
+    return
+  }
+  bindSendLoading.value = true
+  try {
+    await api.bindEmailSend(bindEmailInput.value)
+    showToast('验证码已发送')
+    bindCooldown.value = 60
+    if (bindCooldownTimer) clearInterval(bindCooldownTimer)
+    bindCooldownTimer = setInterval(() => {
+      bindCooldown.value -= 1
+      if (bindCooldown.value <= 0) {
+        clearInterval(bindCooldownTimer)
+        bindCooldownTimer = null
+      }
+    }, 1000)
+  } catch (e) {
+    showToast(e.message || '发送失败')
+  } finally {
+    bindSendLoading.value = false
+  }
+}
+
+async function confirmBind() {
+  if (!bindEmailInput.value || bindCodeInput.value.length !== 5) {
+    showToast('请填写邮箱与 5 位验证码')
+    return
+  }
+  bindConfirmLoading.value = true
+  try {
+    await api.bindEmailConfirm(bindEmailInput.value, bindCodeInput.value)
+    await refreshProfile()
+    bindCodeInput.value = ''
+    showToast('邮箱绑定成功')
+  } catch (e) {
+    showToast(e.message || '绑定失败')
+  } finally {
+    bindConfirmLoading.value = false
   }
 }
 
@@ -268,7 +384,7 @@ async function submitPassword() {
 .sub { margin: 4px 0 0; font-size: 0.85rem; color: var(--text-muted); }
 
 .tab-strip {
-  display: flex; gap: 8px; padding: 6px;
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 6px;
   background: rgba(255,255,255,0.85);
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -349,4 +465,6 @@ async function submitPassword() {
 .upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .text-danger { color: var(--danger); }
 .form-select { cursor: pointer; appearance: auto; min-height: 44px; }
+.bound-tip { font-size: 0.95rem; color: var(--text-primary); margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
 </style>

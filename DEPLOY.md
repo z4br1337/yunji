@@ -67,6 +67,13 @@
 | `DJANGO_SECRET_KEY` | Django 密钥 | 建议生产环境设置 |
 | `DB_ENGINE` | 数据库类型 | `sqlite` |
 | `MYSQL_*` | MySQL 连接（当 DB_ENGINE=mysql 时） | - |
+| `EMAIL_BACKEND` | Django 邮件后端 | `DEBUG=true` 时为控制台输出；生产一般为 SMTP |
+| `EMAIL_HOST` / `EMAIL_PORT` | SMTP 服务器 | 生产发信必填（找回密码、绑定邮箱） |
+| `EMAIL_USE_TLS` | 是否 TLS | 默认 `true` |
+| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | SMTP 账号密码 | 视服务商要求 |
+| `DEFAULT_FROM_EMAIL` | 发件人地址 | 默认同 `EMAIL_HOST_USER` 或占位值 |
+
+> **找回密码 / 绑定邮箱** 依赖邮件发送。部署到 Zeabur 等环境时，请配置上述 SMTP 相关变量；未配置时接口会返回「邮件发送失败」类错误。
 
 ---
 

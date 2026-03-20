@@ -8,6 +8,7 @@ import os
 import uuid
 import time
 import hashlib
+from datetime import timedelta
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -15,11 +16,15 @@ from django.views.decorators.http import require_POST
 from django.db import models as db_models
 from django.db.models import Q, F, Count, Max, Exists, OuterRef
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.utils import timezone
 
 from .constants import ALLOWED_CLASSES, is_allowed_class
+from . import mail_utils
 from .models import (
     User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare,
-    ShopItem, ExchangeRecord, AdminActionLog,
+    ShopItem, ExchangeRecord, AdminActionLog, EmailVerificationCode,
 )
 
 EXP_PER_POST = 10
@@ -117,6 +122,7 @@ def user_to_dict(u, post_count_exclude_emotion=False):
         'achievementCounts': u.achievement_counts or {},
         'growthBookPublic': u.growth_book_public,
         'inviteUsed': u.invite_used,
+        'email': (u.email or '').strip(),
         'createdAt': u.created_at.isoformat() if u.created_at else '',
         'updatedAt': u.updated_at.isoformat() if u.updated_at else '',
     }
@@ -172,6 +178,20 @@ def _hash_password(password):
     return hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
 
 
+def _normalize_email(email):
+    return (email or '').strip().lower()
+
+
+def _validate_email_format(email):
+    if not email:
+        return False
+    try:
+        validate_email(email)
+    except ValidationError:
+        return False
+    return True
+
+
 # ======================== 用户 ========================
 
 @csrf_exempt
@@ -213,14 +233,23 @@ def user_register(request):
 @require_POST
 def user_login(request):
     body = get_body(request)
-    username = (body.get('username') or '').strip()
+    identifier = (body.get('username') or '').strip()
     password = (body.get('password') or '').strip()
 
-    if username and password:
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return err('USER_NOT_FOUND', '账号不存在')
+    if identifier and password:
+        user = None
+        if '@' in identifier:
+            em = _normalize_email(identifier)
+            if _validate_email_format(em):
+                try:
+                    user = User.objects.get(email__iexact=em)
+                except User.DoesNotExist:
+                    pass
+        if user is None:
+            try:
+                user = User.objects.get(username=identifier)
+            except User.DoesNotExist:
+                return err('USER_NOT_FOUND', '账号不存在')
         if user.password_hash != _hash_password(password):
             return err('WRONG_PASSWORD', '密码错误')
         return ok({
@@ -303,6 +332,154 @@ def user_change_password(request):
     user.password_hash = _hash_password(new_password)
     user.save(update_fields=['password_hash', 'updated_at'])
     return ok({'changed': True})
+
+
+@csrf_exempt
+@require_POST
+def forgot_password_send(request):
+    body = get_body(request)
+    email = _normalize_email(body.get('email') or '')
+    if not email or not _validate_email_format(email):
+        return err('INVALID_PARAMS', '请输入有效邮箱')
+    if not User.objects.filter(email__iexact=email).exists():
+        return err('EMAIL_NOT_BOUND', '该邮箱尚未绑定账号，请登录后在「设置」中绑定邮箱后再试')
+    one_hour_ago = timezone.now() - timedelta(hours=1)
+    sent_recent = EmailVerificationCode.objects.filter(
+        email=email,
+        purpose=EmailVerificationCode.PURPOSE_RESET_PASSWORD,
+        created_at__gte=one_hour_ago,
+    ).count()
+    if sent_recent >= 8:
+        return err('RATE_LIMIT', '发送次数过多，请 1 小时后再试')
+    code = mail_utils.generate_numeric_code()
+    EmailVerificationCode.objects.filter(
+        email=email, purpose=EmailVerificationCode.PURPOSE_RESET_PASSWORD
+    ).delete()
+    EmailVerificationCode.objects.create(
+        email=email, code=code, purpose=EmailVerificationCode.PURPOSE_RESET_PASSWORD, openid=''
+    )
+    try:
+        mail_utils.send_verification_email(email, code)
+    except Exception:
+        EmailVerificationCode.objects.filter(
+            email=email, purpose=EmailVerificationCode.PURPOSE_RESET_PASSWORD, code=code
+        ).delete()
+        return err('MAIL_ERROR', '邮件发送失败，请检查服务器邮件配置或稍后重试')
+    return ok({}, message='验证码已发送，请查收邮件')
+
+
+@csrf_exempt
+@require_POST
+def forgot_password_reset(request):
+    body = get_body(request)
+    email = _normalize_email(body.get('email') or '')
+    code = (body.get('code') or '').strip()
+    new_password = (body.get('newPassword') or '').strip()
+    if not email or not code or not new_password:
+        return err('INVALID_PARAMS', '请填写邮箱、验证码与新密码')
+    if len(new_password) < 6:
+        return err('INVALID_PARAMS', '新密码长度至少 6 位')
+    try:
+        user = User.objects.get(email__iexact=email)
+    except User.DoesNotExist:
+        return err('INVALID_PARAMS', '邮箱或验证码不正确')
+    cutoff = timezone.now() - timedelta(minutes=mail_utils.CODE_VALID_MINUTES)
+    rec = EmailVerificationCode.objects.filter(
+        email=email,
+        purpose=EmailVerificationCode.PURPOSE_RESET_PASSWORD,
+        code=code,
+        created_at__gte=cutoff,
+    ).order_by('-created_at').first()
+    if not rec:
+        return err('INVALID_CODE', '验证码无效或已过期')
+    user.password_hash = _hash_password(new_password)
+    user.save(update_fields=['password_hash', 'updated_at'])
+    EmailVerificationCode.objects.filter(
+        email=email, purpose=EmailVerificationCode.PURPOSE_RESET_PASSWORD
+    ).delete()
+    return ok({}, message='密码已重置，请使用新密码登录')
+
+
+@csrf_exempt
+@require_POST
+def bind_email_send(request):
+    openid = request.user_token
+    if not openid:
+        return err('UNAUTHORIZED', '请先登录')
+    body = get_body(request)
+    email = _normalize_email(body.get('email') or '')
+    if not email or not _validate_email_format(email):
+        return err('INVALID_PARAMS', '请输入有效邮箱')
+    try:
+        user = User.objects.get(openid=openid)
+    except User.DoesNotExist:
+        return err('USER_NOT_FOUND', '用户不存在')
+    if (user.email or '').strip():
+        return err('ALREADY_BOUND', '已绑定邮箱')
+    if User.objects.exclude(openid=openid).filter(email__iexact=email).exists():
+        return err('EMAIL_IN_USE', '该邮箱已被其他账号使用')
+    one_hour_ago = timezone.now() - timedelta(hours=1)
+    sent_recent = EmailVerificationCode.objects.filter(
+        email=email,
+        purpose=EmailVerificationCode.PURPOSE_BIND_EMAIL,
+        openid=openid,
+        created_at__gte=one_hour_ago,
+    ).count()
+    if sent_recent >= 8:
+        return err('RATE_LIMIT', '发送次数过多，请稍后重试')
+    code = mail_utils.generate_numeric_code()
+    EmailVerificationCode.objects.filter(
+        email=email, purpose=EmailVerificationCode.PURPOSE_BIND_EMAIL, openid=openid
+    ).delete()
+    EmailVerificationCode.objects.create(
+        email=email, code=code, purpose=EmailVerificationCode.PURPOSE_BIND_EMAIL, openid=openid
+    )
+    try:
+        mail_utils.send_verification_email(email, code)
+    except Exception:
+        EmailVerificationCode.objects.filter(
+            email=email, purpose=EmailVerificationCode.PURPOSE_BIND_EMAIL,
+            openid=openid, code=code,
+        ).delete()
+        return err('MAIL_ERROR', '邮件发送失败，请检查服务器邮件配置或稍后重试')
+    return ok({}, message='验证码已发送')
+
+
+@csrf_exempt
+@require_POST
+def bind_email_confirm(request):
+    openid = request.user_token
+    if not openid:
+        return err('UNAUTHORIZED', '请先登录')
+    body = get_body(request)
+    email = _normalize_email(body.get('email') or '')
+    code = (body.get('code') or '').strip()
+    if not email or not code:
+        return err('INVALID_PARAMS', '请填写邮箱与验证码')
+    try:
+        user = User.objects.get(openid=openid)
+    except User.DoesNotExist:
+        return err('USER_NOT_FOUND', '用户不存在')
+    if (user.email or '').strip():
+        return err('ALREADY_BOUND', '已绑定邮箱')
+    if User.objects.exclude(openid=openid).filter(email__iexact=email).exists():
+        return err('EMAIL_IN_USE', '该邮箱已被其他账号使用')
+    cutoff = timezone.now() - timedelta(minutes=mail_utils.CODE_VALID_MINUTES)
+    rec = EmailVerificationCode.objects.filter(
+        email=email,
+        purpose=EmailVerificationCode.PURPOSE_BIND_EMAIL,
+        openid=openid,
+        code=code,
+        created_at__gte=cutoff,
+    ).order_by('-created_at').first()
+    if not rec:
+        return err('INVALID_CODE', '验证码无效或已过期')
+    user.email = email
+    user.save(update_fields=['email', 'updated_at'])
+    EmailVerificationCode.objects.filter(
+        email=email, purpose=EmailVerificationCode.PURPOSE_BIND_EMAIL, openid=openid
+    ).delete()
+    return ok({'user': user_to_dict(user, post_count_exclude_emotion=True)})
 
 
 @csrf_exempt

@@ -21,6 +21,7 @@ class User(models.Model):
     achievement_counts = models.JSONField(default=dict)
     growth_book_public = models.BooleanField(default=False)
     invite_used = models.CharField(max_length=64, null=True, blank=True)
+    email = models.EmailField(max_length=254, unique=True, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -175,4 +176,20 @@ class AdminActionLog(models.Model):
 
     class Meta:
         db_table = 'admin_action_logs'
+        ordering = ['-created_at']
+
+
+class EmailVerificationCode(models.Model):
+    """邮箱验证码（找回密码 / 绑定邮箱）"""
+    PURPOSE_RESET_PASSWORD = 'reset_password'
+    PURPOSE_BIND_EMAIL = 'bind_email'
+
+    email = models.EmailField(max_length=254, db_index=True)
+    code = models.CharField(max_length=8)
+    purpose = models.CharField(max_length=32)
+    openid = models.CharField(max_length=128, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'email_verification_codes'
         ordering = ['-created_at']
