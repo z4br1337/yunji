@@ -68,7 +68,7 @@
 | `DB_ENGINE` | 数据库类型 | `sqlite` |
 | `MYSQL_*` | MySQL 连接（当 DB_ENGINE=mysql 时） | - |
 | `EMAIL_BACKEND` | Django 邮件后端 | `DEBUG=true` 时为控制台输出；生产一般为 SMTP |
-| `EMAIL_HOST` / `EMAIL_PORT` | SMTP 服务器 | 生产发信必填（找回密码、绑定邮箱） |
+| `EMAIL_HOST` / `EMAIL_PORT` | SMTP 服务器 | 当前主流程为**学号绑定/登录**，邮件变量仅在你自行扩展发信功能时需要 |
 | `EMAIL_USE_TLS` | 是否 STARTTLS（常见于 587） | 默认 `true` |
 | `EMAIL_USE_SSL` | 是否 SSL 直连（常见于 465） | 默认 `false`；为 `true` 时一般需 `EMAIL_USE_TLS=false` |
 | `EMAIL_TIMEOUT` | SMTP 连接/读写超时（秒） | 默认 `45`（海外机房建议 `60`～`90`） |
@@ -77,7 +77,7 @@
 | `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | SMTP 账号密码 | 视服务商要求 |
 | `DEFAULT_FROM_EMAIL` | 发件人地址 | 默认同 `EMAIL_HOST_USER` 或占位值 |
 
-> **找回密码 / 绑定邮箱** 依赖邮件发送。部署到 Zeabur 等环境时，请配置上述 SMTP 相关变量；未配置时接口会返回「邮件发送失败」类错误。
+> 产品端已改为 **绑定学号** 与 **用户名/学号登录**，不再依赖邮件验证码。若你 fork 后自行加回邮件能力，可继续配置上述 SMTP 变量。
 
 ### 服务器在海外（如东京）发信超时怎么办？
 
@@ -145,8 +145,7 @@ Postmark **只允许已验证的发件地址** 发信：
 
 #### 5. 自测
 
-1. 登录云迹 → **设置 → 绑定邮箱**，向自己的邮箱发验证码。  
-2. 或在 Postmark 后台 **Activity** 查看是否入队、是否被拒及原因。
+在 Postmark 后台 **Activity** 查看是否入队、是否被拒及原因（需在你自行接入发信代码后才有流量）。
 
 #### 6. 常见问题
 

@@ -32,12 +32,12 @@
       <button
         type="button"
         role="tab"
-        :aria-selected="tab === 'email'"
+        :aria-selected="tab === 'student'"
         class="tab-pill"
-        :class="{ active: tab === 'email' }"
-        @click="tab = 'email'"
+        :class="{ active: tab === 'student' }"
+        @click="tab = 'student'"
       >
-        绑定邮箱
+        绑定学号
       </button>
     </nav>
 
@@ -122,51 +122,35 @@
       <p class="hint text-xs text-muted mt-12">修改成功后需重新登录</p>
     </div>
 
-    <!-- 绑定邮箱 -->
-    <div v-show="tab === 'email'" class="panel card-elevated">
+    <!-- 绑定学号 -->
+    <div v-show="tab === 'student'" class="panel card-elevated">
       <div class="panel-head">
-        <span class="panel-icon">📧</span>
+        <span class="panel-icon">🎓</span>
         <div>
-          <h2>绑定邮箱</h2>
-          <p class="panel-desc">用于找回密码与使用邮箱登录</p>
+          <h2>绑定学号</h2>
+          <p class="panel-desc">绑定后可使用学号登录（4～32 位字母、数字、下划线或短横线）</p>
         </div>
       </div>
 
-      <template v-if="boundEmail">
-        <p class="bound-tip">当前已绑定：<strong>{{ boundEmail }}</strong></p>
-        <p class="text-xs text-muted">每个账号仅可绑定一次邮箱。如需更换请联系管理员。</p>
+      <template v-if="boundStudentId">
+        <p class="bound-tip">当前已绑定学号：<strong>{{ boundStudentId }}</strong></p>
+        <p class="text-xs text-muted">每个账号仅可绑定一次学号。如需更换请联系管理员。</p>
       </template>
       <template v-else>
         <div class="form-group">
-          <label class="form-label">邮箱</label>
+          <label class="form-label">学号</label>
           <input
-            v-model.trim="bindEmailInput"
+            v-model.trim="bindStudentInput"
             class="form-input input-soft"
-            type="email"
-            placeholder="请输入常用邮箱"
-            autocomplete="email"
+            type="text"
+            placeholder="请输入学号"
+            autocomplete="username"
+            maxlength="32"
           />
         </div>
-        <button
-          type="button"
-          class="btn btn-ghost btn-block mb-12"
-          :disabled="bindSendLoading || bindCooldown > 0"
-          @click="sendBindCode"
-        >
-          {{ bindCooldown > 0 ? `${bindCooldown}s 后可重发` : (bindSendLoading ? '发送中...' : '发送验证码') }}
-        </button>
-        <div class="form-group">
-          <label class="form-label">5 位验证码</label>
-          <input
-            v-model.trim="bindCodeInput"
-            class="form-input input-soft"
-            inputmode="numeric"
-            maxlength="5"
-            placeholder="查收邮件后填写"
-          />
-        </div>
-        <button class="btn btn-primary btn-block btn-save" :disabled="bindConfirmLoading" @click="confirmBind">
-          {{ bindConfirmLoading ? '提交中...' : '确认绑定' }}
+        <p class="text-xs text-muted mb-12">请仔细核对：一个学号在全平台只能绑定一个账号，提交后不可自行修改。</p>
+        <button class="btn btn-primary btn-block btn-save" :disabled="bindStudentLoading" @click="submitBindStudent">
+          {{ bindStudentLoading ? '提交中...' : '确认绑定学号' }}
         </button>
       </template>
     </div>
@@ -202,16 +186,12 @@ const pwdForm = reactive({
 })
 const pwdLoading = ref(false)
 
-const bindEmailInput = ref('')
-const bindCodeInput = ref('')
-const bindSendLoading = ref(false)
-const bindConfirmLoading = ref(false)
-const bindCooldown = ref(0)
-let bindCooldownTimer = null
+const bindStudentInput = ref('')
+const bindStudentLoading = ref(false)
 
-const boundEmail = computed(() => {
-  const e = (state.userInfo && state.userInfo.email) ? String(state.userInfo.email).trim() : ''
-  return e
+const boundStudentId = computed(() => {
+  const s = state.userInfo && state.userInfo.studentId ? String(state.userInfo.studentId).trim() : ''
+  return s
 })
 
 function loadProfileFields() {
@@ -227,13 +207,13 @@ onMounted(() => {
   loadProfileFields()
   const q = route.query.tab
   if (q === 'password' || q === 'security') tab.value = 'security'
-  if (q === 'email') tab.value = 'email'
+  if (q === 'email' || q === 'student') tab.value = 'student'
 })
 
 watch(() => route.query.tab, (q) => {
   if (q === 'password' || q === 'security') tab.value = 'security'
   if (q === 'profile') tab.value = 'profile'
-  if (q === 'email') tab.value = 'email'
+  if (q === 'email' || q === 'student') tab.value = 'student'
 })
 
 function selectPreset(url) {
@@ -283,46 +263,26 @@ async function handleSaveProfile() {
   }
 }
 
-async function sendBindCode() {
-  if (!bindEmailInput.value) {
-    showToast('请输入邮箱')
+async function submitBindStudent() {
+  const sid = bindStudentInput.value.trim()
+  if (!sid) {
+    showToast('请输入学号')
     return
   }
-  bindSendLoading.value = true
+  const okConfirm = window.confirm(
+    '确定绑定该学号吗？\n\n重要提示：一个学号只能绑定一个账号；绑定成功后不可自行修改，请确保学号填写正确。'
+  )
+  if (!okConfirm) return
+  bindStudentLoading.value = true
   try {
-    await api.bindEmailSend(bindEmailInput.value)
-    showToast('验证码已发送')
-    bindCooldown.value = 60
-    if (bindCooldownTimer) clearInterval(bindCooldownTimer)
-    bindCooldownTimer = setInterval(() => {
-      bindCooldown.value -= 1
-      if (bindCooldown.value <= 0) {
-        clearInterval(bindCooldownTimer)
-        bindCooldownTimer = null
-      }
-    }, 1000)
-  } catch (e) {
-    showToast(e.message || '发送失败')
-  } finally {
-    bindSendLoading.value = false
-  }
-}
-
-async function confirmBind() {
-  if (!bindEmailInput.value || bindCodeInput.value.length !== 5) {
-    showToast('请填写邮箱与 5 位验证码')
-    return
-  }
-  bindConfirmLoading.value = true
-  try {
-    await api.bindEmailConfirm(bindEmailInput.value, bindCodeInput.value)
+    await api.bindStudentId(sid)
     await refreshProfile()
-    bindCodeInput.value = ''
-    showToast('邮箱绑定成功')
+    bindStudentInput.value = ''
+    showToast('学号绑定成功')
   } catch (e) {
     showToast(e.message || '绑定失败')
   } finally {
-    bindConfirmLoading.value = false
+    bindStudentLoading.value = false
   }
 }
 

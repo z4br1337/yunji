@@ -4,6 +4,19 @@
       <h2 class="page-title">广场</h2>
     </div>
 
+    <div class="search-bar">
+      <input
+        v-model.trim="searchKeyword"
+        class="form-input search-input"
+        type="search"
+        placeholder="搜索帖子关键词…"
+        enterkeyhint="search"
+        @keyup.enter="applySearch"
+      />
+      <button type="button" class="btn btn-primary btn-sm" @click="applySearch">搜索</button>
+      <button v-if="searchKeyword" type="button" class="btn btn-ghost btn-sm" @click="clearSearch">清除</button>
+    </div>
+
     <!-- Category Tabs -->
     <div class="category-bar">
       <button v-for="cat in categories" :key="cat.key"
@@ -48,6 +61,7 @@ const isAdmin = computed(() => state.isAdmin)
 const pageSize = computed(() => (isMobile.value ? 12 : 20))
 const categories = [{ key: 'all', label: '全部' }, ...POST_CATEGORIES]
 const currentCategory = ref('all')
+const searchKeyword = ref('')
 const posts = ref([])
 const loading = ref(false)
 const page = ref(1)
@@ -60,6 +74,8 @@ async function loadPosts(reset = true) {
   try {
     const params = { page: page.value, pageSize: pageSize.value, excludeEmotion: true }
     if (currentCategory.value !== 'all') params.category = currentCategory.value
+    const kw = searchKeyword.value.trim()
+    if (kw) params.keyword = kw
     const result = await api.getPosts(params)
     if (reset) {
       posts.value = result.posts || []
@@ -77,6 +93,15 @@ async function loadPosts(reset = true) {
 
 function switchCategory(key) {
   currentCategory.value = key
+  loadPosts()
+}
+
+function applySearch() {
+  loadPosts()
+}
+
+function clearSearch() {
+  searchKeyword.value = ''
   loadPosts()
 }
 
@@ -111,6 +136,10 @@ watch(() => state.isLoggedIn, (val) => {
 .feed-page { max-width: 680px; margin: 0 auto; padding: 16px; }
 .feed-header { margin-bottom: 16px; }
 .page-title { font-size: 1.4rem; }
+.search-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px;
+}
+.search-input { flex: 1; min-width: 160px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 0.95rem; }
 .category-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
 .category-bar::-webkit-scrollbar { display: none; }
 .cat-btn {

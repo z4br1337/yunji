@@ -11,12 +11,9 @@ const delay = (ms = 80) => new Promise(r => setTimeout(r, ms))
 
 let _currentUserId = null
 
-let _forgotState = { email: '', code: '' }
-let _bindState = { openid: '', email: '', code: '' }
-
 const _users = {
   test_user_001: {
-    _id: 'test_user_001', username: 'testuser', password: '123456', email: 'test@example.com',
+    _id: 'test_user_001', username: 'testuser', password: '123456', email: '', studentId: '2025001001',
     nickname: '测试同学', class: '25行管1班', profileCompleted: true, role: 'user',
     exp: 80, score: 80, postCount: 3,
     achievementCounts: { moral: 0, intellectual: 0, physical: 1, aesthetic: 0, labor: 1 },
@@ -24,7 +21,7 @@ const _users = {
     createdAt: '2026-03-01T08:00:00Z', updatedAt: '2026-03-10T08:00:00Z'
   },
   test_admin_001: {
-    _id: 'test_admin_001', username: 'admin', password: '123456', email: 'admin@example.com',
+    _id: 'test_admin_001', username: 'admin', password: '123456', email: '', studentId: '2025999001',
     nickname: '导生小王', class: '25行管1班', profileCompleted: true, role: 'admin',
     exp: 1200, score: 1200, postCount: 5,
     achievementCounts: { moral: 2, intellectual: 3, physical: 1, aesthetic: 0, labor: 0 },
@@ -121,7 +118,7 @@ export async function mockRegister(nickname, username, password) {
 
   const id = genId()
   const user = {
-    _id: id, username, password, nickname, email: '',
+    _id: id, username, password, nickname, email: '', studentId: '',
     class: '', profileCompleted: false, role: 'user',
     exp: 10, score: 10, postCount: 0,
     achievementCounts: {}, growthBookPublic: false, inviteUsed: null,
@@ -132,11 +129,11 @@ export async function mockRegister(nickname, username, password) {
   return { user: safeUser(user), token: id }
 }
 
-function _findUserIdByEmail(raw) {
-  const em = (raw || '').trim().toLowerCase()
-  if (!em) return null
+function _findUserIdByStudentId(raw) {
+  const s = (raw || '').trim()
+  if (!s) return null
   for (const id of Object.keys(_users)) {
-    if ((_users[id].email || '').trim().toLowerCase() === em) return id
+    if ((_users[id].studentId || '').trim() === s) return id
   }
   return null
 }
@@ -144,9 +141,7 @@ function _findUserIdByEmail(raw) {
 export async function mockLogin(username, password) {
   await delay()
   let userId = _userByUsername[username]
-  if (!userId && String(username).includes('@')) {
-    userId = _findUserIdByEmail(username)
-  }
+  if (!userId) userId = _findUserIdByStudentId(username)
   if (!userId) throw new Error('账号不存在')
   const user = _users[userId]
   if (user.password !== password) throw new Error('密码错误')
@@ -154,61 +149,19 @@ export async function mockLogin(username, password) {
   return safeUser(user)
 }
 
-export async function mockForgotPasswordSend(email) {
-  await delay()
-  const em = (email || '').trim().toLowerCase()
-  const uid = _findUserIdByEmail(em)
-  if (!uid) throw new Error('该邮箱尚未绑定账号，请登录后在「设置」中绑定邮箱后再试')
-  _forgotState = { email: em, code: '12345' }
-  return {}
-}
-
-export async function mockForgotPasswordReset(email, code, newPassword) {
-  await delay()
-  const em = (email || '').trim().toLowerCase()
-  if (em !== _forgotState.email || String(code) !== _forgotState.code) {
-    throw new Error('验证码无效或已过期')
-  }
-  if (!newPassword || newPassword.length < 6) throw new Error('新密码长度至少 6 位')
-  const uid = _findUserIdByEmail(em)
-  if (!uid) throw new Error('邮箱或验证码不正确')
-  _users[uid].password = newPassword
-  _forgotState = { email: '', code: '' }
-  return {}
-}
-
-export async function mockBindEmailSend(email) {
+export async function mockBindStudentId(studentId) {
   await delay()
   const user = cur()
   if (!user) throw new Error('请先登录')
-  if ((user.email || '').trim()) throw new Error('已绑定邮箱')
-  const em = (email || '').trim().toLowerCase()
-  if (!em || !em.includes('@')) throw new Error('请输入有效邮箱')
+  if ((user.studentId || '').trim()) throw new Error('已绑定学号')
+  const sid = (studentId || '').trim()
+  if (!/^[A-Za-z0-9_-]{4,32}$/.test(sid)) throw new Error('学号须为 4～32 位字母、数字、下划线或短横线')
   for (const id of Object.keys(_users)) {
     if (id === user._id) continue
-    if ((_users[id].email || '').trim().toLowerCase() === em) {
-      throw new Error('该邮箱已被其他账号使用')
-    }
+    if ((_users[id].studentId || '').trim() === sid) throw new Error('该学号已被其他账号绑定')
   }
-  _bindState = { openid: user._id, email: em, code: '54321' }
-  return {}
-}
-
-export async function mockBindEmailConfirm(email, code) {
-  await delay()
-  const user = cur()
-  if (!user) throw new Error('请先登录')
-  const em = (email || '').trim().toLowerCase()
-  if (
-    _bindState.openid !== user._id ||
-    _bindState.email !== em ||
-    String(code) !== _bindState.code
-  ) {
-    throw new Error('验证码无效或已过期')
-  }
-  user.email = em
+  user.studentId = sid
   user.updatedAt = now()
-  _bindState = { openid: '', email: '', code: '' }
   return { user: safeUser(user) }
 }
 
@@ -254,9 +207,10 @@ export async function mockGetPointsLog() {
 
 export async function mockGetPosts(params = {}) {
   await delay()
-  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts } = params
+  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts, keyword } = params
   const user = cur()
   const isAdmin = user && user.role === 'admin'
+  const kw = (keyword || '').trim()
 
   let filtered = _posts.filter(p => {
     if (myPosts && p.authorId !== _currentUserId) return false
@@ -267,6 +221,7 @@ export async function mockGetPosts(params = {}) {
     if (p.category === 'emotion' && !isAdmin && p.authorId !== _currentUserId) return false
     if (category && category !== 'all' && p.category !== category) return false
     if (!isAdmin && p.status !== 'published' && p.authorId !== _currentUserId) return false
+    if (kw && !(p.content || '').includes(kw)) return false
     return true
   })
 
@@ -543,10 +498,19 @@ export async function mockAdminRejectAchievement(id) {
   return {}
 }
 
-export async function mockAdminGetUserList() {
+export async function mockAdminGetUserList(keyword) {
   await delay()
-  const ac = _adminClass()
-  const list = Object.values(_users).filter(u => (u.class || '').trim() === ac && SCHOOL_CLASSES.includes(ac))
+  const kw = (keyword || '').trim().toLowerCase()
+  let list = Object.values(_users)
+  if (kw) {
+    list = list.filter(u =>
+      (u.nickname && u.nickname.toLowerCase().includes(kw))
+      || (u.username && u.username.toLowerCase().includes(kw))
+      || (u._id && u._id.toLowerCase().includes(kw))
+      || (u.class && u.class.toLowerCase().includes(kw))
+      || (u.studentId && String(u.studentId).toLowerCase().includes(kw))
+    )
+  }
   return { users: list.map(safeUser) }
 }
 

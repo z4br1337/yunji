@@ -92,7 +92,7 @@
     <!-- Users -->
     <div v-if="activeTab === 'users'" class="tab-panel">
       <div class="user-search mb-16">
-        <input class="form-input" v-model="userKeyword" placeholder="搜索昵称、班级、ID..." @input="debouncedLoadUsers" style="max-width: 280px" />
+        <input class="form-input" v-model="userKeyword" placeholder="搜索昵称、学号、班级、用户名…" @input="debouncedLoadUsers" style="max-width: 320px" />
       </div>
       <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
       <template v-else-if="usersGroupedByClass.length">
@@ -100,10 +100,15 @@
           <h4 class="group-title mb-8">{{ g.class || '未填写班级' }}</h4>
           <div v-for="u in g.users" :key="u._id" class="card mb-8 user-card" @click="$router.push(`/admin/user/${u._id}`)">
             <div class="flex items-center gap-12">
-              <div class="avatar">{{ (u.nickname || '?')[0] }}</div>
+              <div class="avatar-hit" role="button" tabindex="0" title="发私信" @click.stop="openChatWithUser(u)" @keyup.enter.stop="openChatWithUser(u)">
+                <img v-if="u.avatarUrl" class="avatar-img" :src="u.avatarUrl" alt="" />
+                <div v-else class="avatar">{{ (u.nickname || '?')[0] }}</div>
+              </div>
               <div>
                 <div class="font-bold">{{ u.nickname }}</div>
-                <div class="text-xs text-muted">{{ u.role === 'admin' ? '导生' : '用户' }} | Exp: {{ u.exp || 0 }}</div>
+                <div class="text-xs text-muted">
+                  学号：{{ u.studentId || '未绑定' }} · {{ u.role === 'admin' ? '导生' : '用户' }} · Exp: {{ u.exp || 0 }}
+                </div>
               </div>
             </div>
           </div>
@@ -183,10 +188,17 @@
 
 <script setup>
 import { ref, computed, onMounted, inject } from 'vue'
+import { useRouter } from 'vue-router'
 import { REVIEW_LEVEL_GUIDE, ACHIEVEMENT_CATEGORIES, POST_STATUS_LABELS } from '../../utils/config.js'
 import * as api from '../../api/index.js'
 
 const showToast = inject('showToast')
+const router = useRouter()
+
+function openChatWithUser(u) {
+  if (!u?._id) return
+  router.push(`/chat/${u._id}?name=${encodeURIComponent(u.nickname || '用户')}`)
+}
 const reviewGuide = REVIEW_LEVEL_GUIDE
 
 const achCatMap = {}
@@ -380,6 +392,18 @@ onMounted(() => loadTabData())
 .post-flagged { border-left: 3px solid var(--danger); background: #FFF5F5; }
 .user-card { cursor: pointer; transition: var(--transition); }
 .user-card:hover { box-shadow: var(--shadow-lg); }
+.avatar-hit { flex-shrink: 0; cursor: pointer; border-radius: 50%; }
+.avatar-hit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.avatar-img {
+  width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+  display: block; border: 1px solid var(--border);
+}
+.avatar-hit .avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); font-weight: 600; color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
 .guide-row { align-items: center; }
 .file-mgmt-tabs { display: flex; gap: 8px; }
 .file-mgmt-tabs .tab-btn { padding: 6px 14px; font-size: 0.85rem; }

@@ -95,24 +95,9 @@ export async function changePassword(oldPassword, newPassword) {
   return request('/user/change-password', { oldPassword, newPassword })
 }
 
-export async function forgotPasswordSend(email) {
-  if (LOCAL_TEST_MODE) return mock.mockForgotPasswordSend(email)
-  return request('/user/forgot-password/send', { email })
-}
-
-export async function forgotPasswordReset(email, code, newPassword) {
-  if (LOCAL_TEST_MODE) return mock.mockForgotPasswordReset(email, code, newPassword)
-  return request('/user/forgot-password/reset', { email, code, newPassword })
-}
-
-export async function bindEmailSend(email) {
-  if (LOCAL_TEST_MODE) return mock.mockBindEmailSend(email)
-  return request('/user/bind-email/send', { email })
-}
-
-export async function bindEmailConfirm(email, code) {
-  if (LOCAL_TEST_MODE) return mock.mockBindEmailConfirm(email, code)
-  const data = await request('/user/bind-email/confirm', { email, code })
+export async function bindStudentId(studentId) {
+  if (LOCAL_TEST_MODE) return mock.mockBindStudentId(studentId)
+  const data = await request('/user/bind-student-id', { studentId })
   clearCache()
   return data
 }
@@ -132,7 +117,13 @@ export async function getPointsLog() {
 export async function getPosts(params = {}) {
   if (LOCAL_TEST_MODE) return mock.mockGetPosts(params)
   const { page, pageSize, ...filterFields } = params
-  return request('/post/list', { filter: filterFields, page: page || 1, pageSize: pageSize || 12 }, 'POST', { cacheable: true, cacheTTL: 3500 })
+  const hasKeyword = !!(filterFields.keyword && String(filterFields.keyword).trim())
+  return request(
+    '/post/list',
+    { filter: filterFields, page: page || 1, pageSize: pageSize || 12 },
+    'POST',
+    { cacheable: !hasKeyword, cacheTTL: 3500 }
+  )
 }
 
 export async function getPostDetail(postId) {
@@ -367,7 +358,7 @@ export async function adminRejectAchievement(id, reason) {
 }
 
 export async function adminGetUserList(keyword = '') {
-  if (LOCAL_TEST_MODE) return mock.mockAdminGetUserList()
+  if (LOCAL_TEST_MODE) return mock.mockAdminGetUserList(keyword)
   return request('/admin/user/list', { keyword })
 }
 
