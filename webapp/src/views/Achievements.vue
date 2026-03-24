@@ -15,7 +15,12 @@
       </div>
     </div>
 
-    <!-- Filter -->
+    <!-- 广场 / 我的 -->
+    <div class="chip-group mb-16">
+      <button class="chip" :class="{ active: feedMode === 'community' }" @click="feedMode = 'community'; loadData()">闪光广场</button>
+      <button class="chip" :class="{ active: feedMode === 'mine' }" @click="feedMode = 'mine'; loadData()">我的</button>
+    </div>
+    <!-- 分类 -->
     <div class="chip-group mb-16">
       <button class="chip" :class="{ active: filterCat === '' }" @click="filterCat = ''; loadData()">全部</button>
       <button v-for="cat in achCategories" :key="cat.key" class="chip" :class="{ active: filterCat === cat.key }" @click="filterCat = cat.key; loadData()">{{ cat.label }}</button>
@@ -28,6 +33,9 @@
           <span class="font-bold">{{ ach.title }}</span>
           <span class="badge" :class="statusClass(ach.status)">{{ statusLabel(ach.status) }}</span>
         </div>
+        <p v-if="feedMode === 'community' && (ach.authorNickname || ach.authorClass)" class="text-xs text-muted mb-4">
+          {{ ach.authorNickname || '用户' }}<template v-if="ach.authorClass"> · {{ ach.authorClass }}</template>
+        </p>
         <p class="text-sm text-secondary">{{ ach.description }}</p>
         <div class="flex gap-8 mt-8 items-center">
           <span class="text-xs text-muted">蜕变等级: {{ ach.level }}</span>
@@ -61,6 +69,7 @@ const achCategories = ACHIEVEMENT_CATEGORIES
 const achCounts = computed(() => state.userInfo?.achievementCounts || {})
 const achievements = ref([])
 const filterCat = ref('')
+const feedMode = ref('community')
 const loading = ref(false)
 
 function statusLabel(s) { return POST_STATUS_LABELS[s] || s }
@@ -80,6 +89,7 @@ async function loadData() {
   try {
     const params = {}
     if (filterCat.value) params.category = filterCat.value
+    if (feedMode.value === 'community') params.community = true
     const result = await api.getAchievements(params)
     achievements.value = result.achievements || []
   } catch (e) {

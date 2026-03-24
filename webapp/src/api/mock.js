@@ -53,7 +53,8 @@ const _comments = [
 const _achievements = [
   { _id: 'ach_001', userId: 'test_user_001', title: '校运会100米短跑第三名', description: '在2026年春季校运会中获得百米第三名', category: 'physical', dimension: '', subcategory: '', level: 3, points: 0, expAwarded: 1500, images: [], status: 'approved', createdAt: '2026-03-08T10:00:00Z' },
   { _id: 'ach_002', userId: 'test_user_001', title: '参与校园清洁志愿活动', description: '连续3天参与图书馆外的绿化清洁', category: 'labor', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-05T14:00:00Z' },
-  { _id: 'ach_pending_001', userId: 'test_user_001', title: '待审核德育活动', description: '示例待审核成果', category: 'moral', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 0, images: [], status: 'pending', createdAt: '2026-03-10T12:00:00Z' }
+  { _id: 'ach_pending_001', userId: 'test_user_001', title: '待审核德育活动', description: '示例待审核成果', category: 'moral', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 0, images: [], status: 'pending', createdAt: '2026-03-10T12:00:00Z' },
+  { _id: 'ach_003', userId: 'test_admin_001', title: '组织班级读书会', description: '作为导生组织本班读书分享活动', category: 'intellectual', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-07T10:00:00Z' }
 ]
 
 const _pointsLog = [
@@ -72,6 +73,21 @@ const _messages = []
 let _adminLogs = []
 
 function cur() { return _users[_currentUserId] || null }
+
+const MOCK_SUPER_ADMIN_USERNAME = 'daoshengzsb0125'
+
+function isMockSuperAdmin(u) {
+  return !!(u && u.username === MOCK_SUPER_ADMIN_USERNAME)
+}
+
+/** 导生是否可操作该作者所在班级范围（最高管理员视为全站） */
+function _mockAdminActsOnAuthor(authorId) {
+  const admin = cur()
+  if (!admin || admin.role !== 'admin') return false
+  if (isMockSuperAdmin(admin)) return true
+  const ac = (admin.class || '').trim()
+  return SCHOOL_CLASSES.includes(ac) && _authorClass(authorId) === ac
+}
 
 function _authorClass(authorId) {
   const u = _users[authorId]
@@ -146,6 +162,9 @@ export async function mockLogin(username, password) {
   if (!userId) throw new Error('账号不存在')
   const user = _users[userId]
   if (user.password !== password) throw new Error('密码错误')
+  if (user.username === MOCK_SUPER_ADMIN_USERNAME && user.role !== 'admin') {
+    user.role = 'admin'
+  }
   _currentUserId = userId
   return safeUser(user)
 }
@@ -245,9 +264,11 @@ export async function mockGetPostDetail(postId) {
     const isAdmin = user.role === 'admin'
     const isAuthor = post.authorId === user._id
     if (isAdmin) {
-      const ac = _adminClass()
-      if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
-        throw new Error('无权查看该情感倾诉')
+      if (!isMockSuperAdmin(user)) {
+        const ac = _adminClass()
+        if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
+          throw new Error('无权查看该情感倾诉')
+        }
       }
     } else if (!isAuthor) {
       throw new Error('无权查看该情感倾诉')
@@ -298,8 +319,7 @@ export async function mockDeletePost(postId) {
   const post = _posts[idx]
   if (post.authorId !== _currentUserId) {
     if (!user || user.role !== 'admin') throw new Error('无权删除该帖子')
-    const ac = _adminClass()
-    if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
+    if (!_mockAdminActsOnAuthor(post.authorId)) {
       throw new Error('无权删除其他班级的帖子')
     }
   }
@@ -328,8 +348,7 @@ export async function mockAddComment(postId, content) {
   const user = cur()
   const post = _posts.find(p => p._id === postId)
   if (user && user.role === 'admin' && post) {
-    const ac = _adminClass()
-    if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
+    if (!_mockAdminActsOnAuthor(post.authorId)) {
       throw new Error('无权评论其他班级的帖子')
     }
   }
@@ -342,6 +361,22 @@ export async function mockAddComment(postId, content) {
 
 export async function mockGetAchievements(params = {}) {
   await delay()
+  if (params.community) {
+    const filtered = _achievements.filter(a => {
+      if (a.status !== 'approved') return false
+      const u = _users[a.userId]
+      if (!u || !u.growthBookPublic) return false
+      if (params.category && a.category !== params.category) return false
+      return true
+    })
+    return {
+      achievements: filtered.map(a => ({
+        ...a,
+        authorNickname: _users[a.userId]?.nickname || '',
+        authorClass: _users[a.userId]?.class || '',
+      })),
+    }
+  }
   const { status, category, userId } = params
   const filtered = _achievements.filter(a => {
     if (status && a.status !== status) return false
@@ -368,7 +403,13 @@ export async function mockGetGrowthBook(userId) {
   const isAdmin = viewer && viewer.role === 'admin'
   const target = _users[uid]
   if (!target) throw new Error('用户不存在')
-  if (!isOwner && !isAdmin && !target.growthBookPublic) throw new Error('该用户的成长手册未公开')
+  if (!target.growthBookPublic && !isOwner) {
+    if (isAdmin && (isMockSuperAdmin(viewer) || (viewer.class && _authorClass(uid) === (viewer.class || '').trim()))) {
+      // 最高管理员或同班导生
+    } else {
+      throw new Error('该用户的成长手册未公开')
+    }
+  }
   const achs = _achievements.filter(a => a.userId === uid && a.status === 'approved')
   return { achievements: achs, user: { nickname: target.nickname, class: target.class, exp: target.exp, achievementCounts: target.achievementCounts, postCount: target.postCount }, isOwner, growthBookPublic: target.growthBookPublic }
 }
@@ -424,9 +465,13 @@ export async function mockUploadImage(file) {
 
 export async function mockAdminGetReports() {
   await delay()
-  const ac = _adminClass()
-  const inClass = (p) => _authorClass(p.authorId) === ac && SCHOOL_CLASSES.includes(ac)
-  const base = _posts.filter(p => inClass(p) && p.category !== 'emotion')
+  const admin = cur()
+  const base = _posts.filter(p => {
+    if (p.category === 'emotion') return false
+    if (isMockSuperAdmin(admin)) return true
+    const ac = _adminClass()
+    return _authorClass(p.authorId) === ac && SCHOOL_CLASSES.includes(ac)
+  })
   return {
     flagged: base.filter(p => p.status === 'flagged'),
     allPosts: base,
@@ -440,8 +485,7 @@ export async function mockAdminOverridePost(postId, action) {
   await delay()
   const post = _posts.find(p => p._id === postId)
   if (!post) return {}
-  const ac = _adminClass()
-  if (_authorClass(post.authorId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权操作其他班级的帖子')
+  if (!_mockAdminActsOnAuthor(post.authorId)) throw new Error('无权操作其他班级的帖子')
   post.status = action
   post.updatedAt = now()
   const au = _users[post.authorId]
@@ -449,7 +493,7 @@ export async function mockAdminOverridePost(postId, action) {
     newStatus: action,
     summary: (post.content || '').slice(0, 120),
     authorNickname: au ? au.nickname : '',
-    authorClass: au ? au.class : ac,
+    authorClass: au ? au.class : _authorClass(post.authorId),
   })
   return {}
 }
@@ -458,8 +502,7 @@ export async function mockAdminPinPost(postId) {
   await delay()
   const post = _posts.find(p => p._id === postId)
   if (!post) return {}
-  const ac = _adminClass()
-  if (_authorClass(post.authorId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权操作')
+  if (!_mockAdminActsOnAuthor(post.authorId)) throw new Error('无权操作')
   post.pinned = true
   post.updatedAt = now()
   return {}
@@ -469,8 +512,7 @@ export async function mockAdminUnpinPost(postId) {
   await delay()
   const post = _posts.find(p => p._id === postId)
   if (!post) return {}
-  const ac = _adminClass()
-  if (_authorClass(post.authorId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权操作')
+  if (!_mockAdminActsOnAuthor(post.authorId)) throw new Error('无权操作')
   post.pinned = false
   post.updatedAt = now()
   return {}
@@ -478,6 +520,10 @@ export async function mockAdminUnpinPost(postId) {
 
 export async function mockAdminGetPendingAchievements() {
   await delay()
+  const admin = cur()
+  if (isMockSuperAdmin(admin)) {
+    return { achievements: _achievements.filter(a => a.status === 'pending') }
+  }
   const ac = _adminClass()
   return {
     achievements: _achievements.filter(
@@ -490,8 +536,7 @@ export async function mockAdminApproveAchievement(id, level) {
   await delay()
   const ach = _achievements.find(a => a._id === id)
   if (!ach) return {}
-  const ac = _adminClass()
-  if (_authorClass(ach.userId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权审核其他班级的成果')
+  if (!_mockAdminActsOnAuthor(ach.userId)) throw new Error('无权审核其他班级的成果')
   ach.status = 'approved'
   if (level) ach.level = level
   const user = _users[ach.userId]
@@ -505,7 +550,7 @@ export async function mockAdminApproveAchievement(id, level) {
   _pushAdminLog('achievement_approve', 'achievement', id, {
     title: ach.title,
     authorNickname: user ? user.nickname : '',
-    authorClass: user ? user.class : ac,
+    authorClass: user ? user.class : _authorClass(ach.userId),
     expGain: ach.expAwarded,
   })
   return { expGain: ach.expAwarded }
@@ -515,14 +560,13 @@ export async function mockAdminRejectAchievement(id) {
   await delay()
   const ach = _achievements.find(a => a._id === id)
   if (!ach) return {}
-  const ac = _adminClass()
-  if (_authorClass(ach.userId) !== ac || !SCHOOL_CLASSES.includes(ac)) throw new Error('无权审核其他班级的成果')
+  if (!_mockAdminActsOnAuthor(ach.userId)) throw new Error('无权审核其他班级的成果')
   ach.status = 'rejected'
   const user = _users[ach.userId]
   _pushAdminLog('achievement_reject', 'achievement', id, {
     title: ach.title,
     authorNickname: user ? user.nickname : '',
-    authorClass: user ? user.class : ac,
+    authorClass: user ? user.class : _authorClass(ach.userId),
   })
   return {}
 }
@@ -555,6 +599,10 @@ export async function mockAdminGetUserProfile(userId) {
 
 export async function mockAdminScoreUser(userId, delta) {
   await delay()
+  const admin = cur()
+  if (!isMockSuperAdmin(admin) && !_mockAdminActsOnAuthor(userId)) {
+    throw new Error('仅可操作本班用户')
+  }
   const user = _users[userId]
   if (user) addExp(user, delta, 'admin_score', '')
   return { pointsDelta: delta }
@@ -569,6 +617,10 @@ export async function mockAdminGenerateInvite() {
 
 export async function mockAdminGetEmotionPosts() {
   await delay()
+  const admin = cur()
+  if (isMockSuperAdmin(admin)) {
+    return { posts: _posts.filter(p => p.category === 'emotion') }
+  }
   const ac = _adminClass()
   return {
     posts: _posts.filter(
@@ -579,11 +631,17 @@ export async function mockAdminGetEmotionPosts() {
 
 export async function mockAdminGetEmotionHistory() {
   await delay()
-  const ac = _adminClass()
+  const admin = cur()
   const aid = _currentUserId
+  const inClassEmotion = (p) => {
+    if (p.category !== 'emotion') return false
+    if (isMockSuperAdmin(admin)) return true
+    const ac = _adminClass()
+    return _authorClass(p.authorId) === ac && SCHOOL_CLASSES.includes(ac)
+  }
   return {
     posts: _posts.filter(p => {
-      if (p.category !== 'emotion' || _authorClass(p.authorId) !== ac) return false
+      if (!inClassEmotion(p)) return false
       return _comments.some(
         c => c.postId === p._id && c.authorId === aid && c.isAdmin
       )
@@ -594,6 +652,7 @@ export async function mockAdminGetEmotionHistory() {
 export async function mockAdminGetReviewHistory() {
   await delay()
   const ac = _adminClass()
+  if (!SCHOOL_CLASSES.includes(ac)) return { logs: [] }
   const logs = _adminLogs.filter(l => (l.detail && l.detail.authorClass) === ac)
   return { logs }
 }

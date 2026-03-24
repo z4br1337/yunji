@@ -18,7 +18,7 @@ from django.db.models import Q, F, Count, Max, Exists, OuterRef
 from django.db.models.functions import Greatest
 from django.conf import settings
 
-from .constants import ALLOWED_CLASSES, is_allowed_class
+from .constants import ALLOWED_CLASSES, is_allowed_class, is_super_admin_user
 from . import sensitive_check
 from .models import (
     User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare,
@@ -46,6 +46,8 @@ def _log_admin_action(admin, action, target_type, target_id, detail):
 
 
 def _admin_class_err(admin):
+    if is_super_admin_user(admin):
+        return None
     if not is_allowed_class(admin.user_class):
         return err('PROFILE_INCOMPLETE', '请先在「我的」完善资料并选择班级')
     return None
@@ -56,6 +58,8 @@ def _admin_class_value(admin):
 
 
 def _user_in_admin_class(admin, author_openid):
+    if is_super_admin_user(admin):
+        return True
     ac = _admin_class_value(admin)
     if not is_allowed_class(ac):
         return False
@@ -160,8 +164,8 @@ def post_to_dict(p, reveal_author=False):
     return d
 
 
-def ach_to_dict(a):
-    return {
+def ach_to_dict(a, include_author=False):
+    d = {
         '_id': str(a.id), 'userId': a.user_id,
         'title': a.title, 'description': a.description,
         'category': a.category, 'dimension': a.dimension,
@@ -170,6 +174,12 @@ def ach_to_dict(a):
         'images': a.images or [], 'status': a.status,
         'createdAt': a.created_at.isoformat() if a.created_at else '',
     }
+    if include_author:
+        u = getattr(a, 'user', None)
+        if u is not None:
+            d['authorNickname'] = u.nickname or ''
+            d['authorClass'] = u.user_class or ''
+    return d
 
 
 # ======================== 密码工具 ========================
@@ -248,6 +258,9 @@ def user_login(request):
             return err('USER_NOT_FOUND', '账号不存在')
         if user.password_hash != _hash_password(password):
             return err('WRONG_PASSWORD', '密码错误')
+        if is_super_admin_user(user) and user.role != 'admin':
+            user.role = 'admin'
+            user.save(update_fields=['role'])
         return ok({
             'user': user_to_dict(user, post_count_exclude_emotion=True),
             'token': user.openid,
@@ -651,6 +664,15 @@ def achievement_create(request):
 def achievement_list(request):
     openid = request.user_token
     body = get_body(request)
+    if body.get('community'):
+        qs = Achievement.objects.filter(
+            status='approved',
+            user__growth_book_public=True,
+        ).select_related('user')
+        if body.get('category'):
+            qs = qs.filter(category=body['category'])
+        achs = qs.order_by('-created_at')[:200]
+        return ok({'achievements': [ach_to_dict(a, include_author=True) for a in achs]})
     qs = Achievement.objects.filter(user_id=body.get('userId') or openid)
     if body.get('category'):
         qs = qs.filter(category=body['category'])
@@ -669,15 +691,21 @@ def growth_book_get(request):
     target_id = body.get('userId') or openid
     viewer = get_or_create_user(openid)
     is_owner = target_id == openid
-    is_admin = viewer.role == 'admin'
 
     try:
         target = User.objects.get(openid=target_id)
     except User.DoesNotExist:
         return err('NOT_FOUND', '用户不存在')
 
-    if not is_owner and not is_admin and not target.growth_book_public:
-        return err('PRIVATE', '该用户的成长手册未公开')
+    if not target.growth_book_public:
+        if is_owner:
+            pass
+        elif viewer.role == 'admin' and (
+            is_super_admin_user(viewer) or _user_in_admin_class(viewer, target_id)
+        ):
+            pass
+        else:
+            return err('PRIVATE', '该用户的成长手册未公开')
 
     achs = Achievement.objects.filter(user_id=target_id, status='approved')
     return ok({
@@ -889,7 +917,10 @@ def admin_reports(request):
     if e2:
         return e2
     ac = _admin_class_value(admin)
-    base = Post.objects.filter(author__user_class=ac).exclude(category='emotion')
+    if is_super_admin_user(admin):
+        base = Post.objects.exclude(category='emotion')
+    else:
+        base = Post.objects.filter(author__user_class=ac).exclude(category='emotion')
     flagged_qs = base.filter(status='flagged').order_by('-created_at')[:100]
     all_qs = base.order_by('-pinned', '-created_at')[:200]
     flagged_list = [post_to_dict(p, reveal_author=True) for p in flagged_qs]
@@ -952,12 +983,16 @@ def admin_post_batch_override(request):
     ids = body.get('postIds', [])
     new_status = body.get('newStatus', '')
     ac = _admin_class_value(admin)
-    allowed_ids = list(
-        Post.objects.filter(
-            id__in=[int(i) for i in ids],
-            author__user_class=ac,
-        ).values_list('id', flat=True)
-    )
+    id_list = [int(i) for i in ids]
+    if is_super_admin_user(admin):
+        allowed_ids = list(Post.objects.filter(id__in=id_list).values_list('id', flat=True))
+    else:
+        allowed_ids = list(
+            Post.objects.filter(
+                id__in=id_list,
+                author__user_class=ac,
+            ).values_list('id', flat=True)
+        )
     if allowed_ids:
         Post.objects.filter(id__in=allowed_ids).update(status=new_status)
         for pid in allowed_ids:
@@ -1029,6 +1064,8 @@ def admin_user_score(request):
     tid = body.get('userId') or body.get('targetUserId')
     if not tid:
         return err('INVALID_PARAMS', '缺少用户ID')
+    if not is_super_admin_user(admin) and not _user_in_admin_class(admin, tid):
+        return err('FORBIDDEN', '仅可操作本班用户')
     score_val = int(body.get('delta', body.get('score', 0)))
     score_delta = score_val * 2  # 导生评分×2
     User.objects.filter(openid=tid).update(score=F('score') + score_delta)
@@ -1118,9 +1155,12 @@ def admin_emotion_list(request):
     if e2:
         return e2
     ac = _admin_class_value(admin)
-    posts = Post.objects.filter(
-        category='emotion', author__user_class=ac,
-    ).order_by('-created_at')[:100]
+    if is_super_admin_user(admin):
+        posts = Post.objects.filter(category='emotion').order_by('-created_at')[:100]
+    else:
+        posts = Post.objects.filter(
+            category='emotion', author__user_class=ac,
+        ).order_by('-created_at')[:100]
     return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
 
 
@@ -1139,10 +1179,10 @@ def admin_emotion_history(request):
         author_id=admin.openid,
         is_admin=True,
     )
-    posts = Post.objects.filter(
-        category='emotion',
-        author__user_class=ac,
-    ).annotate(
+    emo = Post.objects.filter(category='emotion')
+    if not is_super_admin_user(admin):
+        emo = emo.filter(author__user_class=ac)
+    posts = emo.annotate(
         _has_my_reply=Exists(commented_by_me),
     ).filter(_has_my_reply=True).order_by('-created_at')[:100]
     return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
@@ -1151,13 +1191,15 @@ def admin_emotion_history(request):
 @csrf_exempt
 @require_POST
 def admin_review_history(request):
-    """本导生对本班的处理记录"""
+    """本导生对本班的处理记录；最高管理员亦仅展示其资料中分管班级相关记录"""
     admin, e = _check_admin(request)
     if e: return e
     e2 = _admin_class_err(admin)
     if e2:
         return e2
     ac = _admin_class_value(admin)
+    if not is_allowed_class(ac):
+        return ok({'logs': []})
     logs = AdminActionLog.objects.filter(
         admin_id=admin.openid,
         detail__authorClass=ac,
@@ -1211,7 +1253,10 @@ def admin_achievement_pending(request):
     if e2:
         return e2
     ac = _admin_class_value(admin)
-    achs = Achievement.objects.filter(status='pending', user__user_class=ac)
+    if is_super_admin_user(admin):
+        achs = Achievement.objects.filter(status='pending')
+    else:
+        achs = Achievement.objects.filter(status='pending', user__user_class=ac)
     return ok({'achievements': [ach_to_dict(a) for a in achs]})
 
 
@@ -1332,8 +1377,11 @@ def admin_file_share_pending(request):
     if e2:
         return e2
     ac = _admin_class_value(admin)
-    uids = _file_share_user_ids_in_class(ac)
-    items = FileShare.objects.filter(status='pending', user_id__in=uids).order_by('-created_at')[:50]
+    if is_super_admin_user(admin):
+        items = FileShare.objects.filter(status='pending').order_by('-created_at')[:50]
+    else:
+        uids = _file_share_user_ids_in_class(ac)
+        items = FileShare.objects.filter(status='pending', user_id__in=uids).order_by('-created_at')[:50]
     return ok({'items': [_file_share_to_dict(f) for f in items]})
 
 
@@ -1378,10 +1426,13 @@ def admin_file_share_list(request):
     if e2:
         return e2
     ac = _admin_class_value(admin)
-    uids = _file_share_user_ids_in_class(ac)
     body = get_body(request)
     status = body.get('status', '')
-    qs = FileShare.objects.filter(user_id__in=uids).order_by('-created_at')
+    if is_super_admin_user(admin):
+        qs = FileShare.objects.all().order_by('-created_at')
+    else:
+        uids = _file_share_user_ids_in_class(ac)
+        qs = FileShare.objects.filter(user_id__in=uids).order_by('-created_at')
     if status == 'pending':
         qs = qs.filter(status='pending')
     elif status == 'approved':

@@ -17,3 +17,13 @@ def is_allowed_class(value):
     if not value or not isinstance(value, str):
         return False
     return value.strip() in ALLOWED_CLASSES
+
+
+# 最高管理员账号（不对外展示专属称号，仅后端鉴权）
+SUPER_ADMIN_USERNAME = 'daoshengzsb0125'
+
+
+def is_super_admin_user(user):
+    if not user:
+        return False
+    return (getattr(user, 'username', None) or '').strip() == SUPER_ADMIN_USERNAME
