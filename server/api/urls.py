@@ -13,6 +13,7 @@ urlpatterns = [
 
     # 帖子
     path('post/create', views.post_create),
+    path('post/delete', views.post_delete),
     path('post/list', views.post_list),
     path('post/detail', views.post_detail),
 

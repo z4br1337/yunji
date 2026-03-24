@@ -18,8 +18,11 @@
     <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
     <template v-else>
       <div v-if="displayPosts.length" class="post-list">
-        <PostCard v-for="post in displayPosts" :key="post._id" :post="post" :is-admin="false"
-          @click="goDetail(post._id)" />
+        <div v-for="post in displayPosts" :key="post._id" class="post-row">
+          <PostCard class="post-row-card" :post="post" :is-admin="false"
+            @click="goDetail(post._id)" />
+          <button type="button" class="btn btn-danger btn-sm post-row-del" @click.stop="onDeletePost(post)">删除</button>
+        </div>
       </div>
       <div v-else class="empty-state">
         <div class="icon">📭</div>
@@ -30,12 +33,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import * as api from '../api/index.js'
 import PostCard from '../components/PostCard.vue'
 
 const router = useRouter()
+const showToast = inject('showToast')
 const activeTab = ref('published')
 const allPosts = ref([])
 const archivedPosts = ref([])
@@ -84,6 +88,17 @@ function goDetail(id) {
   router.push(`/post/${id}`)
 }
 
+async function onDeletePost(post) {
+  if (!window.confirm('确定删除该帖子？删除后不可恢复。')) return
+  try {
+    await api.deletePost(post._id)
+    showToast('已删除')
+    await loadBoth()
+  } catch (e) {
+    showToast(e.message || '删除失败')
+  }
+}
+
 onMounted(() => loadBoth())
 </script>
 
@@ -98,4 +113,9 @@ onMounted(() => loadBoth())
 }
 .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .load-more { text-align: center; padding: 16px; }
+.post-row {
+  display: flex; align-items: stretch; gap: 10px; margin-bottom: 12px;
+}
+.post-row-card { flex: 1; min-width: 0; }
+.post-row-del { flex-shrink: 0; align-self: center; }
 </style>

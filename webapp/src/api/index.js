@@ -138,6 +138,13 @@ export async function createPost(data) {
   return result
 }
 
+export async function deletePost(postId) {
+  if (LOCAL_TEST_MODE) return mock.mockDeletePost(postId)
+  const result = await request('/post/delete', { postId })
+  clearCache()
+  return result
+}
+
 export async function getComments(postId) {
   if (LOCAL_TEST_MODE) return mock.mockGetComments(postId)
   return request('/comment/list', { postId })

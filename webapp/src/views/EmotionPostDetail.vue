@@ -25,6 +25,9 @@
             <div class="post-meta-row flex justify-between items-center">
               <span class="text-xs text-muted">{{ formatTime(post.createdAt) }}</span>
             </div>
+            <div v-if="canDeleteEmotion" class="emotion-actions mt-12">
+              <button type="button" class="btn btn-danger btn-sm" @click="onDeleteEmotion">删除倾诉</button>
+            </div>
           </div>
         </div>
       </div>
@@ -50,16 +53,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from '../stores/user.js'
+import { SCHOOL_CLASSES } from '../utils/config.js'
 import { formatRelativeTime } from '../utils/formatTime.js'
 import * as api from '../api/index.js'
 
 const route = useRoute()
 const router = useRouter()
 const showToast = inject('showToast')
+const { state } = useUserStore()
 
 const post = ref(null)
+const canDeleteEmotion = computed(() => {
+  const p = post.value
+  const me = state.userInfo?._id
+  if (!p || !me) return false
+  if (p.authorId === me) return true
+  if (!state.isAdmin) return false
+  const myCls = (state.userInfo.class || '').trim()
+  const ac = (p.authorClass || '').trim()
+  return SCHOOL_CLASSES.includes(myCls) && ac === myCls
+})
 const comments = ref([])
 const newComment = ref('')
 const loading = ref(true)
@@ -90,6 +106,18 @@ async function loadData() {
   }
 }
 
+async function onDeleteEmotion() {
+  if (!post.value) return
+  if (!window.confirm('确定删除该情感倾诉？删除后不可恢复。')) return
+  try {
+    await api.deletePost(post.value._id)
+    showToast('已删除')
+    router.replace('/emotion-help')
+  } catch (e) {
+    showToast(e.message || '删除失败')
+  }
+}
+
 async function submitComment() {
   if (!newComment.value.trim()) return
   try {
@@ -117,6 +145,7 @@ onMounted(() => loadData())
 .post-content { font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .offline-info { margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-secondary); }
 .post-meta-row { margin-top: 8px; }
+.emotion-actions { padding-top: 8px; border-top: 1px solid var(--border); }
 
 .comment-block { background: #f7f7f7; border-radius: 8px; padding: 12px 16px; position: relative; }
 .comment-arrow {

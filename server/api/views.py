@@ -15,9 +15,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.db import models as db_models
 from django.db.models import Q, F, Count, Max, Exists, OuterRef
+from django.db.models.functions import Greatest
 from django.conf import settings
 
 from .constants import ALLOWED_CLASSES, is_allowed_class
+from . import sensitive_check
 from .models import (
     User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare,
     ShopItem, ExchangeRecord, AdminActionLog,
@@ -401,7 +403,9 @@ def post_create(request):
         return err('PROFILE_INCOMPLETE', '请先完善个人资料')
 
     body = get_body(request)
-    is_flagged = bool(body.get('flagged'))
+    content = (body.get('content') or '').strip()
+    if not sensitive_check.content_passes(content):
+        return err('SENSITIVE_CONTENT', '内容包含敏感词，无法发布')
 
     p = Post.objects.create(
         author_id=openid,
@@ -410,32 +414,79 @@ def post_create(request):
         content=body.get('content', ''),
         images=body.get('images', []),
         category=body.get('category', 'cognition'),
-        status='flagged' if is_flagged else 'published',
+        status='published',
         notify_admin=bool(body.get('notifyAdminFlag')),
         need_offline=bool(body.get('needOffline')),
         offline_time=body.get('offlineTime', ''),
         offline_place=body.get('offlinePlace', ''),
-        flagged=is_flagged,
-        flagged_words=body.get('flaggedWords', []),
-        flagged_categories=body.get('flaggedCategories', []),
-        flagged_highlighted=body.get('flaggedHighlighted', ''),
+        flagged=False,
+        flagged_words=[],
+        flagged_categories=[],
+        flagged_highlighted='',
     )
 
-    exp_gain = 0
-    if not is_flagged:
-        exp_gain = EXP_PER_POST
-        score_gain = exp_gain // EXP_TO_SCORE_RATIO
-        User.objects.filter(openid=openid).update(
-            exp=F('exp') + exp_gain,
-            score=F('score') + score_gain,
-            post_count=F('post_count') + 1,
-        )
-        PointsLog.objects.create(
-            user_id=openid, delta=exp_gain, log_type='exp',
-            reason='post_published', related_id=str(p.id),
-        )
+    exp_gain = EXP_PER_POST
+    score_gain = exp_gain // EXP_TO_SCORE_RATIO
+    User.objects.filter(openid=openid).update(
+        exp=F('exp') + exp_gain,
+        score=F('score') + score_gain,
+        post_count=F('post_count') + 1,
+    )
+    PointsLog.objects.create(
+        user_id=openid, delta=exp_gain, log_type='exp',
+        reason='post_published', related_id=str(p.id),
+    )
 
     return ok({'postId': str(p.id), 'expGain': exp_gain})
+
+
+@csrf_exempt
+@require_POST
+def post_delete(request):
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    body = get_body(request)
+    try:
+        pid = int(body.get('postId'))
+    except (TypeError, ValueError):
+        return err('INVALID_PARAMS', '帖子ID无效')
+    try:
+        p = Post.objects.get(id=pid)
+    except Post.DoesNotExist:
+        return err('NOT_FOUND', '帖子不存在')
+
+    if p.author_id == openid:
+        pass
+    elif user.role == 'admin':
+        e2 = _admin_class_err(user)
+        if e2:
+            return e2
+        if not _user_in_admin_class(user, p.author_id):
+            return err('FORBIDDEN', '无权删除其他班级的帖子')
+    else:
+        return err('FORBIDDEN', '无权删除该帖子')
+
+    author_openid = p.author_id
+    should_decr = (p.status in ('published', 'archived')) and not p.flagged
+    summary = (p.content or '')[:120]
+    cat = p.category
+    p.delete()
+    if should_decr:
+        User.objects.filter(openid=author_openid).update(
+            post_count=Greatest(F('post_count') - 1, 0)
+        )
+    if user.role == 'admin' and user.openid != author_openid:
+        try:
+            au = User.objects.get(openid=author_openid)
+            _log_admin_action(user, 'post_delete', 'post', pid, {
+                'summary': summary,
+                'category': cat,
+                'authorNickname': au.nickname,
+                'authorClass': au.user_class or '',
+            })
+        except User.DoesNotExist:
+            _log_admin_action(user, 'post_delete', 'post', pid, {'summary': summary, 'category': cat})
+    return ok({})
 
 
 @csrf_exempt

@@ -86,10 +86,14 @@ function removeImage(i) { images.value.splice(i, 1) }
 
 async function handleSubmit() {
   if (!content.value.trim()) { showToast('请输入内容'); return }
+  const checkResult = sensitiveCheck(content.value)
+  if (!checkResult.pass) {
+    showToast('内容包含敏感词，无法发布')
+    return
+  }
   submitting.value = true
 
   try {
-    const checkResult = sensitiveCheck(content.value)
     const uploadedImages = []
     for (const img of images.value) {
       const result = await api.uploadImage(img.file)
@@ -99,20 +103,11 @@ async function handleSubmit() {
     const data = {
       content: content.value, images: uploadedImages,
       category: category.value,
-      isAnonymous: isAnonymous.value,
-      flagged: !checkResult.pass,
-      flaggedWords: checkResult.words,
-      flaggedCategories: checkResult.categories,
-      flaggedHighlighted: checkResult.highlighted
+      isAnonymous: isAnonymous.value
     }
 
     const result = await api.createPost(data)
-
-    if (!checkResult.pass) {
-      showToast('帖子包含敏感内容，已标记处理')
-    } else {
-      showToast(`发布成功！经验+${result.expGain || 0}`)
-    }
+    showToast(`发布成功！经验+${result.expGain || 0}`)
     props.embedded ? router.replace('/publish') : router.back()
   } catch (e) {
     showToast(e.message || '发布失败')

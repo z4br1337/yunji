@@ -59,6 +59,7 @@
 import { ref, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import * as api from '../api/index.js'
+import { check as sensitiveCheck } from '../utils/sensitive.js'
 
 const router = useRouter()
 const showToast = inject('showToast')
@@ -82,6 +83,10 @@ async function loadPosts() {
 
 async function submit() {
   if (!content.value.trim()) { showToast('请输入内容'); return }
+  if (!sensitiveCheck(content.value).pass) {
+    showToast('内容包含敏感词，无法发送')
+    return
+  }
   submitting.value = true
   try {
     await api.createPost({

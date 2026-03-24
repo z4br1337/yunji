@@ -36,10 +36,15 @@
 
         <!-- Admin actions (情感倾诉使用独立详情页，不显示) -->
         <div v-if="isAdmin && post.category !== 'emotion'" class="admin-actions mt-16">
+          <button class="btn btn-sm btn-danger" @click="onDeletePost">删除</button>
           <button class="btn btn-sm btn-success" @click="onAction('published')">通过</button>
           <button class="btn btn-sm btn-warning" @click="onAction('archived')">封存</button>
           <button v-if="!post.pinned" class="btn btn-sm btn-ghost" @click="onPin">置顶</button>
           <button v-else class="btn btn-sm btn-ghost" @click="onUnpin">取消置顶</button>
+        </div>
+
+        <div v-else-if="isOwner && post.category !== 'emotion'" class="owner-actions mt-16">
+          <button class="btn btn-sm btn-danger" @click="onDeletePost">删除帖子</button>
         </div>
       </div>
 
@@ -69,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import * as api from '../api/index.js'
@@ -80,6 +85,11 @@ const { state } = useUserStore()
 const showToast = inject('showToast')
 
 const isAdmin = ref(state.isAdmin)
+const isOwner = computed(() => {
+  const p = post.value
+  const me = state.userInfo?._id
+  return !!(p && me && p.authorId === me)
+})
 const post = ref(null)
 const realAuthor = ref(null)
 const comments = ref([])
@@ -139,6 +149,18 @@ async function onUnpin() {
   showToast('已取消置顶')
 }
 
+async function onDeletePost() {
+  if (!post.value) return
+  if (!window.confirm('确定删除该帖子？删除后不可恢复。')) return
+  try {
+    await api.deletePost(post.value._id)
+    showToast('已删除')
+    router.back()
+  } catch (e) {
+    showToast(e.message || '删除失败')
+  }
+}
+
 function onAuthorClick() {
   if (post.value.isAnonymous) { showToast('该用户匿名发布'); return }
   const myId = state.userInfo?._id
@@ -158,7 +180,7 @@ onMounted(() => loadData())
 .detail-img { max-width: 200px; max-height: 200px; border-radius: var(--radius-sm); object-fit: cover; }
 .real-author-bar { background: #FFF3CD; border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.8rem; color: #856404; margin-bottom: 8px; }
 .pin-badge { font-size: 0.7rem; background: #FFF3CD; color: #856404; padding: 1px 6px; border-radius: 4px; }
-.admin-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border); }
+.admin-actions, .owner-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border); }
 .comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .comment-item:last-child { border-bottom: none; }
 .clickable { cursor: pointer; }

@@ -1,6 +1,7 @@
 /**
  * Mock 数据层 —— 本地测试用，脱离服务器独立运行
  */
+import { check as sensitiveCheck } from '../utils/sensitive.js'
 import { EXP_RULES, SCHOOL_CLASSES } from '../utils/config.js'
 import { calcPostExp, calcAchievementExp } from '../utils/level.js'
 
@@ -264,27 +265,55 @@ export async function mockGetPostDetail(postId) {
 
 export async function mockCreatePost(data) {
   await delay()
+  const content = (data.content || '').trim()
+  if (!sensitiveCheck(content).pass) {
+    throw new Error('内容包含敏感词，无法发布')
+  }
   const user = cur()
-  const isFlagged = !!data.flagged
   const post = {
     _id: genId(), authorId: _currentUserId,
     isAnonymous: !!data.isAnonymous,
     visibleAuthorName: data.isAnonymous ? '匿名用户' : (user ? user.nickname : '未知'),
     content: data.content, images: data.images || [],
     category: data.category || 'cognition',
-    status: isFlagged ? 'flagged' : 'published', pinned: false, pointsAwarded: 0,
+    status: 'published', pinned: false, pointsAwarded: 0,
     needOffline: !!data.needOffline, offlineTime: data.offlineTime || '', offlinePlace: data.offlinePlace || '',
-    flagged: isFlagged, flaggedWords: data.flaggedWords || [],
-    flaggedCategories: data.flaggedCategories || [], flaggedHighlighted: data.flaggedHighlighted || '',
+    flagged: false, flaggedWords: [], flaggedCategories: [], flaggedHighlighted: '',
     createdAt: now(), updatedAt: now()
   }
   _posts.unshift(post)
 
-  if (!isFlagged && user) {
+  if (user) {
     addExp(user, calcPostExp(), 'post_published', post._id)
     user.postCount = (user.postCount || 0) + 1
   }
-  return { postId: post._id, expGain: isFlagged ? 0 : EXP_RULES.POST_PUBLISH }
+  return { postId: post._id, expGain: EXP_RULES.POST_PUBLISH }
+}
+
+export async function mockDeletePost(postId) {
+  await delay()
+  const user = cur()
+  const idx = _posts.findIndex(p => p._id === postId)
+  if (idx < 0) throw new Error('帖子不存在')
+  const post = _posts[idx]
+  if (post.authorId !== _currentUserId) {
+    if (!user || user.role !== 'admin') throw new Error('无权删除该帖子')
+    const ac = _adminClass()
+    if (!SCHOOL_CLASSES.includes(ac) || _authorClass(post.authorId) !== ac) {
+      throw new Error('无权删除其他班级的帖子')
+    }
+  }
+  const shouldDecr = (post.status === 'published' || post.status === 'archived') && !post.flagged
+  const authorId = post.authorId
+  _posts.splice(idx, 1)
+  for (let i = _comments.length - 1; i >= 0; i--) {
+    if (_comments[i].postId === postId) _comments.splice(i, 1)
+  }
+  if (shouldDecr) {
+    const au = _users[authorId]
+    if (au) au.postCount = Math.max(0, (au.postCount || 0) - 1)
+  }
+  return {}
 }
 
 // ========== Comments ==========

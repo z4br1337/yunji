@@ -79,6 +79,7 @@
           </div>
           <p class="text-sm">{{ p.content && p.content.substring(0, 100) }}</p>
           <div class="flex gap-8 mt-8 flex-wrap">
+            <button class="btn btn-danger btn-sm" @click="deletePostById(p._id)">删除</button>
             <button v-if="p.status !== 'archived'" class="btn btn-warning btn-sm" @click="overridePost(p._id, 'archived')">封存</button>
             <button v-if="p.status === 'archived'" class="btn btn-success btn-sm" @click="overridePost(p._id, 'published')">恢复</button>
             <button v-if="!p.pinned" class="btn btn-ghost btn-sm" @click="pinPost(p._id)">置顶</button>
@@ -314,6 +315,15 @@ async function overridePost(id, action) {
     showToast('操作成功')
     await loadTabData()
   } catch (e) { showToast(e.message || '操作失败') }
+}
+
+async function deletePostById(id) {
+  if (!window.confirm('确定删除该帖子？删除后不可恢复。')) return
+  try {
+    await api.deletePost(id)
+    showToast('已删除')
+    await loadTabData()
+  } catch (e) { showToast(e.message || '删除失败') }
 }
 
 async function pinPost(id) {
