@@ -3,7 +3,7 @@
     <div class="card bind-card">
       <h2>绑定学号</h2>
       <p class="text-secondary text-sm mb-16">
-        根据平台要求，使用云迹前须绑定学号。多个账号可以绑定同一学号；使用学号登录时，若存在多个账号将提示你选择要登录的账号。
+        绑定学号，登录更方便！在使用云迹前先绑定一下学号哦！学号不会公开显示请放心填写！
       </p>
       <div class="form-group">
         <label class="form-label">学号</label>
