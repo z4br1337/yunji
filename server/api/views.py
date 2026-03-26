@@ -128,6 +128,7 @@ def user_to_dict(u, post_count_exclude_emotion=False):
         'inviteUsed': u.invite_used,
         'email': (u.email or '').strip(),
         'studentId': (u.student_id or '').strip(),
+        'isSuperAdmin': is_super_admin_user(u),
         'createdAt': u.created_at.isoformat() if u.created_at else '',
         'updatedAt': u.updated_at.isoformat() if u.updated_at else '',
     }
@@ -242,22 +243,33 @@ def user_login(request):
     password = (body.get('password') or '').strip()
 
     if identifier and password:
-        user = None
+        ph = _hash_password(password)
+        users = []
         try:
-            user = User.objects.get(username=identifier)
+            u = User.objects.get(username=identifier)
+            users = [u]
         except User.DoesNotExist:
-            pass
-        if user is None:
             sid = _normalize_student_id(identifier)
-            if sid:
-                try:
-                    user = User.objects.get(student_id=sid)
-                except User.DoesNotExist:
-                    pass
-        if user is None:
+            if sid and _validate_student_id(sid):
+                users = list(User.objects.filter(student_id=sid))
+        if not users:
             return err('USER_NOT_FOUND', '账号不存在')
-        if user.password_hash != _hash_password(password):
+        matching = [u for u in users if u.password_hash == ph]
+        if not matching:
             return err('WRONG_PASSWORD', '密码错误')
+        if len(matching) > 1:
+            return JsonResponse({
+                'code': 'PICK_ACCOUNT',
+                'message': '该学号绑定了多个账号，请选择要登录的账号',
+                'data': {
+                    'accounts': [{
+                        'username': u.username or '',
+                        'nickname': u.nickname or '',
+                        'avatarUrl': u.avatar_url or '',
+                    } for u in matching],
+                },
+            })
+        user = matching[0]
         if is_super_admin_user(user) and user.role != 'admin':
             user.role = 'admin'
             user.save(update_fields=['role'])
@@ -359,8 +371,6 @@ def bind_student_id(request):
         return err('USER_NOT_FOUND', '用户不存在')
     if (user.student_id or '').strip():
         return err('ALREADY_BOUND', '已绑定学号')
-    if User.objects.exclude(openid=openid).filter(student_id=sid).exists():
-        return err('STUDENT_ID_IN_USE', '该学号已被其他账号绑定')
     user.student_id = sid
     user.save(update_fields=['student_id', 'updated_at'])
     return ok({'user': user_to_dict(user, post_count_exclude_emotion=True)})
@@ -1223,6 +1233,30 @@ def admin_invite_generate(request):
     code = 'INV' + uuid.uuid4().hex[:6].upper()
     Invite.objects.create(code=code, role=body.get('role', 'admin'))
     return ok({'inviteCode': code})
+
+
+@csrf_exempt
+@require_POST
+def admin_super_promote_user(request):
+    """仅最高管理员可将任意用户设为导生（不消耗邀请码）"""
+    admin, e = _check_admin(request)
+    if e:
+        return e
+    if not is_super_admin_user(admin):
+        return err('FORBIDDEN', '仅最高管理员可指定导生')
+    body = get_body(request)
+    tid = body.get('targetUserId') or body.get('userId')
+    if not tid:
+        return err('INVALID_PARAMS', '缺少用户ID')
+    try:
+        u = User.objects.get(openid=tid)
+    except User.DoesNotExist:
+        return err('NOT_FOUND', '用户不存在')
+    if u.role == 'admin':
+        return ok({'alreadyAdmin': True, 'user': user_to_dict(u, post_count_exclude_emotion=True)})
+    u.role = 'admin'
+    u.save(update_fields=['role', 'updated_at'])
+    return ok({'user': user_to_dict(u, post_count_exclude_emotion=True)})
 
 
 @csrf_exempt

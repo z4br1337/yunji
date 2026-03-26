@@ -87,7 +87,7 @@ const isLoggedIn = computed(() => state.isLoggedIn)
 const isAdmin = computed(() => state.isAdmin)
 const userInfo = computed(() => state.userInfo)
 
-const hideTabBarRoutes = ['/login', '/profile-edit', '/settings/preferences', '/achievement/create', '/emotion-help']
+const hideTabBarRoutes = ['/login', '/register', '/bind-student', '/profile-edit', '/settings/preferences', '/settings/invite', '/achievement/create', '/emotion-help']
 const showTabBar = computed(() => {
   return !hideTabBarRoutes.some(r => route.path.startsWith(r))
     && !route.path.startsWith('/chat/')

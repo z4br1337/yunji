@@ -10,7 +10,11 @@ const state = reactive({
 
 export function useUserStore() {
   async function login(username, password) {
-    const user = await api.login(username, password)
+    const result = await api.login(username, password)
+    if (result && result.__pickAccount) {
+      return result
+    }
+    const user = result
     state.userInfo = user
     state.isLoggedIn = true
     state.isAdmin = user.role === 'admin'

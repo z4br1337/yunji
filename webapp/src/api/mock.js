@@ -28,6 +28,27 @@ const _users = {
     achievementCounts: { moral: 2, intellectual: 3, physical: 1, aesthetic: 0, labor: 0 },
     growthBookPublic: true, inviteUsed: 'ADMIN2026',
     createdAt: '2026-02-15T08:00:00Z', updatedAt: '2026-03-10T08:00:00Z'
+  },
+  dup_user_a: {
+    _id: 'dup_user_a', username: 'dupa', password: '123456', email: '', studentId: 'SHARED2026',
+    nickname: '同学甲-同学号', class: '25行管1班', profileCompleted: true, role: 'user',
+    exp: 20, score: 20, postCount: 0,
+    achievementCounts: {}, growthBookPublic: false, inviteUsed: null,
+    avatarUrl: '', createdAt: '2026-03-01T08:00:00Z', updatedAt: '2026-03-10T08:00:00Z'
+  },
+  dup_user_b: {
+    _id: 'dup_user_b', username: 'dupb', password: '123456', email: '', studentId: 'SHARED2026',
+    nickname: '同学乙-同学号', class: '25行管1班', profileCompleted: true, role: 'user',
+    exp: 20, score: 20, postCount: 0,
+    achievementCounts: {}, growthBookPublic: false, inviteUsed: null,
+    avatarUrl: '', createdAt: '2026-03-01T08:00:00Z', updatedAt: '2026-03-10T08:00:00Z'
+  },
+  super_zsb_mock: {
+    _id: 'super_zsb_mock', username: 'daoshengzsb0125', password: '123456', email: '', studentId: '2026000999',
+    nickname: '最高管理(mock)', class: '25行管1班', profileCompleted: true, role: 'admin',
+    exp: 100, score: 100, postCount: 0,
+    achievementCounts: {}, growthBookPublic: true, inviteUsed: null,
+    avatarUrl: '', createdAt: '2026-01-01T08:00:00Z', updatedAt: '2026-03-10T08:00:00Z'
   }
 }
 
@@ -121,7 +142,7 @@ function addExp(user, amount, reason, relatedId) {
 function safeUser(u) {
   if (!u) return null
   const { password: _, ...rest } = u
-  return rest
+  return { ...rest, isSuperAdmin: u.username === MOCK_SUPER_ADMIN_USERNAME }
 }
 
 // ========== Auth ==========
@@ -146,26 +167,40 @@ export async function mockRegister(nickname, username, password) {
   return { user: safeUser(user), token: id }
 }
 
-function _findUserIdByStudentId(raw) {
+function _findUserIdsByStudentId(raw) {
   const s = (raw || '').trim()
-  if (!s) return null
-  for (const id of Object.keys(_users)) {
-    if ((_users[id].studentId || '').trim() === s) return id
-  }
-  return null
+  if (!s) return []
+  return Object.keys(_users).filter(id => (_users[id].studentId || '').trim() === s)
 }
 
-export async function mockLogin(username, password) {
+export async function mockLogin(identifier, password) {
   await delay()
-  let userId = _userByUsername[username]
-  if (!userId) userId = _findUserIdByStudentId(username)
-  if (!userId) throw new Error('账号不存在')
-  const user = _users[userId]
-  if (user.password !== password) throw new Error('密码错误')
+  let candidateIds = []
+  if (_userByUsername[identifier]) {
+    candidateIds = [_userByUsername[identifier]]
+  } else {
+    candidateIds = _findUserIdsByStudentId(identifier)
+  }
+  if (!candidateIds.length) throw new Error('账号不存在')
+  const matching = candidateIds
+    .map(id => _users[id])
+    .filter(u => u && u.password === password)
+  if (!matching.length) throw new Error('密码错误')
+  if (matching.length > 1) {
+    return {
+      __pickAccount: true,
+      accounts: matching.map(u => ({
+        username: u.username,
+        nickname: u.nickname,
+        avatarUrl: u.avatarUrl || '',
+      })),
+    }
+  }
+  const user = matching[0]
   if (user.username === MOCK_SUPER_ADMIN_USERNAME && user.role !== 'admin') {
     user.role = 'admin'
   }
-  _currentUserId = userId
+  _currentUserId = user._id
   return safeUser(user)
 }
 
@@ -176,10 +211,6 @@ export async function mockBindStudentId(studentId) {
   if ((user.studentId || '').trim()) throw new Error('已绑定学号')
   const sid = (studentId || '').trim()
   if (!/^[A-Za-z0-9_-]{4,32}$/.test(sid)) throw new Error('学号须为 4～32 位字母、数字、下划线或短横线')
-  for (const id of Object.keys(_users)) {
-    if (id === user._id) continue
-    if ((_users[id].studentId || '').trim() === sid) throw new Error('该学号已被其他账号绑定')
-  }
   user.studentId = sid
   user.updatedAt = now()
   return { user: safeUser(user) }
@@ -613,6 +644,17 @@ export async function mockAdminGenerateInvite() {
   const code = 'INV' + Math.random().toString(36).substring(2, 8).toUpperCase()
   _invites.push({ code, role: 'admin', usedBy: null, createdAt: now() })
   return { inviteCode: code }
+}
+
+export async function mockAdminSuperPromoteUser(targetUserId) {
+  await delay()
+  const admin = cur()
+  if (!admin || !isMockSuperAdmin(admin)) throw new Error('仅最高管理员可指定导生')
+  const u = _users[targetUserId]
+  if (!u) throw new Error('用户不存在')
+  u.role = 'admin'
+  u.updatedAt = now()
+  return { user: safeUser(u) }
 }
 
 export async function mockAdminGetEmotionPosts() {

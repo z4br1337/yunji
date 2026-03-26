@@ -45,8 +45,10 @@
 import { ref, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import * as api from '../api/index.js'
+import { useUserStore } from '../stores/user.js'
 
 const router = useRouter()
+const { restoreSession } = useUserStore()
 const showToast = inject('showToast')
 
 const nickname = ref('')
@@ -93,9 +95,14 @@ async function handleRegister() {
 
   submitting.value = true
   try {
-    await api.register(nick, user, pwd)
-    showToast('注册成功，请登录')
-    router.replace('/login')
+    const data = await api.register(nick, user, pwd)
+    const u = data.user || data
+    if (u) {
+      localStorage.setItem('userInfo', JSON.stringify(u))
+    }
+    restoreSession()
+    showToast('注册成功，请先绑定学号')
+    router.replace('/bind-student')
   } catch (e) {
     errorMsg.value = e.message || '注册失败'
   } finally {

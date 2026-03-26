@@ -14,16 +14,16 @@
 
       <div class="form-group">
         <label class="form-label">用户名或学号</label>
-        <input class="form-input" v-model="username" placeholder="使用用户名或学号登录" @keyup.enter="handleLogin" />
+        <input class="form-input" v-model="username" placeholder="使用用户名或学号登录" @keyup.enter="onLoginClick" />
       </div>
       <div class="form-group">
         <label class="form-label">密码</label>
-        <input class="form-input" type="password" v-model="password" placeholder="输入密码" @keyup.enter="handleLogin" />
+        <input class="form-input" type="password" v-model="password" placeholder="输入密码" @keyup.enter="onLoginClick" />
       </div>
 
       <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
 
-      <button class="btn btn-primary btn-block" :disabled="loading || !hasAgreed" @click="handleLogin">
+      <button class="btn btn-primary btn-block" :disabled="loading || !hasAgreed" @click="onLoginClick">
         {{ loading ? '登录中...' : '登录' }}
       </button>
 
@@ -38,6 +38,31 @@
       </p>
 
     </div>
+
+    <!-- 学号对应多账号时选择 -->
+    <Teleport to="body">
+      <div v-if="pickAccounts.length" class="modal-overlay" @click.self="pickAccounts = []">
+        <div class="modal-box pick-modal">
+          <h3 class="pick-title">选择要登录的账号</h3>
+          <p class="text-sm text-secondary mb-12">该学号绑定了多个账号，请选择其一后继续。</p>
+          <button
+            v-for="acc in pickAccounts"
+            :key="acc.username"
+            type="button"
+            class="pick-row"
+            @click="loginAsAccount(acc.username)"
+          >
+            <img v-if="acc.avatarUrl" class="pick-av" :src="acc.avatarUrl" alt="" />
+            <div v-else class="pick-av pick-av-fallback">{{ (acc.nickname || '?')[0] }}</div>
+            <div class="pick-meta">
+              <span class="pick-name">{{ acc.nickname }}</span>
+              <span class="pick-sub">@{{ acc.username }}</span>
+            </div>
+          </button>
+          <button type="button" class="btn btn-ghost btn-block mt-12" @click="pickAccounts = []">取消</button>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Notice Modal -->
     <Teleport to="body">
@@ -126,6 +151,8 @@ const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
+const pickAccounts = ref([])
+const pendingPassword = ref('')
 
 const showNotice = ref(false)
 const hasAgreed = ref(false)
@@ -182,6 +209,44 @@ function onCloseNotice() {
   }
 }
 
+function userHasStudentId(u) {
+  return !!(u && u.studentId && String(u.studentId).trim())
+}
+
+async function afterLoginSuccess(user) {
+  showToast('登录成功')
+  await nextTick()
+  if (!userHasStudentId(user)) {
+    await router.replace('/bind-student')
+    return
+  }
+  const target = user.profileCompleted ? '/feed' : '/profile-edit'
+  await router.replace(target)
+}
+
+function onLoginClick() {
+  pickAccounts.value = []
+  pendingPassword.value = ''
+  handleLogin()
+}
+
+async function loginAsAccount(selectedUsername) {
+  const pwd = pendingPassword.value
+  if (!pwd) return
+  pickAccounts.value = []
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    const user = await login(selectedUsername, pwd)
+    await afterLoginSuccess(user)
+  } catch (e) {
+    errorMsg.value = e.message || '登录失败'
+  } finally {
+    loading.value = false
+    pendingPassword.value = ''
+  }
+}
+
 async function handleLogin() {
   if (!hasAgreed.value) { showToast('请先阅读并同意《用户使用须知》'); return }
   if (!username.value.trim()) { errorMsg.value = '请输入用户名或学号'; return }
@@ -189,11 +254,14 @@ async function handleLogin() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const user = await login(username.value.trim(), password.value)
-    showToast('登录成功')
-    await nextTick()
-    const target = user.profileCompleted ? '/feed' : '/profile-edit'
-    await router.replace(target)
+    const result = await login(username.value.trim(), password.value)
+    if (result && result.__pickAccount) {
+      pendingPassword.value = password.value
+      pickAccounts.value = result.accounts || []
+      loading.value = false
+      return
+    }
+    await afterLoginSuccess(result)
   } catch (e) {
     errorMsg.value = e.message || '登录失败'
   } finally {
@@ -366,6 +434,23 @@ async function handleLogin() {
   text-align: center; font-size: 0.8rem; color: var(--warning);
   margin-bottom: 10px; font-weight: 500;
 }
+
+.pick-modal { padding: 20px 24px; max-width: 400px; }
+.pick-title { font-size: 1.05rem; margin-bottom: 8px; }
+.pick-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px; margin-bottom: 8px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--bg-card); cursor: pointer; text-align: left;
+}
+.pick-row:hover { border-color: var(--primary); }
+.pick-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.pick-av-fallback {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary); color: #fff; font-weight: 700;
+}
+.pick-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick-name { font-weight: 600; }
+.pick-sub { font-size: 0.8rem; color: var(--text-muted); }
 
 /* Register link */
 .switch-text { margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary); }

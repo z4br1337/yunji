@@ -77,15 +77,8 @@
         <span class="menu-icon">🛒</span><span>萤火积分兑换商店</span><span class="arrow">›</span>
       </div>
 
-      <!-- Invite Code -->
-      <div class="menu-item" @click="showInvite = !showInvite">
-        <span class="menu-icon">🎫</span><span>使用邀请码</span><span class="arrow">{{ showInvite ? '⌃' : '›' }}</span>
-      </div>
-      <div v-if="showInvite" class="invite-section p-16">
-        <div class="flex gap-8">
-          <input class="form-input" v-model="inviteCode" placeholder="输入邀请码" />
-          <button class="btn btn-primary btn-sm" @click="useInvite">使用</button>
-        </div>
+      <div class="menu-item" @click="$router.push('/settings/invite')">
+        <span class="menu-icon">🎫</span><span>使用邀请码</span><span class="arrow">›</span>
       </div>
 
       <template v-if="isAdmin">
@@ -117,7 +110,7 @@ import { getLevelInfo, getUserBadges } from '../utils/level.js'
 import * as api from '../api/index.js'
 
 const router = useRouter()
-const { state, logout, refreshProfile } = useUserStore()
+const { state, logout } = useUserStore()
 const showToast = inject('showToast')
 
 const user = computed(() => state.userInfo)
@@ -129,8 +122,6 @@ const badges = computed(() => {
 })
 
 const fileShareCount = ref(0)
-const showInvite = ref(false)
-const inviteCode = ref('')
 
 onMounted(async () => {
   try {
@@ -138,18 +129,6 @@ onMounted(async () => {
     fileShareCount.value = r.total || 0
   } catch { /* ignore */ }
 })
-
-async function useInvite() {
-  if (!inviteCode.value.trim()) { showToast('请输入邀请码'); return }
-  try {
-    await api.useInviteCode(inviteCode.value.trim())
-    await refreshProfile()
-    showToast('邀请码使用成功，已升级为管理员')
-    showInvite.value = false
-  } catch (e) {
-    showToast(e.message || '邀请码无效')
-  }
-}
 
 function handleLogout() {
   logout()

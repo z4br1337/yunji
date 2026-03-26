@@ -59,8 +59,13 @@ async function request(path, data = {}, method = 'POST', options = {}) {
 }
 
 export async function register(nickname, username, password) {
-  if (LOCAL_TEST_MODE) return mock.mockRegister(nickname, username, password)
+  if (LOCAL_TEST_MODE) {
+    const data = await mock.mockRegister(nickname, username, password)
+    if (data.token) localStorage.setItem('token', data.token)
+    return data
+  }
   const data = await request('/user/register', { nickname, username, password })
+  if (data.token) localStorage.setItem('token', data.token)
   return data
 }
 
@@ -69,8 +74,36 @@ export function clearCache() {
 }
 
 export async function login(username, password) {
-  if (LOCAL_TEST_MODE) return mock.mockLogin(username, password)
-  const data = await request('/user/login', { username, password })
+  if (LOCAL_TEST_MODE) {
+    const r = await mock.mockLogin(username, password)
+    if (r && r.__pickAccount) return r
+    if (r && r._id) localStorage.setItem('token', r._id)
+    requestCache.clear()
+    return r
+  }
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let res
+  try {
+    res = await fetch(API_BASE_URL + '/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
+  const json = await res.json()
+  if (json.code === 'PICK_ACCOUNT') {
+    return {
+      __pickAccount: true,
+      accounts: (json.data && json.data.accounts) || [],
+      message: json.message || '',
+    }
+  }
+  if (json.code !== 0) throw new Error(json.message || '登录失败')
+  const data = json.data
   if (data.token) localStorage.setItem('token', data.token)
   requestCache.clear()
   return data.user || data
@@ -382,6 +415,11 @@ export async function adminScoreUser(userId, delta, reason) {
 export async function adminGenerateInvite() {
   if (LOCAL_TEST_MODE) return mock.mockAdminGenerateInvite()
   return request('/admin/invite/generate')
+}
+
+export async function adminSuperPromoteUser(targetUserId) {
+  if (LOCAL_TEST_MODE) return mock.mockAdminSuperPromoteUser(targetUserId)
+  return request('/admin/super/promote-user', { targetUserId })
 }
 
 export async function adminGetEmotionPosts() {

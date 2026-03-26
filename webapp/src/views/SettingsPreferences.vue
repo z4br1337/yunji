@@ -128,7 +128,7 @@
         <span class="panel-icon">🎓</span>
         <div>
           <h2>绑定学号</h2>
-          <p class="panel-desc">绑定后可使用学号登录（4～32 位字母、数字、下划线或短横线）</p>
+          <p class="panel-desc">绑定后可使用学号登录；多个账号可绑定同一学号，学号登录时若有多个账号将提示选择（4～32 位字母、数字、下划线或短横线）</p>
         </div>
       </div>
 
@@ -148,7 +148,7 @@
             maxlength="32"
           />
         </div>
-        <p class="text-xs text-muted mb-12">请仔细核对：一个学号在全平台只能绑定一个账号，提交后不可自行修改。</p>
+        <p class="text-xs text-muted mb-12">请仔细核对学号；每个账号仅可绑定一次，提交后不可自行修改。</p>
         <button class="btn btn-primary btn-block btn-save" :disabled="bindStudentLoading" @click="submitBindStudent">
           {{ bindStudentLoading ? '提交中...' : '确认绑定学号' }}
         </button>

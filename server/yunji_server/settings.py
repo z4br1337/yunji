@@ -27,6 +27,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'api.middleware.AuthMiddleware',
+    'api.middleware.StudentIdRequiredMiddleware',
 ]
 
 ROOT_URLCONF = 'yunji_server.urls'

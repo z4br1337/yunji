@@ -4,6 +4,7 @@ const routes = [
   { path: '/', redirect: '/feed' },
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { public: true } },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue'), meta: { public: true } },
+  { path: '/bind-student', name: 'BindStudent', component: () => import('../views/BindStudent.vue') },
   { path: '/profile-edit', name: 'ProfileEdit', component: () => import('../views/ProfileEdit.vue') },
   { path: '/change-password', name: 'ChangePassword', component: () => import('../views/ChangePassword.vue') },
   { path: '/feed', name: 'Feed', component: () => import('../views/Feed.vue') },
@@ -16,6 +17,7 @@ const routes = [
   { path: '/ai-chat', name: 'AiChat', component: () => import('../views/AiChat.vue') },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
   { path: '/settings/preferences', name: 'SettingsPreferences', component: () => import('../views/SettingsPreferences.vue') },
+  { path: '/settings/invite', name: 'SettingsInvite', component: () => import('../views/SettingsInvite.vue') },
   { path: '/my-posts', name: 'MyPosts', component: () => import('../views/MyPosts.vue') },
   { path: '/my-files', name: 'MyFileShares', component: () => import('../views/MyFileShares.vue') },
   { path: '/points-shop', name: 'PointsShop', component: () => import('../views/PointsShop.vue') },
@@ -36,6 +38,10 @@ const router = createRouter({
   routes
 })
 
+function userHasStudentId(user) {
+  return !!(user && user.studentId && String(user.studentId).trim())
+}
+
 router.beforeEach((to, from, next) => {
   if (to.meta.public) return next()
   const token = localStorage.getItem('token')
@@ -52,8 +58,15 @@ router.beforeEach((to, from, next) => {
   } catch {
     return next('/login')
   }
+  if (!userHasStudentId(user)) {
+    if (to.path === '/bind-student') return next()
+    return next('/bind-student')
+  }
   const profileOk = !!user.profileCompleted
-  const allowIncomplete = to.path === '/profile-edit' || to.path === '/change-password' || to.path === '/settings/preferences'
+  const allowIncomplete =
+    to.path === '/profile-edit'
+    || to.path === '/change-password'
+    || to.path === '/settings/preferences'
   if (!profileOk && !allowIncomplete) {
     return next('/profile-edit')
   }

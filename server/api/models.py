@@ -22,7 +22,7 @@ class User(models.Model):
     growth_book_public = models.BooleanField(default=False)
     invite_used = models.CharField(max_length=64, null=True, blank=True)
     email = models.EmailField(max_length=254, unique=True, null=True, blank=True, db_index=True)
-    student_id = models.CharField(max_length=32, unique=True, null=True, blank=True, db_index=True)
+    student_id = models.CharField(max_length=32, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
