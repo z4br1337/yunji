@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 import uuid
 
 
@@ -23,6 +24,8 @@ class User(models.Model):
     invite_used = models.CharField(max_length=64, null=True, blank=True)
     email = models.EmailField(max_length=254, unique=True, null=True, blank=True, db_index=True)
     student_id = models.CharField(max_length=32, null=True, blank=True, db_index=True)
+    interaction_reply_seen_at = models.DateTimeField(default=timezone.now)
+    interaction_post_comment_seen_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -58,6 +61,9 @@ class Post(models.Model):
 
 class Comment(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
+    parent_comment = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies',
+    )
     author_id = models.CharField(max_length=128)
     author_name = models.CharField(max_length=64, default='')
     is_admin = models.BooleanField(default=False)

@@ -43,9 +43,15 @@
             @click="toggleCommentFocus(c._id)"
             @keyup.enter="toggleCommentFocus(c._id)"
           >
-            <span class="comment-author">{{ c.authorName }}:</span>
-            <span class="comment-text">{{ c.content }}</span>
-            <span class="comment-time">{{ formatTime(c.createdAt) }}</span>
+            <div class="comment-line-top">
+              <div class="comment-line-main">
+                <span class="comment-author">{{ c.authorName }}:</span>
+                <span v-if="c.parentCommentId && c.parentAuthorName" class="comment-reply-tag">@{{ c.parentAuthorName }}</span>
+                <span class="comment-text">{{ c.content }}</span>
+                <span class="comment-time">{{ formatTime(c.createdAt) }}</span>
+              </div>
+              <button type="button" class="btn-reply-emotion" @click.stop="startReply(c)">回复</button>
+            </div>
             <div v-if="focusedCommentId === c._id" class="comment-admin-row" @click.stop>
               <button type="button" class="btn btn-danger btn-xs" @click="removeComment(c)">删除</button>
             </div>
@@ -53,7 +59,17 @@
           <div v-if="!comments.length" class="comment-empty text-muted text-sm">暂无回复</div>
         </div>
         <div class="comment-input-area">
-          <textarea class="form-textarea" v-model="newComment" placeholder="回复倾诉者..." rows="2" maxlength="500"></textarea>
+          <p v-if="replyingTo" class="replying-hint text-sm">
+            回复 <strong>@{{ replyingTo.authorName }}</strong>
+            <button type="button" class="btn-cancel-mini" @click="cancelReply">取消</button>
+          </p>
+          <textarea
+            class="form-textarea"
+            v-model="newComment"
+            :placeholder="replyingTo ? `回复 @${replyingTo.authorName}…` : '回复倾诉者...'"
+            rows="2"
+            maxlength="500"
+          ></textarea>
           <button class="btn btn-primary btn-sm mt-8" :disabled="!newComment.trim()" @click="submitComment">发送</button>
         </div>
       </div>
@@ -75,8 +91,17 @@ const post = ref(null)
 const realAuthor = ref(null)
 const comments = ref([])
 const newComment = ref('')
+const replyingTo = ref(null)
 const loading = ref(true)
 const focusedCommentId = ref(null)
+
+function startReply(c) {
+  replyingTo.value = { _id: c._id, authorName: c.authorName || '用户' }
+}
+
+function cancelReply() {
+  replyingTo.value = null
+}
 
 function toggleCommentFocus(id) {
   focusedCommentId.value = focusedCommentId.value === id ? null : id
@@ -129,8 +154,10 @@ async function submitComment() {
     return
   }
   try {
-    await api.addComment(route.params.postId, text)
+    const opts = replyingTo.value ? { parentCommentId: replyingTo.value._id } : {}
+    await api.addComment(route.params.postId, text, opts)
     newComment.value = ''
+    replyingTo.value = null
     showToast('回复成功')
     const cmtResult = await api.getComments(route.params.postId)
     comments.value = cmtResult.comments || []
@@ -163,12 +190,24 @@ onMounted(() => loadData())
   border-bottom: 6px solid #f7f7f7;
 }
 .comment-list { min-height: 24px; }
-.comment-line { padding: 8px 6px; font-size: 0.9rem; line-height: 1.5; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; border-radius: 6px; cursor: pointer; }
+.comment-line { padding: 8px 6px; font-size: 0.9rem; line-height: 1.5; border-radius: 6px; cursor: pointer; }
+.comment-line-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .comment-line-active { background: rgba(74, 144, 217, 0.1); }
+.comment-line-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; flex: 1; min-width: 0; }
+.comment-reply-tag { font-size: 0.75rem; color: var(--primary); }
+.btn-reply-emotion {
+  border: none; background: none; color: var(--primary); font-size: 0.75rem;
+  cursor: pointer; flex-shrink: 0; padding: 2px 0;
+}
 .comment-admin-row { width: 100%; margin-top: 6px; }
 .comment-author { color: #576b95; font-weight: 500; }
 .comment-text { color: #333; flex: 1; min-width: 0; }
-.comment-time { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
+.comment-time { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; width: 100%; }
 .comment-empty { padding: 12px 0; }
 .comment-input-area { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e5e5; }
+.replying-hint { margin-bottom: 8px; color: #666; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn-cancel-mini {
+  border: none; background: #e0e0e0; padding: 2px 8px; border-radius: 999px;
+  font-size: 0.7rem; cursor: pointer;
+}
 </style>

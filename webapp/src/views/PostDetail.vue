@@ -69,7 +69,13 @@
             <span v-if="c.isAdmin" class="badge badge-danger">导生</span>
             <span class="text-xs text-muted" style="margin-left:auto">{{ c.createdAt }}</span>
           </div>
+          <p v-if="c.parentCommentId && c.parentAuthorName" class="text-xs text-muted reply-hint">
+            回复 <span class="reply-at">@{{ c.parentAuthorName }}</span>
+          </p>
           <p class="text-sm comment-body">{{ c.content }}</p>
+          <div class="comment-row-actions" @click.stop>
+            <button type="button" class="btn-reply" @click="startReply(c)">回复</button>
+          </div>
           <div v-if="isAdmin && focusedCommentId === c._id" class="comment-admin-actions" @click.stop>
             <button type="button" class="btn btn-danger btn-sm" @click="removeComment(c)">删除评论</button>
           </div>
@@ -79,7 +85,17 @@
 
         <!-- Add comment -->
         <div class="comment-input mt-16">
-          <textarea class="form-textarea" v-model="newComment" placeholder="写一条评论..." rows="2" maxlength="500"></textarea>
+          <p v-if="replyingTo" class="replying-bar text-sm">
+            正在回复 <strong>@{{ replyingTo.authorName }}</strong>
+            <button type="button" class="btn-cancel-reply" @click="cancelReply">取消</button>
+          </p>
+          <textarea
+            class="form-textarea"
+            v-model="newComment"
+            :placeholder="replyingTo ? `回复 @${replyingTo.authorName}…` : '写一条评论...'"
+            rows="2"
+            maxlength="500"
+          ></textarea>
           <button class="btn btn-primary btn-sm mt-8" :disabled="!newComment.trim()" @click="submitComment">发送</button>
         </div>
       </div>
@@ -98,6 +114,7 @@ const route = useRoute()
 const router = useRouter()
 const { state } = useUserStore()
 const showToast = inject('showToast')
+const refreshInteractionUnread = inject('refreshInteractionUnread', () => {})
 
 const isAdmin = computed(() => state.isAdmin)
 const focusedCommentId = ref(null)
@@ -110,7 +127,16 @@ const post = ref(null)
 const realAuthor = ref(null)
 const comments = ref([])
 const newComment = ref('')
+const replyingTo = ref(null)
 const loading = ref(true)
+
+function startReply(c) {
+  replyingTo.value = { _id: c._id, authorName: c.authorName || '用户' }
+}
+
+function cancelReply() {
+  replyingTo.value = null
+}
 
 async function loadData() {
   loading.value = true
@@ -136,13 +162,16 @@ function onCommentRowClick(c) {
 }
 
 async function removeComment(c) {
-  if (!window.confirm('确定删除该评论？')) return
+  if (!window.confirm('确定删除该评论？其下的回复也会被删除。')) return
   try {
     await api.deleteComment(c._id)
     focusedCommentId.value = null
     showToast('已删除')
     const cmtResult = await api.getComments(route.params.id)
     comments.value = cmtResult.comments || []
+    try {
+      await refreshInteractionUnread()
+    } catch { /* ignore */ }
   } catch (e) {
     showToast(e.message || '删除失败')
   }
@@ -157,11 +186,16 @@ async function submitComment() {
     return
   }
   try {
-    await api.addComment(route.params.id, text)
+    const opts = replyingTo.value ? { parentCommentId: replyingTo.value._id } : {}
+    await api.addComment(route.params.id, text, opts)
     newComment.value = ''
+    replyingTo.value = null
     showToast('评论成功')
     const cmtResult = await api.getComments(route.params.id)
     comments.value = cmtResult.comments || []
+    try {
+      await refreshInteractionUnread()
+    } catch { /* ignore */ }
   } catch (e) {
     showToast(e.message || '评论失败')
   }
@@ -226,7 +260,36 @@ onMounted(() => loadData())
 .comment-item-clickable { cursor: pointer; border-radius: var(--radius-sm); }
 .comment-item-clickable:hover { background: var(--bg); }
 .comment-item-active { background: rgba(74, 144, 217, 0.08); }
+.reply-hint { margin: 0 0 4px 40px; }
+.reply-at { color: var(--primary); font-weight: 600; }
 .comment-body { margin-left: 40px; }
+.comment-row-actions { margin-left: 40px; margin-top: 6px; }
+.btn-reply {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn-reply:hover { text-decoration: underline; }
 .comment-admin-actions { margin-left: 40px; margin-top: 8px; }
+.replying-bar {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.btn-cancel-reply {
+  border: none;
+  background: var(--border);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
 .clickable { cursor: pointer; }
 </style>

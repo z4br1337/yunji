@@ -20,7 +20,11 @@
           <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
         </router-link>
         <router-link to="/chat" class="nav-item" active-class="active">
-          <span class="nav-icon">💌</span><span class="nav-label">私信</span>
+          <span class="nav-icon-wrap">
+            <span class="nav-icon">💌</span>
+            <span v-if="interactionUnreadTotal > 0" class="icon-badge">{{ interactionBadgeText }}</span>
+          </span>
+          <span class="nav-label">互动信息</span>
         </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">👤</span><span class="nav-label">我的</span>
@@ -61,6 +65,13 @@
       <router-link to="/ai-chat" class="tab-item" active-class="active">
         <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
       </router-link>
+      <router-link to="/chat" class="tab-item" active-class="active">
+        <span class="tab-icon-wrap">
+          <span class="tab-icon">💌</span>
+          <span v-if="interactionUnreadTotal > 0" class="icon-badge tab-badge">{{ interactionBadgeText }}</span>
+        </span>
+        <span class="tab-label">互动</span>
+      </router-link>
       <router-link to="/settings" class="tab-item" active-class="active">
         <span class="tab-icon">👤</span><span class="tab-label">我的</span>
       </router-link>
@@ -78,6 +89,7 @@ import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDevice } from './utils/device.js'
 import { useUserStore } from './stores/user.js'
+import * as api from './api/index.js'
 
 const { isMobile, isWindows, isAndroid, isIOS } = useDevice()
 const { state, restoreSession, refreshProfile } = useUserStore()
@@ -86,6 +98,38 @@ const route = useRoute()
 const isLoggedIn = computed(() => state.isLoggedIn)
 const isAdmin = computed(() => state.isAdmin)
 const userInfo = computed(() => state.userInfo)
+
+const interactionUnreadTotal = ref(0)
+const interactionBadgeText = computed(() => {
+  const n = interactionUnreadTotal.value
+  return n > 99 ? '99+' : String(n)
+})
+
+async function refreshInteractionUnread() {
+  if (!state.isLoggedIn || !localStorage.getItem('token')) {
+    interactionUnreadTotal.value = 0
+    return
+  }
+  try {
+    const r = await api.getInteractionUnreadSummary()
+    interactionUnreadTotal.value = Number(r.total) || 0
+  } catch {
+    interactionUnreadTotal.value = 0
+  }
+}
+
+provide('refreshInteractionUnread', refreshInteractionUnread)
+provide('interactionUnreadTotal', interactionUnreadTotal)
+
+watch(isLoggedIn, async (v) => {
+  if (v && localStorage.getItem('token')) {
+    try {
+      await refreshInteractionUnread()
+    } catch { /* ignore */ }
+  } else {
+    interactionUnreadTotal.value = 0
+  }
+})
 
 const hideTabBarRoutes = ['/login', '/register', '/bind-student', '/profile-edit', '/settings/preferences', '/settings/invite', '/achievement/create', '/emotion-help']
 const showTabBar = computed(() => {
@@ -114,6 +158,9 @@ onMounted(async () => {
     try {
       await refreshProfile()
     } catch { /* 网络异常时保留本地缓存 */ }
+    try {
+      await refreshInteractionUnread()
+    } catch { /* ignore */ }
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
@@ -131,6 +178,9 @@ function onVisibilityChange() {
     try {
       await refreshProfile()
     } catch { /* 静默失败，保留本地缓存 */ }
+    try {
+      await refreshInteractionUnread()
+    } catch { /* ignore */ }
   }, 300)
 }
 </script>
@@ -159,7 +209,34 @@ function onVisibilityChange() {
 }
 .nav-item:hover { color: #fff; background: rgba(255,255,255,0.06); }
 .nav-item.active { color: #fff; background: rgba(74,144,217,0.2); border-left-color: var(--primary); }
+.nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
 .nav-icon { font-size: 1.15rem; width: 24px; text-align: center; }
+.icon-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.tab-badge {
+  top: -4px;
+  right: -6px;
+}
 .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); }
 .user-brief { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.8); font-size: 0.85rem; }
 
@@ -177,11 +254,19 @@ function onVisibilityChange() {
 }
 .tab-item {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  font-size: 0.7rem; color: var(--text-muted); text-decoration: none;
+  font-size: 0.62rem; color: var(--text-muted); text-decoration: none;
   transition: var(--transition); padding: 4px 0;
+  min-width: 0; flex: 1;
 }
 .tab-item.active { color: var(--primary); }
-.tab-icon { font-size: 1.3rem; }
+.tab-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tab-icon { font-size: 1.2rem; }
+.tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ========== Mobile padding ========== */
 .is-mobile .main-content { padding-bottom: calc(var(--tabbar-h) + 8px); }

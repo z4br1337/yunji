@@ -34,6 +34,10 @@ urlpatterns = [
     path('message/send', views.message_send),
     path('message/conversations', views.message_conversations),
     path('message/history', views.message_history),
+    path('interaction/unread-summary', views.interaction_unread_summary),
+    path('interaction/mark-seen', views.interaction_mark_seen),
+    path('interaction/replies-to-me', views.interaction_replies_to_me),
+    path('interaction/comments-on-my-posts', views.interaction_comments_on_my_posts),
 
     # 图片上传
     path('upload/image', views.upload_image),

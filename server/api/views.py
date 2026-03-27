@@ -17,6 +17,7 @@ from django.db import models as db_models
 from django.db.models import Q, F, Count, Max, Exists, OuterRef
 from django.db.models.functions import Greatest
 from django.conf import settings
+from django.utils import timezone
 
 from .constants import ALLOWED_CLASSES, is_allowed_class, is_super_admin_user
 from . import sensitive_check
@@ -163,6 +164,25 @@ def post_to_dict(p, reveal_author=False):
             d['authorName'] = '未知'
             d['authorClass'] = ''
     return d
+
+
+def _user_avatar_url(openid):
+    try:
+        u = User.objects.get(openid=openid)
+        return u.avatar_url or ''
+    except User.DoesNotExist:
+        return ''
+
+
+def _comment_to_json(c):
+    par = c.parent_comment if getattr(c, 'parent_comment_id', None) else None
+    return {
+        '_id': str(c.id), 'postId': str(c.post_id), 'authorId': c.author_id,
+        'authorName': c.author_name, 'isAdmin': c.is_admin, 'content': c.content,
+        'parentCommentId': str(par.id) if par else '',
+        'parentAuthorName': par.author_name if par else '',
+        'createdAt': c.created_at.isoformat() if c.created_at else '',
+    }
 
 
 def ach_to_dict(a, include_author=False):
@@ -613,8 +633,17 @@ def comment_add(request):
             return e2
         if not _user_in_admin_class(user, p.author_id):
             return err('FORBIDDEN', '无权评论该情感倾诉')
+    parent = None
+    raw_parent = body.get('parentCommentId') or body.get('replyToCommentId')
+    if raw_parent:
+        try:
+            pid = int(raw_parent)
+            parent = Comment.objects.get(id=pid, post_id=p.id)
+        except (ValueError, TypeError, Comment.DoesNotExist):
+            return err('INVALID_PARAMS', '回复的评论不存在')
     c = Comment.objects.create(
         post_id=p.id,
+        parent_comment=parent,
         author_id=openid,
         author_name=user.nickname,
         is_admin=user.role == 'admin',
@@ -640,12 +669,8 @@ def comment_list(request):
                 return err('FORBIDDEN', '无权查看')
         elif p.author_id != openid:
             return err('FORBIDDEN', '无权查看')
-    comments = Comment.objects.filter(post_id=p.id)
-    return ok({'comments': [{
-        '_id': str(c.id), 'postId': str(c.post_id), 'authorId': c.author_id,
-        'authorName': c.author_name, 'isAdmin': c.is_admin, 'content': c.content,
-        'createdAt': c.created_at.isoformat() if c.created_at else '',
-    } for c in comments]})
+    comments = Comment.objects.filter(post_id=p.id).select_related('parent_comment').order_by('created_at')
+    return ok({'comments': [_comment_to_json(c) for c in comments]})
 
 
 @csrf_exempt
@@ -821,6 +846,96 @@ def message_conversations(request):
 
     convs.sort(key=lambda c: c['lastTime'], reverse=True)
     return ok({'conversations': convs})
+
+
+@csrf_exempt
+@require_POST
+def interaction_unread_summary(request):
+    openid = request.user_token
+    dm_unread = Message.objects.filter(to_id=openid, read=False).count()
+    try:
+        u = User.objects.get(openid=openid)
+    except User.DoesNotExist:
+        return ok({'dmUnread': dm_unread, 'replyUnread': 0, 'postCommentUnread': 0, 'total': dm_unread})
+    reply_ts = u.interaction_reply_seen_at
+    post_ts = u.interaction_post_comment_seen_at
+    reply_unread = Comment.objects.filter(
+        parent_comment__author_id=openid,
+    ).exclude(author_id=openid).filter(created_at__gt=reply_ts).count()
+    pc_unread = Comment.objects.filter(
+        post__author_id=openid,
+    ).exclude(author_id=openid).filter(created_at__gt=post_ts).count()
+    return ok({
+        'dmUnread': dm_unread,
+        'replyUnread': reply_unread,
+        'postCommentUnread': pc_unread,
+        'total': dm_unread + reply_unread + pc_unread,
+    })
+
+
+@csrf_exempt
+@require_POST
+def interaction_mark_seen(request):
+    openid = request.user_token
+    body = get_body(request)
+    scope = (body.get('scope') or 'all').strip()
+    now = timezone.now()
+    if scope in ('dm', 'all'):
+        Message.objects.filter(to_id=openid, read=False).update(read=True)
+    if scope in ('reply', 'all'):
+        User.objects.filter(openid=openid).update(interaction_reply_seen_at=now)
+    if scope in ('post_comment', 'all'):
+        User.objects.filter(openid=openid).update(interaction_post_comment_seen_at=now)
+    return ok({})
+
+
+@csrf_exempt
+@require_POST
+def interaction_replies_to_me(request):
+    openid = request.user_token
+    qs = Comment.objects.filter(
+        parent_comment__isnull=False,
+        parent_comment__author_id=openid,
+    ).exclude(author_id=openid).select_related('post', 'parent_comment').order_by('-created_at')[:80]
+    items = []
+    for c in qs:
+        par = c.parent_comment
+        items.append({
+            'commentId': str(c.id),
+            'fromId': c.author_id,
+            'fromName': c.author_name,
+            'fromAvatarUrl': _user_avatar_url(c.author_id),
+            'replyContent': c.content,
+            'parentContent': (par.content or '')[:200] if par else '',
+            'postId': str(c.post_id),
+            'postSnippet': (c.post.content or '')[:100],
+            'createdAt': c.created_at.isoformat() if c.created_at else '',
+        })
+    return ok({'items': items})
+
+
+@csrf_exempt
+@require_POST
+def interaction_comments_on_my_posts(request):
+    openid = request.user_token
+    qs = Comment.objects.filter(post__author_id=openid).exclude(author_id=openid).select_related(
+        'post', 'parent_comment',
+    ).order_by('-created_at')[:80]
+    items = []
+    for c in qs:
+        par = c.parent_comment
+        items.append({
+            'commentId': str(c.id),
+            'fromId': c.author_id,
+            'fromName': c.author_name,
+            'fromAvatarUrl': _user_avatar_url(c.author_id),
+            'content': c.content,
+            'parentAuthorName': par.author_name if par else '',
+            'postId': str(c.post_id),
+            'postSnippet': (c.post.content or '')[:100],
+            'createdAt': c.created_at.isoformat() if c.created_at else '',
+        })
+    return ok({'items': items})
 
 
 @csrf_exempt
@@ -1317,8 +1432,17 @@ def admin_comment_add(request):
         return err('INVALID_PARAMS', '评论过长')
     if not sensitive_check.content_passes(content):
         return err('SENSITIVE_CONTENT', '评论包含敏感词，无法发送')
+    parent = None
+    raw_parent = body.get('parentCommentId') or body.get('replyToCommentId')
+    if raw_parent:
+        try:
+            pid = int(raw_parent)
+            parent = Comment.objects.get(id=pid, post_id=p.id)
+        except (ValueError, TypeError, Comment.DoesNotExist):
+            return err('INVALID_PARAMS', '回复的评论不存在')
     c = Comment.objects.create(
         post_id=p.id,
+        parent_comment=parent,
         author_id=admin.openid,
         author_name=admin.nickname,
         is_admin=True,

@@ -67,9 +67,38 @@ const _posts = [
 ]
 
 const _comments = [
-  { _id: 'cmt_001', postId: 'post_001', authorId: 'test_admin_001', authorName: '导生小王', isAdmin: true, content: '欢迎使用云迹！', createdAt: '2026-03-10T09:30:00Z' },
-  { _id: 'cmt_002', postId: 'post_002', authorId: 'test_admin_001', authorName: '导生小王', isAdmin: true, content: '同学你好，已看到你的倾诉。', createdAt: '2026-03-10T11:00:00Z' }
+  { _id: 'cmt_001', postId: 'post_001', authorId: 'test_admin_001', authorName: '导生小王', isAdmin: true, content: '欢迎使用云迹！', parentCommentId: '', parentAuthorName: '', createdAt: '2026-03-10T09:30:00Z' },
+  { _id: 'cmt_002', postId: 'post_002', authorId: 'test_admin_001', authorName: '导生小王', isAdmin: true, content: '同学你好，已看到你的倾诉。', parentCommentId: '', parentAuthorName: '', createdAt: '2026-03-10T11:00:00Z' }
 ]
+
+/** 当前用户互动「已读」水位（mock） */
+const _interactionSeenByUser = {}
+
+function _interactionSeen() {
+  const uid = _currentUserId
+  if (!uid) return { replyAt: new Date().toISOString(), postAt: new Date().toISOString() }
+  if (!_interactionSeenByUser[uid]) {
+    _interactionSeenByUser[uid] = { replyAt: '2020-01-01T00:00:00.000Z', postAt: '2020-01-01T00:00:00.000Z' }
+  }
+  return _interactionSeenByUser[uid]
+}
+
+function _removeCommentCascade(commentId) {
+  const remove = new Set([commentId])
+  let growing = true
+  while (growing) {
+    growing = false
+    for (const c of _comments) {
+      if (c.parentCommentId && remove.has(c.parentCommentId) && !remove.has(c._id)) {
+        remove.add(c._id)
+        growing = true
+      }
+    }
+  }
+  for (let i = _comments.length - 1; i >= 0; i--) {
+    if (remove.has(_comments[i]._id)) _comments.splice(i, 1)
+  }
+}
 
 const _achievements = [
   { _id: 'ach_001', userId: 'test_user_001', title: '校运会100米短跑第三名', description: '在2026年春季校运会中获得百米第三名', category: 'physical', dimension: '', subcategory: '', level: 3, points: 0, expAwarded: 1500, images: [], status: 'approved', createdAt: '2026-03-08T10:00:00Z' },
@@ -374,7 +403,7 @@ export async function mockGetComments(postId) {
   return { comments: _comments.filter(c => c.postId === postId) }
 }
 
-export async function mockAddComment(postId, content) {
+export async function mockAddComment(postId, content, opts = {}) {
   await delay()
   const text = (content || '').trim()
   if (!text) throw new Error('评论不能为空')
@@ -388,7 +417,20 @@ export async function mockAddComment(postId, content) {
       throw new Error('无权评论该情感倾诉')
     }
   }
-  const comment = { _id: genId(), postId, authorId: _currentUserId, authorName: user ? user.nickname : '未知', isAdmin: user ? user.role === 'admin' : false, content: text, createdAt: now() }
+  let parentCommentId = ''
+  let parentAuthorName = ''
+  const rawParent = opts && (opts.parentCommentId || opts.replyToCommentId)
+  if (rawParent) {
+    const par = _comments.find(x => x._id === String(rawParent))
+    if (!par || par.postId !== postId) throw new Error('回复的评论不存在')
+    parentCommentId = par._id
+    parentAuthorName = par.authorName || ''
+  }
+  const comment = {
+    _id: genId(), postId, authorId: _currentUserId, authorName: user ? user.nickname : '未知',
+    isAdmin: user ? user.role === 'admin' : false, content: text,
+    parentCommentId, parentAuthorName, createdAt: now(),
+  }
   _comments.push(comment)
   return { commentId: comment._id }
 }
@@ -401,14 +443,14 @@ export async function mockDeleteComment(commentId) {
   const c = _comments[idx]
   const post = _posts.find(p => p._id === c.postId)
   if (c.authorId === _currentUserId) {
-    _comments.splice(idx, 1)
+    _removeCommentCascade(commentId)
     return {}
   }
   if (!user || user.role !== 'admin') throw new Error('无权删除该评论')
   if (post && post.category === 'emotion' && !_mockAdminActsOnAuthor(post.authorId)) {
     throw new Error('无权删除该评论')
   }
-  _comments.splice(idx, 1)
+  _removeCommentCascade(commentId)
   return {}
 }
 
@@ -509,6 +551,96 @@ export async function mockGetChatHistory(peerId) {
   const history = _messages.filter(m => (m.fromId === _currentUserId && m.toId === peerId) || (m.fromId === peerId && m.toId === _currentUserId))
   history.forEach(m => { if (m.toId === _currentUserId) m.read = true })
   return { messages: history }
+}
+
+export async function mockInteractionUnreadSummary() {
+  await delay()
+  const uid = _currentUserId
+  if (!uid) return { dmUnread: 0, replyUnread: 0, postCommentUnread: 0, total: 0 }
+  const seen = _interactionSeen()
+  const dmUnread = _messages.filter(m => m.toId === uid && !m.read).length
+  const replyUnread = _comments.filter(c => {
+    if (!c.parentCommentId || c.authorId === uid) return false
+    const par = _comments.find(p => p._id === c.parentCommentId)
+    if (!par || par.authorId !== uid) return false
+    return new Date(c.createdAt) > new Date(seen.replyAt)
+  }).length
+  const postCommentUnread = _comments.filter(c => {
+    if (c.authorId === uid) return false
+    const post = _posts.find(p => p._id === c.postId)
+    if (!post || post.authorId !== uid) return false
+    return new Date(c.createdAt) > new Date(seen.postAt)
+  }).length
+  return {
+    dmUnread,
+    replyUnread,
+    postCommentUnread,
+    total: dmUnread + replyUnread + postCommentUnread,
+  }
+}
+
+export async function mockInteractionMarkSeen(scope = 'all') {
+  await delay()
+  const uid = _currentUserId
+  if (!uid) return {}
+  const seen = _interactionSeen()
+  const t = now()
+  if (scope === 'dm' || scope === 'all') {
+    _messages.forEach(m => { if (m.toId === uid) m.read = true })
+  }
+  if (scope === 'reply' || scope === 'all') seen.replyAt = t
+  if (scope === 'post_comment' || scope === 'all') seen.postAt = t
+  return {}
+}
+
+export async function mockRepliesToMe() {
+  await delay()
+  const uid = _currentUserId
+  const items = []
+  for (const c of _comments) {
+    if (!c.parentCommentId || c.authorId === uid) continue
+    const par = _comments.find(p => p._id === c.parentCommentId)
+    if (!par || par.authorId !== uid) continue
+    const post = _posts.find(p => p._id === c.postId)
+    items.push({
+      commentId: c._id,
+      fromId: c.authorId,
+      fromName: c.authorName,
+      fromAvatarUrl: _users[c.authorId]?.avatarUrl || '',
+      replyContent: c.content,
+      parentContent: (par.content || '').slice(0, 200),
+      postId: c.postId,
+      postSnippet: (post?.content || '').slice(0, 100),
+      createdAt: c.createdAt,
+    })
+  }
+  items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+  return { items: items.slice(0, 80) }
+}
+
+export async function mockCommentsOnMyPosts() {
+  await delay()
+  const uid = _currentUserId
+  const items = []
+  for (const c of _comments) {
+    if (c.authorId === uid) continue
+    const post = _posts.find(p => p._id === c.postId)
+    if (!post || post.authorId !== uid) continue
+    const par = c.parentCommentId ? _comments.find(p => p._id === c.parentCommentId) : null
+    items.push({
+      commentId: c._id,
+      fromId: c.authorId,
+      fromName: c.authorName,
+      fromAvatarUrl: _users[c.authorId]?.avatarUrl || '',
+      content: c.content,
+      parentAuthorName: par ? (par.authorName || '') : '',
+      postId: c.postId,
+      postSnippet: (post?.content || '').slice(0, 100),
+      createdAt: c.createdAt,
+    })
+  }
+  items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+  return { items: items.slice(0, 80) }
 }
 
 export async function mockUploadImage(file) {

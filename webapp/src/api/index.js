@@ -183,9 +183,11 @@ export async function getComments(postId) {
   return request('/comment/list', { postId })
 }
 
-export async function addComment(postId, content) {
-  if (LOCAL_TEST_MODE) return mock.mockAddComment(postId, content)
-  const result = await request('/comment/add', { postId, content })
+export async function addComment(postId, content, opts = {}) {
+  if (LOCAL_TEST_MODE) return mock.mockAddComment(postId, content, opts)
+  const body = { postId, content }
+  if (opts.parentCommentId) body.parentCommentId = String(opts.parentCommentId)
+  const result = await request('/comment/add', body)
   clearCache()
   return result
 }
@@ -236,6 +238,28 @@ export async function getConversations() {
 export async function getChatHistory(peerId) {
   if (LOCAL_TEST_MODE) return mock.mockGetChatHistory(peerId)
   return request('/message/history', { peerId })
+}
+
+export async function getInteractionUnreadSummary() {
+  if (LOCAL_TEST_MODE) return mock.mockInteractionUnreadSummary()
+  return request('/interaction/unread-summary')
+}
+
+export async function markInteractionSeen(scope = 'all') {
+  if (LOCAL_TEST_MODE) return mock.mockInteractionMarkSeen(scope)
+  const result = await request('/interaction/mark-seen', { scope })
+  clearCache()
+  return result
+}
+
+export async function getRepliesToMe() {
+  if (LOCAL_TEST_MODE) return mock.mockRepliesToMe()
+  return request('/interaction/replies-to-me')
+}
+
+export async function getCommentsOnMyPosts() {
+  if (LOCAL_TEST_MODE) return mock.mockCommentsOnMyPosts()
+  return request('/interaction/comments-on-my-posts')
 }
 
 export async function uploadImage(file) {

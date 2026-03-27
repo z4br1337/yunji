@@ -68,7 +68,11 @@
         <span class="menu-icon">📖</span><span>成长手册</span><span class="arrow">›</span>
       </div>
       <div class="menu-item" @click="$router.push('/chat')">
-        <span class="menu-icon">💌</span><span>私信</span><span class="arrow">›</span>
+        <span class="menu-icon-wrap-badge">
+          <span class="menu-icon">💌</span>
+          <span v-if="interactionUnreadTotal > 0" class="menu-icon-badge">{{ interactionBadgeText }}</span>
+        </span>
+        <span>互动信息</span><span class="arrow">›</span>
       </div>
       <div v-if="!isAdmin" class="menu-item" @click="$router.push('/emotion-help')">
         <span class="menu-icon">💙</span><span>情感倾诉专线</span><span class="arrow">›</span>
@@ -103,7 +107,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { getLevelInfo, getUserBadges } from '../utils/level.js'
@@ -112,6 +116,13 @@ import * as api from '../api/index.js'
 const router = useRouter()
 const { state, logout } = useUserStore()
 const showToast = inject('showToast')
+const interactionUnreadTotal = inject('interactionUnreadTotal', ref(0))
+const refreshInteractionUnread = inject('refreshInteractionUnread', () => {})
+
+const interactionBadgeText = computed(() => {
+  const n = interactionUnreadTotal.value
+  return n > 99 ? '99+' : String(n)
+})
 
 const user = computed(() => state.userInfo)
 const isAdmin = computed(() => state.isAdmin)
@@ -128,7 +139,17 @@ onMounted(async () => {
     const r = await api.getFileShareList({ myFiles: true, pageSize: 1 })
     fileShareCount.value = r.total || 0
   } catch { /* ignore */ }
+  try {
+    await refreshInteractionUnread()
+  } catch { /* ignore */ }
 })
+
+watch(
+  () => state.isLoggedIn,
+  (v) => {
+    if (v) refreshInteractionUnread()
+  }
+)
 
 function handleLogout() {
   logout()
@@ -177,6 +198,29 @@ function handleLogout() {
 .stat-item.clickable:hover .stat-num { color: var(--primary); }
 .exp-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
 .exp-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; transition: width 0.5s ease; }
+.menu-icon-wrap-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+}
+.menu-icon-badge {
+  position: absolute;
+  top: -7px;
+  right: -12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+}
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; cursor: pointer; transition: var(--transition); }
 .menu-item:hover { background: var(--bg); }
 .menu-item:not(.menu-item-feature) span:nth-child(2) { flex: 1; font-size: 0.95rem; }

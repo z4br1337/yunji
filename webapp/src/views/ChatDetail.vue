@@ -23,13 +23,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import * as api from '../api/index.js'
 
 const route = useRoute()
 const { state } = useUserStore()
+const refreshInteractionUnread = inject('refreshInteractionUnread', () => {})
 const peerId = route.params.peerId
 const peerName = ref(decodeURIComponent(route.query.name || '用户'))
 const myId = state.userInfo?._id
@@ -46,6 +47,9 @@ async function loadMessages() {
     const result = await api.getChatHistory(peerId)
     messages.value = result.messages || []
     scrollBottom()
+    try {
+      await refreshInteractionUnread()
+    } catch { /* ignore */ }
   } catch { /* ignore */ }
 }
 
