@@ -58,6 +58,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { SCHOOL_CLASSES } from '../utils/config.js'
 import { formatRelativeTime } from '../utils/formatTime.js'
+import { check as sensitiveCheck } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
 
 const route = useRoute()
@@ -119,9 +120,14 @@ async function onDeleteEmotion() {
 }
 
 async function submitComment() {
-  if (!newComment.value.trim()) return
+  const text = newComment.value.trim()
+  if (!text) return
+  if (!sensitiveCheck(text).pass) {
+    showToast('评论包含敏感词，无法发送')
+    return
+  }
   try {
-    await api.addComment(route.params.id, newComment.value.trim())
+    await api.addComment(route.params.id, text)
     newComment.value = ''
     showToast('回复成功')
     const cmtResult = await api.getComments(route.params.id)

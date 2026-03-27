@@ -51,14 +51,28 @@
       <!-- Comments -->
       <div class="card">
         <h3 class="mb-8">评论 ({{ comments.length }})</h3>
-        <div v-for="c in comments" :key="c._id" class="comment-item">
+        <div
+          v-for="c in comments"
+          :key="c._id"
+          class="comment-item"
+          :class="{
+            'comment-item-active': isAdmin && focusedCommentId === c._id,
+            'comment-item-clickable': isAdmin,
+          }"
+          :tabindex="isAdmin ? 0 : undefined"
+          @click="onCommentRowClick(c)"
+          @keyup.enter="isAdmin && onCommentRowClick(c)"
+        >
           <div class="flex items-center gap-8 mb-4">
             <div class="avatar avatar-sm">{{ (c.authorName || '?')[0] }}</div>
             <span class="font-bold text-sm">{{ c.authorName }}</span>
             <span v-if="c.isAdmin" class="badge badge-danger">导生</span>
             <span class="text-xs text-muted" style="margin-left:auto">{{ c.createdAt }}</span>
           </div>
-          <p class="text-sm" style="margin-left:40px">{{ c.content }}</p>
+          <p class="text-sm comment-body">{{ c.content }}</p>
+          <div v-if="isAdmin && focusedCommentId === c._id" class="comment-admin-actions" @click.stop>
+            <button type="button" class="btn btn-danger btn-sm" @click="removeComment(c)">删除评论</button>
+          </div>
         </div>
 
         <div v-if="!comments.length" class="text-muted text-sm text-center p-16">暂无评论</div>
@@ -77,6 +91,7 @@
 import { ref, computed, onMounted, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
+import { check as sensitiveCheck } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
 
 const route = useRoute()
@@ -84,7 +99,8 @@ const router = useRouter()
 const { state } = useUserStore()
 const showToast = inject('showToast')
 
-const isAdmin = ref(state.isAdmin)
+const isAdmin = computed(() => state.isAdmin)
+const focusedCommentId = ref(null)
 const isOwner = computed(() => {
   const p = post.value
   const me = state.userInfo?._id
@@ -114,10 +130,34 @@ async function loadData() {
   }
 }
 
-async function submitComment() {
-  if (!newComment.value.trim()) return
+function onCommentRowClick(c) {
+  if (!isAdmin.value) return
+  focusedCommentId.value = focusedCommentId.value === c._id ? null : c._id
+}
+
+async function removeComment(c) {
+  if (!window.confirm('确定删除该评论？')) return
   try {
-    await api.addComment(route.params.id, newComment.value.trim())
+    await api.deleteComment(c._id)
+    focusedCommentId.value = null
+    showToast('已删除')
+    const cmtResult = await api.getComments(route.params.id)
+    comments.value = cmtResult.comments || []
+  } catch (e) {
+    showToast(e.message || '删除失败')
+  }
+}
+
+async function submitComment() {
+  const text = newComment.value.trim()
+  if (!text) return
+  const checkResult = sensitiveCheck(text)
+  if (!checkResult.pass) {
+    showToast('评论包含敏感词，无法发送')
+    return
+  }
+  try {
+    await api.addComment(route.params.id, text)
     newComment.value = ''
     showToast('评论成功')
     const cmtResult = await api.getComments(route.params.id)
@@ -183,5 +223,10 @@ onMounted(() => loadData())
 .admin-actions, .owner-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border); }
 .comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .comment-item:last-child { border-bottom: none; }
+.comment-item-clickable { cursor: pointer; border-radius: var(--radius-sm); }
+.comment-item-clickable:hover { background: var(--bg); }
+.comment-item-active { background: rgba(74, 144, 217, 0.08); }
+.comment-body { margin-left: 40px; }
+.comment-admin-actions { margin-left: 40px; margin-top: 8px; }
 .clickable { cursor: pointer; }
 </style>

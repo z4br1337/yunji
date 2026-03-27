@@ -599,18 +599,26 @@ def comment_add(request):
         p = Post.objects.get(id=int(body.get('postId')))
     except (Post.DoesNotExist, ValueError, TypeError):
         return err('NOT_FOUND', '帖子不存在')
-    if user.role == 'admin':
+    content = (body.get('content') or '').strip()
+    if not content:
+        return err('INVALID_PARAMS', '评论不能为空')
+    if len(content) > 500:
+        return err('INVALID_PARAMS', '评论过长')
+    if not sensitive_check.content_passes(content):
+        return err('SENSITIVE_CONTENT', '评论包含敏感词，无法发送')
+    # 广场等非情感帖：任意用户（含各班级导生）均可评论；情感帖仅作者与同班导生等既有规则
+    if user.role == 'admin' and p.category == 'emotion':
         e2 = _admin_class_err(user)
         if e2:
             return e2
         if not _user_in_admin_class(user, p.author_id):
-            return err('FORBIDDEN', '无权评论其他班级的帖子')
+            return err('FORBIDDEN', '无权评论该情感倾诉')
     c = Comment.objects.create(
         post_id=p.id,
         author_id=openid,
         author_name=user.nickname,
         is_admin=user.role == 'admin',
-        content=body.get('content', ''),
+        content=content,
     )
     return ok({'commentId': str(c.id)})
 
@@ -638,6 +646,40 @@ def comment_list(request):
         'authorName': c.author_name, 'isAdmin': c.is_admin, 'content': c.content,
         'createdAt': c.created_at.isoformat() if c.created_at else '',
     } for c in comments]})
+
+
+@csrf_exempt
+@require_POST
+def comment_delete(request):
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    body = get_body(request)
+    try:
+        cid = int(body.get('commentId'))
+    except (TypeError, ValueError):
+        return err('INVALID_PARAMS', '评论ID无效')
+    try:
+        c = Comment.objects.get(id=cid)
+    except Comment.DoesNotExist:
+        return err('NOT_FOUND', '评论不存在')
+    try:
+        p = Post.objects.get(id=c.post_id)
+    except Post.DoesNotExist:
+        c.delete()
+        return ok({})
+
+    if c.author_id == openid:
+        c.delete()
+        return ok({})
+    if user.role != 'admin':
+        return err('FORBIDDEN', '无权删除该评论')
+    e2 = _admin_class_err(user)
+    if e2:
+        return e2
+    if p.category == 'emotion' and not _user_in_admin_class(user, p.author_id):
+        return err('FORBIDDEN', '无权删除该评论')
+    c.delete()
+    return ok({})
 
 
 # ======================== 成果 ========================
@@ -1268,12 +1310,19 @@ def admin_comment_add(request):
     p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
     if e2:
         return e2
+    content = (body.get('content') or '').strip()
+    if not content:
+        return err('INVALID_PARAMS', '评论不能为空')
+    if len(content) > 500:
+        return err('INVALID_PARAMS', '评论过长')
+    if not sensitive_check.content_passes(content):
+        return err('SENSITIVE_CONTENT', '评论包含敏感词，无法发送')
     c = Comment.objects.create(
         post_id=p.id,
         author_id=admin.openid,
         author_name=admin.nickname,
         is_admin=True,
-        content=body.get('content', ''),
+        content=content,
     )
     return ok({'commentId': str(c.id)})
 

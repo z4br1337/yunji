@@ -190,6 +190,13 @@ export async function addComment(postId, content) {
   return result
 }
 
+export async function deleteComment(commentId) {
+  if (LOCAL_TEST_MODE) return mock.mockDeleteComment(commentId)
+  const result = await request('/comment/delete', { commentId })
+  clearCache()
+  return result
+}
+
 export async function getAchievements(params = {}) {
   if (LOCAL_TEST_MODE) return mock.mockGetAchievements(params)
   return request('/achievement/list', params)

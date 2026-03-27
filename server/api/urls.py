@@ -20,6 +20,7 @@ urlpatterns = [
     # 评论
     path('comment/add', views.comment_add),
     path('comment/list', views.comment_list),
+    path('comment/delete', views.comment_delete),
 
     # 成果（闪光时刻）
     path('achievement/create', views.achievement_create),

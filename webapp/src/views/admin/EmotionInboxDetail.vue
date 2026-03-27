@@ -34,10 +34,21 @@
       <div class="comment-block">
         <div class="comment-arrow"></div>
         <div class="comment-list">
-          <div v-for="c in comments" :key="c._id" class="comment-line">
+          <div
+            v-for="c in comments"
+            :key="c._id"
+            class="comment-line"
+            :class="{ 'comment-line-active': focusedCommentId === c._id }"
+            tabindex="0"
+            @click="toggleCommentFocus(c._id)"
+            @keyup.enter="toggleCommentFocus(c._id)"
+          >
             <span class="comment-author">{{ c.authorName }}:</span>
             <span class="comment-text">{{ c.content }}</span>
             <span class="comment-time">{{ formatTime(c.createdAt) }}</span>
+            <div v-if="focusedCommentId === c._id" class="comment-admin-row" @click.stop>
+              <button type="button" class="btn btn-danger btn-xs" @click="removeComment(c)">删除</button>
+            </div>
           </div>
           <div v-if="!comments.length" class="comment-empty text-muted text-sm">暂无回复</div>
         </div>
@@ -54,6 +65,7 @@
 import { ref, onMounted, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatRelativeTime } from '../../utils/formatTime.js'
+import { check as sensitiveCheck } from '../../utils/sensitive.js'
 import * as api from '../../api/index.js'
 
 const route = useRoute()
@@ -64,6 +76,24 @@ const realAuthor = ref(null)
 const comments = ref([])
 const newComment = ref('')
 const loading = ref(true)
+const focusedCommentId = ref(null)
+
+function toggleCommentFocus(id) {
+  focusedCommentId.value = focusedCommentId.value === id ? null : id
+}
+
+async function removeComment(c) {
+  if (!window.confirm('确定删除该评论？')) return
+  try {
+    await api.deleteComment(c._id)
+    focusedCommentId.value = null
+    showToast('已删除')
+    const cmtResult = await api.getComments(route.params.postId)
+    comments.value = cmtResult.comments || []
+  } catch (e) {
+    showToast(e.message || '删除失败')
+  }
+}
 
 function formatTime(ts) {
   return formatRelativeTime(ts)
@@ -92,9 +122,14 @@ async function loadData() {
 }
 
 async function submitComment() {
-  if (!newComment.value.trim()) return
+  const text = newComment.value.trim()
+  if (!text) return
+  if (!sensitiveCheck(text).pass) {
+    showToast('评论包含敏感词，无法发送')
+    return
+  }
   try {
-    await api.addComment(route.params.postId, newComment.value.trim())
+    await api.addComment(route.params.postId, text)
     newComment.value = ''
     showToast('回复成功')
     const cmtResult = await api.getComments(route.params.postId)
@@ -128,7 +163,9 @@ onMounted(() => loadData())
   border-bottom: 6px solid #f7f7f7;
 }
 .comment-list { min-height: 24px; }
-.comment-line { padding: 6px 0; font-size: 0.9rem; line-height: 1.5; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+.comment-line { padding: 8px 6px; font-size: 0.9rem; line-height: 1.5; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; border-radius: 6px; cursor: pointer; }
+.comment-line-active { background: rgba(74, 144, 217, 0.1); }
+.comment-admin-row { width: 100%; margin-top: 6px; }
 .comment-author { color: #576b95; font-weight: 500; }
 .comment-text { color: #333; flex: 1; min-width: 0; }
 .comment-time { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }

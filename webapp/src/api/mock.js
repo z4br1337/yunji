@@ -376,16 +376,40 @@ export async function mockGetComments(postId) {
 
 export async function mockAddComment(postId, content) {
   await delay()
+  const text = (content || '').trim()
+  if (!text) throw new Error('评论不能为空')
+  if (!sensitiveCheck(text).pass) {
+    throw new Error('评论包含敏感词，无法发送')
+  }
   const user = cur()
   const post = _posts.find(p => p._id === postId)
-  if (user && user.role === 'admin' && post) {
+  if (user && user.role === 'admin' && post && post.category === 'emotion') {
     if (!_mockAdminActsOnAuthor(post.authorId)) {
-      throw new Error('无权评论其他班级的帖子')
+      throw new Error('无权评论该情感倾诉')
     }
   }
-  const comment = { _id: genId(), postId, authorId: _currentUserId, authorName: user ? user.nickname : '未知', isAdmin: user ? user.role === 'admin' : false, content, createdAt: now() }
+  const comment = { _id: genId(), postId, authorId: _currentUserId, authorName: user ? user.nickname : '未知', isAdmin: user ? user.role === 'admin' : false, content: text, createdAt: now() }
   _comments.push(comment)
   return { commentId: comment._id }
+}
+
+export async function mockDeleteComment(commentId) {
+  await delay()
+  const user = cur()
+  const idx = _comments.findIndex(c => c._id === commentId)
+  if (idx < 0) throw new Error('评论不存在')
+  const c = _comments[idx]
+  const post = _posts.find(p => p._id === c.postId)
+  if (c.authorId === _currentUserId) {
+    _comments.splice(idx, 1)
+    return {}
+  }
+  if (!user || user.role !== 'admin') throw new Error('无权删除该评论')
+  if (post && post.category === 'emotion' && !_mockAdminActsOnAuthor(post.authorId)) {
+    throw new Error('无权删除该评论')
+  }
+  _comments.splice(idx, 1)
+  return {}
 }
 
 // ========== Achievements ==========
