@@ -31,7 +31,15 @@
         <p class="detail-content">{{ post.content }}</p>
 
         <div v-if="post.images && post.images.length" class="detail-images">
-          <img v-for="(img, i) in post.images" :key="i" :src="img" class="detail-img" loading="lazy" />
+          <img
+            v-for="(img, i) in post.images"
+            :key="i"
+            :src="img"
+            class="detail-img"
+            loading="lazy"
+            decoding="async"
+            :fetchpriority="i === 0 ? 'high' : 'low'"
+          />
         </div>
 
         <!-- Admin actions (情感倾诉使用独立详情页，不显示) -->
@@ -104,11 +112,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { check as sensitiveCheck } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
+import * as localPostCache from '../utils/localPostCache.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -130,6 +139,19 @@ const newComment = ref('')
 const replyingTo = ref(null)
 const loading = ref(true)
 
+function applyReadCache(postId) {
+  const c = localPostCache.getCachedReadPost(postId)
+  if (!c?.post) return false
+  post.value = { ...c.post }
+  comments.value = Array.isArray(c.comments) ? [...c.comments] : []
+  if (isAdmin.value && c.post.authorName) {
+    realAuthor.value = { nickname: c.post.authorName, class: c.post.authorClass || '' }
+  } else {
+    realAuthor.value = null
+  }
+  return true
+}
+
 function startReply(c) {
   replyingTo.value = { _id: c._id, authorName: c.authorName || '用户' }
 }
@@ -139,18 +161,35 @@ function cancelReply() {
 }
 
 async function loadData() {
-  loading.value = true
+  const id = route.params.id
+  focusedCommentId.value = null
+  replyingTo.value = null
+  const fromCache = applyReadCache(id)
+  loading.value = !fromCache
   try {
-    const result = await api.getPostDetail(route.params.id)
+    const [result, cmtResult] = await Promise.all([
+      api.getPostDetail(id),
+      api.getComments(id),
+    ])
     const p = Array.isArray(result.posts) ? result.posts[0] : result.post || result
     post.value = p || null
     if (isAdmin.value && p && p.authorName) {
       realAuthor.value = { nickname: p.authorName, class: p.authorClass || '' }
+    } else if (!isAdmin.value) {
+      realAuthor.value = null
     }
-    const cmtResult = await api.getComments(route.params.id)
     comments.value = cmtResult.comments || []
+    if (post.value) {
+      localPostCache.cacheReadPost(post.value, comments.value)
+    }
   } catch (e) {
-    showToast(e.message || '加载失败')
+    if (!fromCache || !post.value) {
+      showToast(e.message || '加载失败')
+      post.value = null
+      comments.value = []
+    } else {
+      showToast('暂时无法刷新，显示为已缓存内容')
+    }
   } finally {
     loading.value = false
   }
@@ -169,6 +208,7 @@ async function removeComment(c) {
     showToast('已删除')
     const cmtResult = await api.getComments(route.params.id)
     comments.value = cmtResult.comments || []
+    if (post.value) localPostCache.cacheReadPost(post.value, comments.value)
     try {
       await refreshInteractionUnread()
     } catch { /* ignore */ }
@@ -193,6 +233,7 @@ async function submitComment() {
     showToast('评论成功')
     const cmtResult = await api.getComments(route.params.id)
     comments.value = cmtResult.comments || []
+    if (post.value) localPostCache.cacheReadPost(post.value, comments.value)
     try {
       await refreshInteractionUnread()
     } catch { /* ignore */ }
@@ -205,6 +246,7 @@ async function onAction(action) {
   try {
     await api.adminOverridePost(post.value._id, action)
     post.value.status = action
+    localPostCache.cacheReadPost(post.value, comments.value)
     showToast('操作成功')
   } catch (e) {
     showToast(e.message || '操作失败')
@@ -214,12 +256,14 @@ async function onAction(action) {
 async function onPin() {
   await api.adminPinPost(post.value._id)
   post.value.pinned = true
+  localPostCache.cacheReadPost(post.value, comments.value)
   showToast('已置顶')
 }
 
 async function onUnpin() {
   await api.adminUnpinPost(post.value._id)
   post.value.pinned = false
+  localPostCache.cacheReadPost(post.value, comments.value)
   showToast('已取消置顶')
 }
 
@@ -227,7 +271,10 @@ async function onDeletePost() {
   if (!post.value) return
   if (!window.confirm('确定删除该帖子？删除后不可恢复。')) return
   try {
-    await api.deletePost(post.value._id)
+    const pid = post.value._id
+    await api.deletePost(pid)
+    localPostCache.invalidateReadPost(pid)
+    localPostCache.removePostFromAllFeedSnapshots(pid)
     showToast('已删除')
     router.back()
   } catch (e) {
@@ -243,6 +290,7 @@ function onAuthorClick() {
 }
 
 onMounted(() => loadData())
+watch(() => route.params.id, () => loadData())
 </script>
 
 <style scoped>

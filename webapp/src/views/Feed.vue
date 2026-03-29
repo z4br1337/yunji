@@ -28,6 +28,7 @@
 
     <!-- Post List -->
     <div class="post-list">
+      <div v-if="refreshing" class="refresh-strip" aria-hidden="true" title="正在更新"></div>
       <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
       <template v-else-if="posts.length">
         <PostCard v-for="post in posts" :key="post._id" :post="post" :is-admin="isAdmin"
@@ -45,11 +46,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, watch, inject } from 'vue'
-import { useRouter, onBeforeRouteUpdate } from 'vue-router'
+import { ref, computed, onMounted, watch, inject } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { POST_CATEGORIES } from '../utils/config.js'
 import * as api from '../api/index.js'
+import * as localPostCache from '../utils/localPostCache.js'
 import PostCard from '../components/PostCard.vue'
 
 const router = useRouter()
@@ -64,13 +66,34 @@ const currentCategory = ref('all')
 const searchKeyword = ref('')
 const posts = ref([])
 const loading = ref(false)
+const refreshing = ref(false)
 const page = ref(1)
 const hasMore = ref(false)
 let loaded = false
 
 async function loadPosts(reset = true) {
-  if (reset) { page.value = 1; posts.value = [] }
-  loading.value = true
+  if (reset) {
+    page.value = 1
+    const snap = localPostCache.getFeedSnapshot(
+      currentCategory.value,
+      searchKeyword.value,
+      pageSize.value
+    )
+    if (snap?.posts?.length) {
+      posts.value = snap.posts
+      hasMore.value = !!snap.hasMore
+      loaded = true
+      loading.value = false
+      refreshing.value = true
+    } else {
+      posts.value = []
+      loading.value = true
+      refreshing.value = false
+    }
+  } else {
+    loading.value = true
+  }
+
   try {
     const params = { page: page.value, pageSize: pageSize.value, excludeEmotion: true }
     if (currentCategory.value !== 'all') params.category = currentCategory.value
@@ -84,10 +107,24 @@ async function loadPosts(reset = true) {
     }
     hasMore.value = result.hasMore || false
     loaded = true
+    if (reset) {
+      localPostCache.saveFeedSnapshot(
+        currentCategory.value,
+        searchKeyword.value,
+        pageSize.value,
+        posts.value,
+        hasMore.value
+      )
+    }
   } catch (e) {
-    showToast(e.message || '加载失败')
+    if (!reset || posts.value.length === 0) {
+      showToast(e.message || '加载失败')
+    } else {
+      showToast('网络异常，暂显示本地缓存')
+    }
   } finally {
     loading.value = false
+    refreshing.value = false
   }
 }
 
@@ -149,7 +186,17 @@ watch(() => state.isLoggedIn, (val) => {
 }
 .cat-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .cat-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
-.post-list { margin-top: 8px; }
+.post-list { margin-top: 8px; position: relative; }
+.refresh-strip {
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: feed-refresh-pulse 1s ease-in-out infinite;
+  z-index: 1; pointer-events: none;
+}
+@keyframes feed-refresh-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
 .load-more { text-align: center; padding: 16px; }
 
 @media (min-width: 768px) {

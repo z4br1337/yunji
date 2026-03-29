@@ -16,7 +16,15 @@
       <p v-if="post.status === 'flagged' && isAdmin" class="flagged-content" v-html="post.flaggedHighlighted || post.content"></p>
       <p v-else class="post-content">{{ post.content }}</p>
       <div v-if="post.images && post.images.length" class="post-images">
-        <img v-for="(img, i) in post.images.slice(0, 3)" :key="i" :src="img" class="post-img" loading="lazy" />
+        <img
+          v-for="(img, i) in post.images.slice(0, 3)"
+          :key="i"
+          :src="img"
+          class="post-img"
+          loading="lazy"
+          decoding="async"
+          :fetchpriority="i === 0 ? 'high' : 'low'"
+        />
       </div>
     </div>
     <div class="post-footer">
@@ -30,7 +38,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { POST_CATEGORIES, POST_STATUS_LABELS } from '../utils/config.js'
 
 const props = defineProps({
@@ -38,7 +45,6 @@ const props = defineProps({
   isAdmin: { type: Boolean, default: false }
 })
 const emit = defineEmits(['click', 'avatar-click'])
-const router = useRouter()
 
 const catMap = {}
 POST_CATEGORIES.forEach(c => { catMap[c.key] = c.label })

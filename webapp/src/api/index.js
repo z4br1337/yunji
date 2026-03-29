@@ -155,7 +155,7 @@ export async function getPosts(params = {}) {
     '/post/list',
     { filter: filterFields, page: page || 1, pageSize: pageSize || 12 },
     'POST',
-    { cacheable: !hasKeyword, cacheTTL: 3500 }
+    { cacheable: !hasKeyword, cacheTTL: 8000 }
   )
 }
 

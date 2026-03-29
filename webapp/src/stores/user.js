@@ -1,5 +1,6 @@
 import { reactive, readonly } from 'vue'
 import * as api from '../api/index.js'
+import { clearUserLocalPostCaches } from '../utils/localPostCache.js'
 
 const state = reactive({
   userInfo: null,
@@ -52,6 +53,8 @@ export function useUserStore() {
   }
 
   function logout() {
+    clearUserLocalPostCaches()
+    api.clearCache()
     state.userInfo = null
     state.isLoggedIn = false
     state.isAdmin = false
