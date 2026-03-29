@@ -1,10 +1,11 @@
 /**
- * 本地持久化：用户读过的帖子详情 + 广场首屏快照（按用户隔离）
+ * 本地持久化：用户读过的帖子详情、广场首屏快照、「我的帖子」全量列表（按用户隔离）
  * 先读本地再请求网络，失败时保留已展示的缓存。
  */
 
 const PREFIX_READ = 'yunji_read_v2_'
 const PREFIX_FEED = 'yunji_feed_v2_'
+const PREFIX_MY_POSTS = 'yunji_my_posts_v2_'
 const MAX_READ_ENTRIES = 100
 const MAX_JSON_CHARS = 1_200_000
 
@@ -124,11 +125,55 @@ export function saveFeedSnapshot(category, keyword, pageSize, posts, hasMore) {
   } catch { /* quota */ }
 }
 
+function myPostsStoreKey() {
+  return PREFIX_MY_POSTS + getUserId()
+}
+
+/**
+ * 「我的帖子」全量快照（与接口 myPosts 分页拉全后的 published / archived 划分一致）
+ */
+export function getMyPostsSnapshot() {
+  try {
+    const raw = localStorage.getItem(myPostsStoreKey())
+    if (!raw) return null
+    const o = JSON.parse(raw)
+    if (!Array.isArray(o.published) || !Array.isArray(o.archived)) return null
+    return {
+      published: o.published,
+      archived: o.archived,
+      savedAt: o.savedAt || 0,
+    }
+  } catch {
+    return null
+  }
+}
+
+export function saveMyPostsSnapshot(published, archived) {
+  try {
+    const payload = {
+      published: JSON.parse(JSON.stringify(published || [])),
+      archived: JSON.parse(JSON.stringify(archived || [])),
+      savedAt: Date.now(),
+    }
+    localStorage.setItem(myPostsStoreKey(), JSON.stringify(payload))
+  } catch { /* quota */ }
+}
+
+export function removePostFromMyPostsSnapshot(postId) {
+  const snap = getMyPostsSnapshot()
+  if (!snap) return
+  const id = String(postId)
+  const published = snap.published.filter((p) => String(p._id) !== id)
+  const archived = snap.archived.filter((p) => String(p._id) !== id)
+  saveMyPostsSnapshot(published, archived)
+}
+
 /** 登出前调用：清除当前用户在本地与帖子相关的缓存 */
 export function clearUserLocalPostCaches() {
   const uid = getUserId()
   try {
     localStorage.removeItem(readStoreKey())
+    localStorage.removeItem(PREFIX_MY_POSTS + uid)
     const toRemove = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
