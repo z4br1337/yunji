@@ -22,6 +22,19 @@
         <label class="form-label">内容</label>
         <textarea class="form-textarea" v-model="content" placeholder="分享你的想法..." maxlength="2000" rows="6"></textarea>
         <span class="text-xs text-muted">{{ content.length }}/2000</span>
+        <div v-if="sensitivePanelVisible" class="sensitive-panel" role="status" aria-live="polite">
+          <p class="sensitive-panel-title">以下与原文一致的内容中，<strong class="sensitive-strong">红色</strong>为检测到的敏感词，请修改后再发布：</p>
+          <div class="sensitive-mirror">
+            <span
+              v-for="(seg, i) in sensitiveSegments"
+              :key="i"
+              :class="{ 'sensitive-hit': seg.sensitive }"
+            >{{ seg.text }}</span>
+          </div>
+          <p v-if="sensitiveFallbackWords.length" class="sensitive-fallback text-sm text-muted">
+            词库命中：{{ sensitiveFallbackWords.join('、') }}（请在正文中调整变形或谐音写法）
+          </p>
+        </div>
       </div>
 
       <!-- Images -->
@@ -55,12 +68,12 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({ embedded: { type: Boolean, default: false } })
 import { POST_CATEGORIES } from '../utils/config.js'
-import { check as sensitiveCheck } from '../utils/sensitive.js'
+import { check as sensitiveCheck, highlightSegments } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
 
 const router = useRouter()
@@ -72,6 +85,23 @@ const content = ref('')
 const images = ref([])
 const isAnonymous = ref(false)
 const submitting = ref(false)
+
+const sensitiveHighlight = computed(() => highlightSegments(content.value))
+
+const sensitiveSegments = computed(() => {
+  const segs = sensitiveHighlight.value.segments
+  if (!segs || !segs.length) return []
+  return segs
+})
+
+const sensitivePanelVisible = computed(() => !sensitiveHighlight.value.pass)
+
+const sensitiveFallbackWords = computed(() => {
+  if (sensitiveHighlight.value.pass) return []
+  const hasRed = sensitiveSegments.value.some((s) => s.sensitive)
+  if (hasRed) return []
+  return sensitiveHighlight.value.words || []
+})
 
 function onFileSelect(e) {
   const files = Array.from(e.target.files)
@@ -88,7 +118,7 @@ async function handleSubmit() {
   if (!content.value.trim()) { showToast('请输入内容'); return }
   const checkResult = sensitiveCheck(content.value)
   if (!checkResult.pass) {
-    showToast('内容包含敏感词，无法发布')
+    showToast('内容包含敏感词，无法发布，请查看下方红色标注修改')
     return
   }
   submitting.value = true
@@ -144,4 +174,40 @@ async function handleSubmit() {
   color: var(--text-muted); cursor: pointer; transition: var(--transition);
 }
 .img-add:hover { border-color: var(--primary); color: var(--primary); }
+
+.sensitive-panel {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(220, 53, 69, 0.35);
+  background: rgba(220, 53, 69, 0.06);
+}
+.sensitive-panel-title {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.sensitive-strong { color: #c82333; font-weight: 700; }
+.sensitive-mirror {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  min-height: 2.5em;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+.sensitive-hit {
+  color: #c82333;
+  font-weight: 700;
+  background: rgba(220, 53, 69, 0.18);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.sensitive-fallback { margin: 10px 0 0; }
 </style>

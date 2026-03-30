@@ -85,26 +85,116 @@ function abbrevMatches(text, w) {
   return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, 'i').test(text)
 }
 
-export function check(text) {
+function escapeReg(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** 与检测逻辑一致的命中词列表（缩写 + 词库） */
+function collectMatchedWords(text) {
   _init()
-  if (!text || !text.trim()) return { pass: true, words: [], categories: [], highlighted: text || '' }
+  if (!text || !text.trim()) return []
   const norm = normalize(text)
   const lower = text.toLowerCase()
   const matched = []
-  const cats = {}
-
   for (const w of ABBREV_WORDS) {
-    if (abbrevMatches(text, w) && !matched.includes(w)) {
-      matched.push(w)
-      cats.profanity = true
+    if (abbrevMatches(text, w) && !matched.includes(w)) matched.push(w)
+  }
+  for (const w of _allWords) {
+    if ((norm.includes(w) || lower.includes(w)) && !matched.includes(w)) matched.push(w)
+  }
+  return matched
+}
+
+function categoriesFromMatched(matched) {
+  const cats = {}
+  for (const w of matched) {
+    if (ABBREV_WORDS.includes(w)) cats.profanity = true
+    const cat = _categoryMap[w]
+    if (cat) cats[cat] = true
+  }
+  return Object.keys(cats)
+}
+
+/** 在原文中查找词 w 的所有 [start, end) 区间（与标红展示一致） */
+function findWordRanges(text, w) {
+  const ranges = []
+  if (/^[a-z0-9]+$/i.test(w) && w.length <= 4) {
+    const escaped = escapeReg(w)
+    const re = new RegExp(`(^|[^a-zA-Z0-9])(${escaped})([^a-zA-Z0-9]|$)`, 'gi')
+    let m
+    while ((m = re.exec(text)) !== null) {
+      const start = m.index + m[1].length
+      const end = start + m[2].length
+      ranges.push([start, end])
+    }
+    return ranges
+  }
+  const re = new RegExp(escapeReg(w), 'gi')
+  let m
+  while ((m = re.exec(text)) !== null) {
+    ranges.push([m.index, m.index + m[0].length])
+  }
+  return ranges
+}
+
+function mergeRanges(ranges) {
+  if (!ranges.length) return []
+  const sorted = ranges.slice().sort((a, b) => a[0] - b[0])
+  const out = [[sorted[0][0], sorted[0][1]]]
+  for (let i = 1; i < sorted.length; i++) {
+    const [s, e] = sorted[i]
+    const last = out[out.length - 1]
+    if (s < last[1]) last[1] = Math.max(last[1], e)
+    else if (s === last[1]) last[1] = e
+    else out.push([s, e])
+  }
+  return out
+}
+
+/**
+ * 将原文拆成片段，供发帖框下方安全渲染（文本节点，无 HTML 注入）
+ * @returns {{ pass: boolean, segments: { sensitive: boolean, text: string }[], words?: string[] }}
+ */
+export function highlightSegments(text) {
+  if (!text) return { pass: true, segments: [] }
+  if (!text.trim()) return { pass: true, segments: [{ sensitive: false, text }] }
+  const matched = collectMatchedWords(text)
+  if (!matched.length) {
+    return { pass: true, segments: [{ sensitive: false, text }] }
+  }
+  const byLen = matched.slice().sort((a, b) => b.length - a.length)
+  const all = []
+  for (const w of byLen) {
+    all.push(...findWordRanges(text, w))
+  }
+  if (!all.length) {
+    return {
+      pass: false,
+      segments: [{ sensitive: false, text }],
+      words: matched,
     }
   }
+  const merged = mergeRanges(all)
+  const segments = []
+  let cursor = 0
+  for (const [s, e] of merged) {
+    if (s > cursor) segments.push({ sensitive: false, text: text.slice(cursor, s) })
+    segments.push({ sensitive: true, text: text.slice(s, e) })
+    cursor = e
+  }
+  if (cursor < text.length) segments.push({ sensitive: false, text: text.slice(cursor) })
+  return { pass: false, segments, words: matched }
+}
 
-  for (const w of _allWords) {
-    if ((norm.includes(w) || lower.includes(w)) && !matched.includes(w)) {
-      matched.push(w)
-      cats[_categoryMap[w]] = true
-    }
+export function check(text) {
+  _init()
+  if (!text || !text.trim()) return { pass: true, words: [], categories: [], highlighted: text || '' }
+  const matched = collectMatchedWords(text)
+  const cats = {}
+  for (const w of matched) {
+    if (ABBREV_WORDS.includes(w)) cats.profanity = true
+    const cat = _categoryMap[w]
+    if (cat) cats[cat] = true
   }
 
   let highlighted = text
