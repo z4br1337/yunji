@@ -62,14 +62,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import { ACHIEVEMENT_CATEGORIES } from '../utils/config.js'
 import { getLevelInfo } from '../utils/level.js'
 import * as api from '../api/index.js'
 
-defineProps({
+const props = defineProps({
   embedded: { type: Boolean, default: false },
+  targetUserId: { type: String, default: '' },
 })
 
 const route = useRoute()
@@ -90,11 +91,16 @@ const filteredAchs = computed(() => {
 
 async function loadData() {
   loading.value = true
+  errorMsg.value = ''
   try {
-    const userId = route.query.userId || undefined
+    const q = route.query.userId
+    const userId = (props.targetUserId && String(props.targetUserId).trim())
+      || (q && String(q).trim())
+      || undefined
     bookData.value = await api.getGrowthBook(userId)
   } catch (e) {
     errorMsg.value = e.message || '加载失败'
+    bookData.value = null
   } finally {
     loading.value = false
   }
@@ -110,6 +116,7 @@ async function togglePublic(e) {
 }
 
 onMounted(() => loadData())
+watch(() => props.targetUserId, () => loadData())
 </script>
 
 <style scoped>

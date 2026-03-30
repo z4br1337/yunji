@@ -7,6 +7,7 @@ urlpatterns = [
     path('user/login', views.user_login),
     path('user/bind-student-id', views.bind_student_id),
     path('user/profile', views.user_profile),
+    path('user/public-home', views.user_public_home),
     path('user/change-password', views.user_change_password),
     path('user/invite', views.use_invite_code),
     path('user/points-log', views.user_points_log),
@@ -31,6 +32,10 @@ urlpatterns = [
     path('growth-book/get', views.growth_book_get),
     path('growth-book/set-public', views.growth_book_set_public),
 
+    path('wall/list', views.wall_list),
+    path('wall/add', views.wall_add),
+    path('wall/delete', views.wall_delete),
+
     # 私信
     path('message/send', views.message_send),
     path('message/conversations', views.message_conversations),
@@ -47,6 +52,7 @@ urlpatterns = [
     # 文件分享
     path('file-share/create', views.file_share_create),
     path('file-share/list', views.file_share_list),
+    path('file-share/like', views.file_share_like),
 
     # 管理员
     path('admin/reports', views.admin_reports),

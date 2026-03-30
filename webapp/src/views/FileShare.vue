@@ -58,11 +58,22 @@
           <div class="flex-1 min-w-0">
             <h4 class="mb-4">{{ item.title }}</h4>
             <p v-if="item.description" class="text-sm text-secondary mb-8">{{ item.description }}</p>
-            <div class="flex items-center gap-8 flex-wrap">
-              <a :href="item.fileUrl" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+            <div class="flex items-center gap-8 flex-wrap file-card-actions">
+              <a :href="item.fileUrl" target="_blank" rel="noopener" class="btn btn-primary btn-sm" @click.stop>
                 📎 下载 {{ item.fileName || '文件' }}
               </a>
               <span class="text-xs text-muted">{{ item.authorName }} · {{ formatTime(item.createdAt) }}</span>
+              <button
+                type="button"
+                class="btn-file-like"
+                :disabled="fileLikeDisabled(item)"
+                :title="fileLikeTitle(item)"
+                @click.stop="onFileLike(item)"
+              >
+                <span aria-hidden="true">{{ item.likedByMe ? '❤️' : '🤍' }}</span>
+                <span>点赞</span>
+                <span class="file-like-num">{{ item.likeCount ?? 0 }}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -79,12 +90,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import * as api from '../api/index.js'
+import { useUserStore } from '../stores/user.js'
 
 defineProps({ embedded: { type: Boolean, default: false } })
 
+const { state } = useUserStore()
 const showToast = inject('showToast')
+const myId = computed(() => state.userInfo?._id || '')
 const items = ref([])
 const loading = ref(false)
 const page = ref(1)
@@ -178,6 +192,30 @@ function loadMore() {
   loadItems(false)
 }
 
+function fileLikeDisabled(item) {
+  if (item.likedByMe) return true
+  if (item.userId && myId.value && item.userId === myId.value) return true
+  return false
+}
+
+function fileLikeTitle(item) {
+  if (item.likedByMe) return '你已点赞'
+  if (item.userId === myId.value) return '不能给自己的分享点赞'
+  return '点赞：分享者每获赞一次可得10积分'
+}
+
+async function onFileLike(item) {
+  if (fileLikeDisabled(item)) return
+  try {
+    const r = await api.fileShareLike(item._id)
+    item.likeCount = r.likeCount ?? item.likeCount
+    item.likedByMe = true
+    showToast('点赞成功，已为分享者增加10积分')
+  } catch (e) {
+    showToast(e.message || '点赞失败')
+  }
+}
+
 onMounted(() => loadItems())
 </script>
 
@@ -200,4 +238,26 @@ onMounted(() => loadItems())
 .load-more { text-align: center; padding: 16px; }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
+.btn-file-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-file-like:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.btn-file-like:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.file-like-num { font-weight: 700; }
 </style>

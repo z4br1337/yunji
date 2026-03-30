@@ -65,8 +65,32 @@ const _postLikes = new Set() // `${userId}:${postId}`
 const _posts = [
   { _id: 'post_001', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '大家好！这是云迹的第一条帖子，欢迎大家来交流~', images: [], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 2, pointsAwarded: 0, createdAt: '2026-03-10T09:00:00Z', updatedAt: '2026-03-10T09:00:00Z' },
   { _id: 'post_002', authorId: 'test_user_001', isAnonymous: true, visibleAuthorName: '匿名用户', content: '最近学业压力好大，感觉有点撑不住了…希望有人能理解。', images: [], category: 'emotion', status: 'published', pinned: false, featured: false, likeCount: 0, pointsAwarded: 0, needOffline: false, offlineTime: '', offlinePlace: '', createdAt: '2026-03-10T10:30:00Z', updatedAt: '2026-03-10T10:30:00Z' },
-  { _id: 'post_003', authorId: 'test_admin_001', isAnonymous: false, visibleAuthorName: '导生小王', content: '校运会志愿者招募开始了！有兴趣的同学可以在成果页提交德育成果哦~', images: [], category: 'knowledge', status: 'published', pinned: true, featured: true, likeCount: 5, pointsAwarded: 0, createdAt: '2026-03-09T14:00:00Z', updatedAt: '2026-03-09T14:00:00Z' }
+  { _id: 'post_003', authorId: 'test_admin_001', isAnonymous: false, visibleAuthorName: '导生小王', content: '校运会志愿者招募开始了！有兴趣的同学可以在成果页提交德育成果哦~', images: [], category: 'knowledge', status: 'published', pinned: true, featured: true, likeCount: 5, pointsAwarded: 0, createdAt: '2026-03-09T14:00:00Z', updatedAt: '2026-03-09T14:00:00Z' },
+  { _id: 'post_004', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '这是一条高赞帖（用于展示自动精品样式）。', images: [], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 35, pointsAwarded: 0, createdAt: '2026-03-08T12:00:00Z', updatedAt: '2026-03-08T12:00:00Z' },
 ]
+
+const _fileShareLikes = new Set() // `${userId}:${fileId}`
+
+const _mockFileShares = [
+  {
+    _id: 'fs_001',
+    userId: 'test_user_001',
+    title: '高等数学复习笔记',
+    description: 'Mock 示例文件',
+    fileUrl: 'https://example.com/mock-note.pdf',
+    fileName: 'note.pdf',
+    status: 'approved',
+    likeCount: 2,
+    createdAt: '2026-03-08T09:00:00Z',
+  },
+]
+
+/** 个人主页留言 profileOwnerId -> 展示在某用户主页 */
+const _wallMessages = []
+
+function _postBoutique(p) {
+  return !!(p.category !== 'emotion' && (p.likeCount || 0) > 30)
+}
 
 const _comments = [
   { _id: 'cmt_001', postId: 'post_001', authorId: 'test_admin_001', authorName: '导生小王', isAdmin: true, content: '欢迎使用云迹！', parentCommentId: '', parentAuthorName: '', createdAt: '2026-03-10T09:30:00Z' },
@@ -289,12 +313,14 @@ export async function mockGetPointsLog() {
 
 export async function mockGetPosts(params = {}) {
   await delay()
-  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts, keyword } = params
+  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts, keyword, authorId } = params
   const user = cur()
   const isAdmin = user && user.role === 'admin'
   const kw = (keyword || '').trim()
 
   let filtered = _posts.filter(p => {
+    if (authorId && p.authorId !== authorId) return false
+    if (authorId && p.category === 'emotion') return false
     if (myPosts && p.authorId !== _currentUserId) return false
     if (myPosts && excludeEmotion && p.category === 'emotion') return false
     if (p.status === 'flagged' && !isAdmin) return false
@@ -307,7 +333,7 @@ export async function mockGetPosts(params = {}) {
     return true
   })
 
-  if (myPosts) {
+  if (myPosts || authorId) {
     filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   } else if (category !== 'emotion') {
     filtered.sort((a, b) => {
@@ -324,6 +350,7 @@ export async function mockGetPosts(params = {}) {
   const start = (page - 1) * pageSize
   const slice = filtered.slice(start, start + pageSize).map((p) => ({
     ...p,
+    boutique: _postBoutique(p),
     likedByMe: _postLikes.has(`${_currentUserId}:${p._id}`),
   }))
   return { posts: slice, total: filtered.length, hasMore: start + pageSize < filtered.length }
@@ -355,6 +382,7 @@ export async function mockGetPostDetail(postId) {
     ...post,
     likeCount: post.likeCount || 0,
     featured: !!post.featured,
+    boutique: _postBoutique(post),
     likedByMe: _currentUserId ? _postLikes.has(`${_currentUserId}:${postId}`) : false,
   }
   if (isAdmin && authorUser) {
@@ -667,6 +695,166 @@ export async function mockCommentsOnMyPosts() {
 export async function mockUploadImage(file) {
   await delay(50)
   return { url: URL.createObjectURL(file) }
+}
+
+export async function mockGetUserPublicHome(userId) {
+  await delay()
+  const uid = (userId && String(userId).trim()) || _currentUserId
+  if (!uid) throw new Error('请先登录')
+  const u = _users[uid]
+  if (!u) throw new Error('用户不存在')
+  const postCount = _posts.filter(
+    p => p.authorId === uid && p.status === 'published' && p.category !== 'emotion',
+  ).length
+  const fileShareCount = _mockFileShares.filter(f => f.userId === uid && f.status === 'approved').length
+  return {
+    user: {
+      _id: u._id,
+      nickname: u.nickname,
+      class: u.class || '',
+      avatarUrl: u.avatarUrl || '',
+      role: u.role,
+      exp: u.exp || 0,
+      score: u.score || 0,
+      postCount,
+      achievementCounts: u.achievementCounts || {},
+    },
+    fileShareCount,
+    isMe: uid === _currentUserId,
+  }
+}
+
+function _wallRowToClient(m) {
+  return {
+    _id: m._id,
+    authorId: m.authorId,
+    authorName: m.authorName,
+    isAdmin: m.isAdmin,
+    content: m.content,
+    createdAt: m.createdAt,
+  }
+}
+
+export async function mockWallList(userId, page = 1, pageSize = 30) {
+  await delay()
+  const oid = (userId && String(userId).trim()) || ''
+  if (!oid) return { messages: [], total: 0, hasMore: false }
+  let rows = _wallMessages.filter(m => m.profileOwnerId === oid)
+  rows = [...rows].sort((a, b) => {
+    if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1
+    return new Date(b.createdAt) - new Date(a.createdAt)
+  })
+  const total = rows.length
+  const start = (page - 1) * pageSize
+  const slice = rows.slice(start, start + pageSize).map(_wallRowToClient)
+  return { messages: slice, total, hasMore: start + pageSize < total }
+}
+
+export async function mockWallAdd(userId, content) {
+  await delay()
+  const u = cur()
+  if (!u) throw new Error('请先登录')
+  const owner = (userId && String(userId).trim()) || ''
+  if (!owner) throw new Error('参数不完整')
+  const text = (content || '').trim()
+  if (!text) throw new Error('留言不能为空')
+  if (text.length > 500) throw new Error('留言过长')
+  if (!sensitiveCheck(text).pass) throw new Error('留言包含不适宜内容')
+  if (!_users[owner]) throw new Error('用户不存在')
+  const row = {
+    _id: genId(),
+    profileOwnerId: owner,
+    authorId: u._id,
+    authorName: (u.nickname || '用户').slice(0, 64),
+    isAdmin: u.role === 'admin',
+    content: text,
+    createdAt: now(),
+  }
+  _wallMessages.push(row)
+  return {}
+}
+
+export async function mockWallDelete(messageId) {
+  await delay()
+  const viewer = cur()
+  if (!viewer) throw new Error('请先登录')
+  const mid = String(messageId)
+  const idx = _wallMessages.findIndex(m => String(m._id) === mid)
+  if (idx < 0) throw new Error('留言不存在')
+  const msg = _wallMessages[idx]
+  if (viewer.role === 'admin') {
+    _wallMessages.splice(idx, 1)
+    return {}
+  }
+  if (viewer._id === msg.profileOwnerId) {
+    if (msg.isAdmin) throw new Error('无法删除导生留言')
+    _wallMessages.splice(idx, 1)
+    return {}
+  }
+  throw new Error('无权删除')
+}
+
+function _fileShareToClient(f) {
+  const author = _users[f.userId]
+  return {
+    _id: f._id,
+    userId: f.userId,
+    title: f.title,
+    description: f.description || '',
+    fileUrl: f.fileUrl,
+    fileName: f.fileName || '',
+    status: f.status,
+    likeCount: f.likeCount || 0,
+    likedByMe: _fileShareLikes.has(`${_currentUserId}:${f._id}`),
+    authorName: author ? author.nickname : '未知',
+    authorAvatarUrl: author?.avatarUrl || '',
+    createdAt: f.createdAt,
+  }
+}
+
+export async function mockGetFileShareList(params = {}) {
+  await delay()
+  const page = Math.max(parseInt(params.page, 10) || 1, 1)
+  const pageSize = Math.min(Math.max(parseInt(params.pageSize, 10) || 20, 5), 50)
+  const myFiles = params.myFiles
+  let list = _mockFileShares.filter((f) => {
+    if (myFiles) return f.userId === _currentUserId
+    return f.status === 'approved'
+  })
+  list = [...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  const total = list.length
+  const start = (page - 1) * pageSize
+  const slice = list.slice(start, start + pageSize).map(_fileShareToClient)
+  return { items: slice, total, hasMore: start + pageSize < total }
+}
+
+export async function mockFileShareLike(fileShareId) {
+  await delay()
+  const fs = _mockFileShares.find(f => String(f._id) === String(fileShareId))
+  if (!fs) throw new Error('文件不存在')
+  if (fs.status !== 'approved') throw new Error('仅已通过的分享可点赞')
+  if (!_currentUserId) throw new Error('请先登录')
+  if (fs.userId === _currentUserId) throw new Error('不能给自己的分享点赞')
+  const key = `${_currentUserId}:${fs._id}`
+  if (_fileShareLikes.has(key)) {
+    return { likeCount: fs.likeCount || 0, likedByMe: true }
+  }
+  _fileShareLikes.add(key)
+  fs.likeCount = (fs.likeCount || 0) + 1
+  const owner = _users[fs.userId]
+  if (owner) {
+    owner.score = (owner.score || 0) + 10
+    _pointsLog.unshift({
+      _id: genId(),
+      userId: owner._id,
+      delta: 10,
+      type: 'score',
+      reason: 'file_like_received',
+      relatedId: String(fs._id),
+      createdAt: now(),
+    })
+  }
+  return { likeCount: fs.likeCount, likedByMe: true }
 }
 
 // ========== Admin ==========

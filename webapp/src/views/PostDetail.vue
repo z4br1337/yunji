@@ -9,10 +9,14 @@
 
     <template v-else-if="post">
       <!-- Post Content -->
-      <div class="card mb-16 post-detail-main-card">
-        <div v-if="post.pinned || post.featured" class="detail-corner-badges">
+      <div
+        class="card mb-16 post-detail-main-card"
+        :class="{ 'post-detail-boutique': post.boutique, 'post-detail-highlight': !post.boutique && (post.pinned || post.featured) }"
+      >
+        <div v-if="post.pinned || post.featured || post.boutique" class="detail-corner-badges">
           <span v-if="post.pinned" class="detail-corner-badge" title="置顶帖：在广场列表优先展示">📌 置顶</span>
           <span v-if="post.featured" class="detail-corner-badge" title="优质帖：导生标记的优质内容">⭐ 优质</span>
+          <span v-if="post.boutique" class="detail-corner-badge detail-corner-boutique" title="精品帖：点赞数超过30自动展示">💎 精品</span>
         </div>
         <div class="detail-header flex items-center gap-12 mb-8">
           <div class="avatar" :class="{ clickable: !post.isAnonymous }" @click="onAuthorClick">
@@ -73,7 +77,8 @@
             @click.stop="onLike"
           >
             <span aria-hidden="true">{{ post.likedByMe ? '❤️' : '🤍' }}</span>
-            <span>{{ post.likeCount ?? 0 }}</span>
+            <span class="like-detail-label">点赞</span>
+            <span class="like-detail-num">{{ post.likeCount ?? 0 }}</span>
           </button>
         </div>
       </div>
@@ -180,7 +185,7 @@ const likeTitle = computed(() => {
   if (!post.value || post.value.category === 'emotion') return ''
   if (post.value.likedByMe) return '你已点赞过本帖'
   if (likeDisabled.value) return '当前状态不可点赞'
-  return '点赞（每人每帖一次，热度高更易在广场展示）'
+  return '点赞：每人每帖一次；热度高更易在广场展示；超过30赞自动为精品帖'
 })
 
 function startReply(c) {
@@ -308,6 +313,7 @@ async function onLike() {
     const r = await api.postLike(p._id)
     p.likeCount = r.likeCount ?? p.likeCount
     p.likedByMe = true
+    p.boutique = p.category !== 'emotion' && (p.likeCount || 0) > 30
     localPostCache.cacheReadPost(p, comments.value)
     showToast('点赞成功')
   } catch (e) {
@@ -346,9 +352,10 @@ async function onDeletePost() {
 
 function onAuthorClick() {
   if (post.value.isAnonymous) { showToast('该用户匿名发布'); return }
-  const myId = state.userInfo?._id
-  if (post.value.authorId === myId) return
-  router.push(`/chat/${post.value.authorId}?name=${encodeURIComponent(post.value.visibleAuthorName || '用户')}`)
+  router.push({
+    name: 'PersonalHome',
+    params: { userId: post.value.authorId },
+  })
 }
 
 onMounted(() => loadData())
@@ -381,9 +388,23 @@ watch(() => route.params.id, () => loadData())
   color: #856404;
   font-weight: 600;
 }
+.detail-corner-boutique {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e4d8c;
+  border: 1px solid rgba(30, 77, 140, 0.35);
+}
+.post-detail-boutique {
+  background: linear-gradient(165deg, #3d7dcc 0%, #5a9fe6 38%, #e8f2fc 72%, #ffffff 100%);
+  border: 1px solid rgba(37, 99, 184, 0.25);
+}
+.post-detail-main-card.post-detail-boutique .real-author-bar {
+  background: rgba(255, 255, 255, 0.85);
+}
 .real-author-bar { background: #FFF3CD; border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.8rem; color: #856404; margin-bottom: 8px; }
 .detail-actions-row { border-top: 1px solid var(--border); align-items: flex-end; }
 .detail-actions-left { flex: 1; min-width: 0; }
+.like-detail-label { font-size: 0.8rem; font-weight: 600; }
+.like-detail-num { font-weight: 700; }
 .btn-like-detail {
   display: inline-flex;
   align-items: center;

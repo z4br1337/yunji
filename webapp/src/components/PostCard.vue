@@ -2,12 +2,13 @@
   <div
     class="post-card"
     :class="{
-      'post-highlight': post.pinned || post.featured,
+      'post-boutique': post.boutique,
+      'post-highlight': !post.boutique && (post.pinned || post.featured),
       'post-flagged': post.status === 'flagged',
     }"
     @click="$emit('click', post)"
   >
-    <div v-if="post.pinned || post.featured" class="post-corner-badges">
+    <div v-if="post.pinned || post.featured || post.boutique" class="post-corner-badges">
       <span
         v-if="post.pinned"
         class="corner-badge"
@@ -18,6 +19,11 @@
         class="corner-badge corner-badge-featured"
         title="优质帖：导生标记的优质内容"
       >⭐ 优质</span>
+      <span
+        v-if="post.boutique"
+        class="corner-badge corner-badge-boutique"
+        title="精品帖：点赞数超过30自动展示"
+      >💎 精品</span>
     </div>
     <div class="post-header">
       <div class="avatar avatar-sm" :class="{ clickable: !post.isAnonymous }" @click.stop="onAvatarClick">
@@ -103,6 +109,14 @@ function onAvatarClick() {
   margin-bottom: 12px;
 }
 .post-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.post-boutique {
+  background: linear-gradient(165deg, #3d7dcc 0%, #5a9fe6 38%, #e8f2fc 72%, #ffffff 100%);
+  border-left: 3px solid #2563b8;
+  box-shadow: 0 4px 20px rgba(37, 99, 184, 0.12);
+}
+.post-boutique .post-author,
+.post-boutique .post-content,
+.post-boutique .post-time { color: var(--text-primary); }
 .post-highlight { border-left: 3px solid var(--warning); background: #FFFDF5; }
 .post-flagged { border-left: 3px solid var(--danger); background: #FFF5F5; }
 .post-corner-badges {
@@ -126,6 +140,11 @@ function onAvatarClick() {
   white-space: nowrap;
 }
 .corner-badge-featured { background: #FFF3CD; color: #856404; }
+.corner-badge-boutique {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e4d8c;
+  border: 1px solid rgba(30, 77, 140, 0.35);
+}
 .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-right: 72px; }
 .post-meta { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .post-author { font-weight: 600; font-size: 0.9rem; }

@@ -153,9 +153,10 @@ function goDetail(id) {
 
 function onAvatarClick(post) {
   if (post.isAnonymous) { showToast('该用户匿名发布'); return }
-  const myId = state.userInfo?._id
-  if (post.authorId === myId) return
-  router.push(`/chat/${post.authorId}?name=${encodeURIComponent(post.visibleAuthorName || '用户')}`)
+  router.push({
+    name: 'PersonalHome',
+    params: { userId: post.authorId },
+  })
 }
 
 onMounted(() => {

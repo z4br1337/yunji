@@ -156,7 +156,7 @@ function handleLogout() {
 .profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); border-radius: var(--radius-sm); transition: background 0.15s ease; }
 .profile-top:hover { background: var(--bg); }
 .profile-top:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.profile-home-hint { position: absolute; right: 14px; bottom: 10px; margin: 0; font-size: 0.65rem; opacity: 0.78; pointer-events: none; }
+.profile-home-hint { position: absolute; right: 14px; bottom: 10px; margin: 0; font-size: 0.8rem; opacity: 0.88; pointer-events: none; line-height: 1.3; }
 .profile-left { display: flex; align-items: center; gap: 12px; }
 .level-display {
   display: flex; flex-direction: column; align-items: center; gap: 2px;

@@ -150,11 +150,36 @@ class FileShare(models.Model):
     file_url = models.CharField(max_length=512)
     file_name = models.CharField(max_length=256, default='')
     status = models.CharField(max_length=16, default='pending')  # pending / approved
+    like_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'file_shares'
         ordering = ['-created_at']
+
+
+class FileShareLike(models.Model):
+    file_share = models.ForeignKey(FileShare, on_delete=models.CASCADE, related_name='file_share_likes')
+    user_id = models.CharField(max_length=128, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'file_share_likes'
+        unique_together = [['file_share', 'user_id']]
+
+
+class ProfileWallMessage(models.Model):
+    """个人主页留言板"""
+    profile_owner_id = models.CharField(max_length=128, db_index=True)
+    author_id = models.CharField(max_length=128, db_index=True)
+    author_name = models.CharField(max_length=64, default='')
+    is_admin = models.BooleanField(default=False)
+    content = models.TextField(default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'profile_wall_messages'
+        ordering = ['-is_admin', '-created_at']
 
 
 class ShopItem(models.Model):

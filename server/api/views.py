@@ -23,12 +23,15 @@ from .constants import ALLOWED_CLASSES, is_allowed_class, is_super_admin_user
 from . import sensitive_check
 from .models import (
     User, Post, PostLike, Comment, Achievement, Invite, PointsLog, Message, FileShare,
+    FileShareLike, ProfileWallMessage,
     ShopItem, ExchangeRecord, AdminActionLog,
 )
 
 _STUDENT_ID_RE = re.compile(r'^[A-Za-z0-9_-]{4,32}$')
 
 EXP_PER_POST = 10
+BOUTIQUE_LIKE_THRESHOLD = 30  # 点赞数超过此值（即 >30）展示为精品帖
+FILE_LIKE_OWNER_SCORE = 10  # 文件每获赞一次，分享者积分+10
 EXP_TO_SCORE_RATIO = 5  # 每5经验值=1积分
 ACHIEVEMENT_BASE_EXP = 500
 ACHIEVEMENT_LEVEL_MULTIPLIER = 500
@@ -158,6 +161,7 @@ def post_to_dict(p, reveal_author=False, viewer_id=None):
         d['likedByMe'] = PostLike.objects.filter(post_id=p.id, user_id=viewer_id).exists()
     else:
         d['likedByMe'] = False
+    d['boutique'] = bool(p.category != 'emotion' and d['likeCount'] > BOUTIQUE_LIKE_THRESHOLD)
     try:
         author = User.objects.get(openid=p.author_id)
         d['authorAvatarUrl'] = author.avatar_url or ''
@@ -350,6 +354,39 @@ def user_profile(request):
 
     user.save()
     return ok({'user': user_to_dict(user, post_count_exclude_emotion=True), 'profileCompleted': user.profile_completed})
+
+
+@csrf_exempt
+@require_POST
+def user_public_home(request):
+    """个人主页卡片用：公开资料，不含邮箱/学号"""
+    openid = request.user_token
+    get_or_create_user(openid)
+    body = get_body(request)
+    target_id = (body.get('userId') or openid).strip()
+    try:
+        target = User.objects.get(openid=target_id)
+    except User.DoesNotExist:
+        return err('NOT_FOUND', '用户不存在')
+    post_count = Post.objects.filter(
+        author_id=target_id, status='published',
+    ).exclude(category='emotion').count()
+    file_count = FileShare.objects.filter(user_id=target_id, status='approved').count()
+    return ok({
+        'user': {
+            '_id': target.openid,
+            'nickname': target.nickname,
+            'class': target.user_class,
+            'avatarUrl': target.avatar_url or '',
+            'role': target.role,
+            'exp': target.exp,
+            'score': target.score,
+            'postCount': post_count,
+            'achievementCounts': target.achievement_counts or {},
+        },
+        'fileShareCount': file_count,
+        'isMe': target_id == openid,
+    })
 
 
 @csrf_exempt
@@ -562,6 +599,11 @@ def post_list(request):
             qs = qs.exclude(category='emotion')
         if f.get('status'):
             qs = qs.filter(status=f['status'])
+    elif f.get('authorId'):
+        aid = f.get('authorId')
+        qs = qs.filter(author_id=aid).exclude(category='emotion')
+        if not is_admin:
+            qs = qs.filter(Q(status='published') | Q(author_id=openid))
     else:
         if f.get('status') == 'flagged':
             qs = qs.filter(status='flagged')
@@ -585,7 +627,7 @@ def post_list(request):
     if search_kw:
         qs = qs.filter(content__icontains=search_kw)
 
-    if f.get('myPosts'):
+    if f.get('myPosts') or f.get('authorId'):
         qs = qs.order_by('-created_at')
     elif not f.get('_id') and f.get('category') != 'emotion' and f.get('status') != 'flagged':
         qs = qs.order_by('-pinned', '-featured', '-like_count', '-created_at')
@@ -844,6 +886,90 @@ def growth_book_set_public(request):
     return ok()
 
 
+def _wall_message_to_dict(m):
+    return {
+        '_id': str(m.id),
+        'authorId': m.author_id,
+        'authorName': m.author_name,
+        'isAdmin': m.is_admin,
+        'content': m.content,
+        'createdAt': m.created_at.isoformat() if m.created_at else '',
+    }
+
+
+@csrf_exempt
+@require_POST
+def wall_list(request):
+    openid = request.user_token
+    get_or_create_user(openid)
+    body = get_body(request)
+    owner_id = (body.get('userId') or '').strip()
+    if not owner_id:
+        return err('INVALID_PARAMS', '缺少 userId')
+    page = max(int(body.get('page', 1)), 1)
+    page_size = min(max(int(body.get('pageSize', 30)), 5), 50)
+    qs = ProfileWallMessage.objects.filter(profile_owner_id=owner_id)
+    total = qs.count()
+    start = (page - 1) * page_size
+    rows = list(qs[start:start + page_size])
+    return ok({
+        'messages': [_wall_message_to_dict(m) for m in rows],
+        'total': total,
+        'hasMore': start + page_size < total,
+    })
+
+
+@csrf_exempt
+@require_POST
+def wall_add(request):
+    openid = request.user_token
+    viewer = get_or_create_user(openid)
+    body = get_body(request)
+    owner_id = (body.get('userId') or '').strip()
+    content = (body.get('content') or '').strip()
+    if not owner_id or not content:
+        return err('INVALID_PARAMS', '参数不完整')
+    if len(content) > 500:
+        return err('INVALID_PARAMS', '留言过长')
+    if not sensitive_check.content_passes(content):
+        return err('FORBIDDEN', '留言包含不适宜内容')
+    try:
+        User.objects.get(openid=owner_id)
+    except User.DoesNotExist:
+        return err('NOT_FOUND', '用户不存在')
+    ProfileWallMessage.objects.create(
+        profile_owner_id=owner_id,
+        author_id=openid,
+        author_name=(viewer.nickname or '用户')[:64],
+        is_admin=(viewer.role == 'admin'),
+        content=content,
+    )
+    return ok({})
+
+
+@csrf_exempt
+@require_POST
+def wall_delete(request):
+    openid = request.user_token
+    viewer = get_or_create_user(openid)
+    body = get_body(request)
+    try:
+        mid = int(body.get('messageId'))
+        msg = ProfileWallMessage.objects.get(id=mid)
+    except (ValueError, TypeError, ProfileWallMessage.DoesNotExist):
+        return err('NOT_FOUND', '留言不存在')
+    owner_id = msg.profile_owner_id
+    if viewer.role == 'admin':
+        msg.delete()
+        return ok({})
+    if viewer.openid == owner_id:
+        if msg.is_admin:
+            return err('FORBIDDEN', '无法删除导生留言')
+        msg.delete()
+        return ok({})
+    return err('FORBIDDEN', '无权删除')
+
+
 # ======================== 私信 ========================
 
 @csrf_exempt
@@ -1045,13 +1171,18 @@ def upload_file(request):
 
 # ======================== 文件分享 ========================
 
-def _file_share_to_dict(f, include_author=True):
+def _file_share_to_dict(f, include_author=True, viewer_id=None):
     d = {
         '_id': str(f.id), 'userId': f.user_id, 'title': f.title,
         'description': f.description, 'fileUrl': f.file_url, 'fileName': f.file_name,
         'status': f.status,
+        'likeCount': int(getattr(f, 'like_count', 0) or 0),
         'createdAt': f.created_at.isoformat() if f.created_at else '',
     }
+    if viewer_id:
+        d['likedByMe'] = FileShareLike.objects.filter(file_share_id=f.id, user_id=viewer_id).exists()
+    else:
+        d['likedByMe'] = False
     if include_author:
         try:
             u = User.objects.get(openid=f.user_id)
@@ -1102,10 +1233,40 @@ def file_share_list(request):
     start = (page - 1) * page_size
     items = qs[start:start + page_size]
     return ok({
-        'items': [_file_share_to_dict(f) for f in items],
+        'items': [_file_share_to_dict(f, viewer_id=openid) for f in items],
         'total': total,
         'hasMore': start + page_size < total,
     })
+
+
+@csrf_exempt
+@require_POST
+def file_share_like(request):
+    openid = request.user_token
+    get_or_create_user(openid)
+    body = get_body(request)
+    try:
+        fid = int(body.get('fileShareId') or body.get('fileId'))
+        fs = FileShare.objects.get(id=fid)
+    except (ValueError, TypeError, FileShare.DoesNotExist):
+        return err('NOT_FOUND', '文件不存在')
+    if fs.status != 'approved':
+        return err('FORBIDDEN', '仅已通过的分享可点赞')
+    if fs.user_id == openid:
+        return err('FORBIDDEN', '不能给自己的分享点赞')
+    _, created = FileShareLike.objects.get_or_create(file_share_id=fs.id, user_id=openid)
+    if created:
+        FileShare.objects.filter(id=fs.id).update(like_count=F('like_count') + 1)
+        User.objects.filter(openid=fs.user_id).update(score=F('score') + FILE_LIKE_OWNER_SCORE)
+        PointsLog.objects.create(
+            user_id=fs.user_id,
+            delta=FILE_LIKE_OWNER_SCORE,
+            log_type='score',
+            reason='file_like_received',
+            related_id=str(fs.id),
+        )
+    fs2 = FileShare.objects.get(id=fid)
+    return ok({'likeCount': fs2.like_count, 'likedByMe': True})
 
 
 # ======================== 管理员接口 ========================

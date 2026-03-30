@@ -230,6 +230,30 @@ export async function setGrowthBookPublic(isPublic) {
   return result
 }
 
+export async function getUserPublicHome(userId) {
+  if (LOCAL_TEST_MODE) return mock.mockGetUserPublicHome(userId)
+  return request('/user/public-home', { userId: userId || undefined })
+}
+
+export async function getWallList(userId, page = 1, pageSize = 30) {
+  if (LOCAL_TEST_MODE) return mock.mockWallList(userId, page, pageSize)
+  return request('/wall/list', { userId, page, pageSize })
+}
+
+export async function addWallMessage(userId, content) {
+  if (LOCAL_TEST_MODE) return mock.mockWallAdd(userId, content)
+  const result = await request('/wall/add', { userId, content })
+  clearCache()
+  return result
+}
+
+export async function deleteWallMessage(messageId) {
+  if (LOCAL_TEST_MODE) return mock.mockWallDelete(messageId)
+  const result = await request('/wall/delete', { messageId })
+  clearCache()
+  return result
+}
+
 export async function sendMessage(toId, content) {
   if (LOCAL_TEST_MODE) return mock.mockSendMessage(toId, content)
   const result = await request('/message/send', { toId, content })
@@ -308,8 +332,15 @@ export async function createFileShare(data) {
 }
 
 export async function getFileShareList(params = {}) {
-  if (LOCAL_TEST_MODE) return { items: [], total: 0, hasMore: false }
+  if (LOCAL_TEST_MODE) return mock.mockGetFileShareList(params)
   return request('/file-share/list', params)
+}
+
+export async function fileShareLike(fileShareId) {
+  if (LOCAL_TEST_MODE) return mock.mockFileShareLike(fileShareId)
+  const result = await request('/file-share/like', { fileShareId })
+  clearCache()
+  return result
 }
 
 export async function getShopItems() {
