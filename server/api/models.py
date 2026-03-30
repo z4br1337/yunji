@@ -42,6 +42,8 @@ class Post(models.Model):
     category = models.CharField(max_length=32, default='cognition')
     status = models.CharField(max_length=16, default='published')
     pinned = models.BooleanField(default=False)
+    featured = models.BooleanField(default=False)  # 优质帖（导生评定）
+    like_count = models.IntegerField(default=0)
     points_awarded = models.IntegerField(default=0)
     notify_admin = models.BooleanField(default=False)
     need_offline = models.BooleanField(default=False)
@@ -56,7 +58,17 @@ class Post(models.Model):
 
     class Meta:
         db_table = 'posts'
-        ordering = ['-pinned', '-created_at']
+        ordering = ['-pinned', '-featured', '-like_count', '-created_at']
+
+
+class PostLike(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_likes')
+    user_id = models.CharField(max_length=128, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'post_likes'
+        unique_together = [['post', 'user_id']]
 
 
 class Comment(models.Model):

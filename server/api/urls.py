@@ -16,6 +16,7 @@ urlpatterns = [
     path('post/delete', views.post_delete),
     path('post/list', views.post_list),
     path('post/detail', views.post_detail),
+    path('post/like', views.post_like),
 
     # 评论
     path('comment/add', views.comment_add),
@@ -55,6 +56,7 @@ urlpatterns = [
     path('admin/post/real-author', views.admin_post_real_author),
     path('admin/post/pin', views.admin_post_pin),
     path('admin/post/unpin', views.admin_post_unpin),
+    path('admin/post/featured', views.admin_post_featured),
     path('admin/user/score', views.admin_user_score),
     path('admin/user/profile', views.admin_user_profile),
     path('admin/user/list', views.admin_user_list),

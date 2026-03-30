@@ -22,7 +22,7 @@ from django.utils import timezone
 from .constants import ALLOWED_CLASSES, is_allowed_class, is_super_admin_user
 from . import sensitive_check
 from .models import (
-    User, Post, Comment, Achievement, Invite, PointsLog, Message, FileShare,
+    User, Post, PostLike, Comment, Achievement, Invite, PointsLog, Message, FileShare,
     ShopItem, ExchangeRecord, AdminActionLog,
 )
 
@@ -135,14 +135,16 @@ def user_to_dict(u, post_count_exclude_emotion=False):
     }
 
 
-def post_to_dict(p, reveal_author=False):
+def post_to_dict(p, reveal_author=False, viewer_id=None):
     d = {
         '_id': str(p.id), 'authorId': p.author_id,
         'isAnonymous': p.is_anonymous,
         'visibleAuthorName': p.visible_author_name,
         'content': p.content, 'images': p.images or [],
         'category': p.category, 'status': p.status,
-        'pinned': p.pinned, 'pointsAwarded': p.points_awarded,
+        'pinned': p.pinned, 'featured': bool(getattr(p, 'featured', False)),
+        'likeCount': int(getattr(p, 'like_count', 0) or 0),
+        'pointsAwarded': p.points_awarded,
         'notifyAdmin': p.notify_admin,
         'needOffline': p.need_offline,
         'offlineTime': p.offline_time, 'offlinePlace': p.offline_place,
@@ -152,17 +154,23 @@ def post_to_dict(p, reveal_author=False):
         'createdAt': p.created_at.isoformat() if p.created_at else '',
         'updatedAt': p.updated_at.isoformat() if p.updated_at else '',
     }
+    if viewer_id:
+        d['likedByMe'] = PostLike.objects.filter(post_id=p.id, user_id=viewer_id).exists()
+    else:
+        d['likedByMe'] = False
     try:
         author = User.objects.get(openid=p.author_id)
         d['authorAvatarUrl'] = author.avatar_url or ''
         if reveal_author:
             d['authorName'] = author.nickname
             d['authorClass'] = author.user_class
+            d['authorStudentId'] = (author.student_id or '').strip()
     except User.DoesNotExist:
         d['authorAvatarUrl'] = ''
         if reveal_author:
             d['authorName'] = '未知'
             d['authorClass'] = ''
+            d['authorStudentId'] = ''
     return d
 
 
@@ -577,11 +585,18 @@ def post_list(request):
     if search_kw:
         qs = qs.filter(content__icontains=search_kw)
 
+    if f.get('myPosts'):
+        qs = qs.order_by('-created_at')
+    elif not f.get('_id') and f.get('category') != 'emotion' and f.get('status') != 'flagged':
+        qs = qs.order_by('-pinned', '-featured', '-like_count', '-created_at')
+    else:
+        qs = qs.order_by('-pinned', '-created_at')
+
     total = qs.count()
     start = (page - 1) * page_size
     posts = qs[start:start + page_size]
     return ok({
-        'posts': [post_to_dict(p, reveal_author=is_admin) for p in posts],
+        'posts': [post_to_dict(p, reveal_author=is_admin, viewer_id=openid) for p in posts],
         'total': total,
         'hasMore': start + page_size < total,
     })
@@ -604,7 +619,34 @@ def post_detail(request):
                 return err('FORBIDDEN', '无权查看该情感倾诉')
         elif p.author_id != openid:
             return err('FORBIDDEN', '无权查看该情感倾诉')
-    return ok({'posts': [post_to_dict(p, reveal_author=user.role == 'admin')], 'total': 1, 'hasMore': False})
+    return ok({
+        'posts': [post_to_dict(p, reveal_author=user.role == 'admin', viewer_id=openid)],
+        'total': 1,
+        'hasMore': False,
+    })
+
+
+@csrf_exempt
+@require_POST
+def post_like(request):
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    body = get_body(request)
+    try:
+        pid = int(body.get('postId'))
+        p = Post.objects.get(id=pid)
+    except (ValueError, TypeError, Post.DoesNotExist):
+        return err('NOT_FOUND', '帖子不存在')
+    if p.category == 'emotion':
+        return err('FORBIDDEN', '该类型帖子不支持点赞')
+    if p.status != 'published':
+        if user.role != 'admin' and p.author_id != openid:
+            return err('FORBIDDEN', '无法点赞')
+    _, created = PostLike.objects.get_or_create(post_id=p.id, user_id=openid)
+    if created:
+        Post.objects.filter(id=p.id).update(like_count=F('like_count') + 1)
+    p2 = Post.objects.get(id=pid)
+    return ok({'likeCount': p2.like_count, 'likedByMe': True})
 
 
 # ======================== 评论 ========================
@@ -1089,9 +1131,10 @@ def admin_reports(request):
     else:
         base = Post.objects.filter(author__user_class=ac).exclude(category='emotion')
     flagged_qs = base.filter(status='flagged').order_by('-created_at')[:100]
-    all_qs = base.order_by('-pinned', '-created_at')[:200]
-    flagged_list = [post_to_dict(p, reveal_author=True) for p in flagged_qs]
-    all_list = [post_to_dict(p, reveal_author=True) for p in all_qs]
+    all_qs = base.order_by('-pinned', '-featured', '-like_count', '-created_at')[:200]
+    aid = admin.openid
+    flagged_list = [post_to_dict(p, reveal_author=True, viewer_id=aid) for p in flagged_qs]
+    all_list = [post_to_dict(p, reveal_author=True, viewer_id=aid) for p in all_qs]
     return ok({
         'flagged': flagged_list,
         'allPosts': all_list,
@@ -1221,6 +1264,44 @@ def admin_post_unpin(request):
 
 @csrf_exempt
 @require_POST
+def admin_post_featured(request):
+    admin, e = _check_admin(request)
+    if e: return e
+    body = get_body(request)
+    p, e2 = _ensure_post_admin_scope(admin, body.get('postId'))
+    if e2:
+        return e2
+    if p.category == 'emotion':
+        return err('FORBIDDEN', '情感倾诉不可设为优质帖')
+    want = body.get('featured')
+    if want is None:
+        want = not bool(p.featured)
+    want = bool(want)
+    updates = {'featured': want}
+    if want and p.status == 'flagged':
+        updates['status'] = 'published'
+        updates['flagged'] = False
+        updates['flagged_words'] = []
+        updates['flagged_categories'] = []
+        updates['flagged_highlighted'] = ''
+    elif want and p.status in ('pending', 'review'):
+        updates['status'] = 'published'
+    Post.objects.filter(id=p.id).update(**updates)
+    try:
+        author = User.objects.get(openid=p.author_id)
+        _log_admin_action(admin, 'post_featured', 'post', p.id, {
+            'featured': want,
+            'summary': (p.content or '')[:120],
+            'authorNickname': author.nickname,
+            'authorClass': author.user_class or '',
+        })
+    except User.DoesNotExist:
+        _log_admin_action(admin, 'post_featured', 'post', p.id, {'featured': want})
+    return ok({'featured': want})
+
+
+@csrf_exempt
+@require_POST
 def admin_user_score(request):
     admin, e = _check_admin(request)
     if e: return e
@@ -1302,7 +1383,7 @@ def admin_user_posts(request):
     if not User.objects.filter(openid=tid).exists():
         return err('NOT_FOUND', '用户不存在')
     posts = Post.objects.filter(author_id=tid)
-    return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
+    return ok({'posts': [post_to_dict(p, reveal_author=True, viewer_id=admin.openid) for p in posts]})
 
 
 @csrf_exempt
@@ -1328,7 +1409,7 @@ def admin_emotion_list(request):
         posts = Post.objects.filter(
             category='emotion', author__user_class=ac,
         ).order_by('-created_at')[:100]
-    return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
+    return ok({'posts': [post_to_dict(p, reveal_author=True, viewer_id=admin.openid) for p in posts]})
 
 
 @csrf_exempt
@@ -1352,7 +1433,7 @@ def admin_emotion_history(request):
     posts = emo.annotate(
         _has_my_reply=Exists(commented_by_me),
     ).filter(_has_my_reply=True).order_by('-created_at')[:100]
-    return ok({'posts': [post_to_dict(p, reveal_author=True) for p in posts]})
+    return ok({'posts': [post_to_dict(p, reveal_author=True, viewer_id=admin.openid) for p in posts]})
 
 
 @csrf_exempt

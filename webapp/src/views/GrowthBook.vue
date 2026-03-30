@@ -1,6 +1,6 @@
 <template>
-  <div class="page-container">
-    <div class="page-header flex justify-between items-center">
+  <div class="page-container" :class="{ 'growth-embedded': embedded }">
+    <div v-if="!embedded" class="page-header flex justify-between items-center">
       <h2>成长手册</h2>
       <button class="btn btn-ghost btn-sm" @click="$router.back()">返回</button>
     </div>
@@ -68,6 +68,10 @@ import { ACHIEVEMENT_CATEGORIES } from '../utils/config.js'
 import { getLevelInfo } from '../utils/level.js'
 import * as api from '../api/index.js'
 
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 const route = useRoute()
 const showToast = inject('showToast')
 
@@ -110,6 +114,7 @@ onMounted(() => loadData())
 
 <style scoped>
 .page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
+.page-container.growth-embedded { padding-top: 0; }
 .page-header { margin-bottom: 16px; }
 .virtue-mini-grid { display: flex; flex-wrap: wrap; gap: 12px; }
 .virtue-mini { display: flex; gap: 6px; align-items: center; font-size: 0.85rem; }

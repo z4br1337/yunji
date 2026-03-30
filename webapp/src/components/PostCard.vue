@@ -1,5 +1,24 @@
 <template>
-  <div class="post-card" :class="{ 'post-pinned': post.pinned, 'post-flagged': post.status === 'flagged' }" @click="$emit('click', post)">
+  <div
+    class="post-card"
+    :class="{
+      'post-highlight': post.pinned || post.featured,
+      'post-flagged': post.status === 'flagged',
+    }"
+    @click="$emit('click', post)"
+  >
+    <div v-if="post.pinned || post.featured" class="post-corner-badges">
+      <span
+        v-if="post.pinned"
+        class="corner-badge"
+        title="置顶帖：在广场列表优先展示"
+      >📌 置顶</span>
+      <span
+        v-if="post.featured"
+        class="corner-badge corner-badge-featured"
+        title="优质帖：导生标记的优质内容"
+      >⭐ 优质</span>
+    </div>
     <div class="post-header">
       <div class="avatar avatar-sm" :class="{ clickable: !post.isAnonymous }" @click.stop="onAvatarClick">
         <img v-if="!post.isAnonymous && post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" />
@@ -7,7 +26,6 @@
       </div>
       <div class="post-meta">
         <span class="post-author">{{ post.visibleAuthorName || '匿名用户' }}</span>
-        <span v-if="post.pinned" class="pin-badge">📌 置顶</span>
         <span v-if="post.status === 'flagged'" class="flag-badge">⚠️ 违规</span>
       </div>
       <span class="post-time text-xs text-muted">{{ formatTime(post.createdAt) }}</span>
@@ -74,17 +92,45 @@ function onAvatarClick() {
 </script>
 
 <style scoped>
-.post-card { background: var(--bg-card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); cursor: pointer; transition: var(--transition); margin-bottom: 12px; }
+.post-card {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: var(--transition);
+  margin-bottom: 12px;
+}
 .post-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
-.post-pinned { border-left: 3px solid var(--warning); background: #FFFDF5; }
+.post-highlight { border-left: 3px solid var(--warning); background: #FFFDF5; }
 .post-flagged { border-left: 3px solid var(--danger); background: #FFF5F5; }
-.post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.post-meta { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.post-corner-badges {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+.corner-badge {
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #FFF3CD;
+  color: #856404;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.corner-badge-featured { background: #FFF3CD; color: #856404; }
+.post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-right: 72px; }
+.post-meta { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .post-author { font-weight: 600; font-size: 0.9rem; }
-.pin-badge, .flag-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; }
-.pin-badge { background: #FFF3CD; color: #856404; }
-.flag-badge { background: #F8D7DA; color: #721C24; }
-.post-time { white-space: nowrap; }
+.flag-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; background: #F8D7DA; color: #721C24; }
+.post-time { white-space: nowrap; flex-shrink: 0; }
 .post-body { margin-bottom: 10px; }
 .post-content { font-size: 0.9rem; line-height: 1.6; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .flagged-content { font-size: 0.9rem; line-height: 1.6; }

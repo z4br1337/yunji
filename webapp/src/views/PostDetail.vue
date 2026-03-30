@@ -9,7 +9,11 @@
 
     <template v-else-if="post">
       <!-- Post Content -->
-      <div class="card mb-16">
+      <div class="card mb-16 post-detail-main-card">
+        <div v-if="post.pinned || post.featured" class="detail-corner-badges">
+          <span v-if="post.pinned" class="detail-corner-badge" title="置顶帖：在广场列表优先展示">📌 置顶</span>
+          <span v-if="post.featured" class="detail-corner-badge" title="优质帖：导生标记的优质内容">⭐ 优质</span>
+        </div>
         <div class="detail-header flex items-center gap-12 mb-8">
           <div class="avatar" :class="{ clickable: !post.isAnonymous }" @click="onAuthorClick">
             {{ post.isAnonymous ? '匿' : (post.visibleAuthorName || '?')[0] }}
@@ -17,15 +21,14 @@
           <div>
             <div class="flex items-center gap-8">
               <span class="font-bold">{{ post.visibleAuthorName || '匿名用户' }}</span>
-              <span v-if="post.pinned" class="pin-badge">📌 置顶</span>
             </div>
             <span class="text-xs text-muted">{{ post.createdAt }}</span>
           </div>
         </div>
 
-        <!-- Admin: show real author -->
-        <div v-if="isAdmin && realAuthor" class="real-author-bar">
-          真实身份：{{ realAuthor.nickname }}（{{ realAuthor.class }}）
+        <!-- 导生端：展示绑定学号与班级（非昵称） -->
+        <div v-if="isAdmin && post.category !== 'emotion'" class="real-author-bar">
+          真实身份：{{ (post.authorStudentId && String(post.authorStudentId).trim()) || '未绑定学号' }}（{{ post.authorClass || '—' }}）
         </div>
 
         <p class="detail-content">{{ post.content }}</p>
@@ -42,17 +45,36 @@
           />
         </div>
 
-        <!-- Admin actions (情感倾诉使用独立详情页，不显示) -->
-        <div v-if="isAdmin && post.category !== 'emotion'" class="admin-actions mt-16">
-          <button class="btn btn-sm btn-danger" @click="onDeletePost">删除</button>
-          <button class="btn btn-sm btn-success" @click="onAction('published')">通过</button>
-          <button class="btn btn-sm btn-warning" @click="onAction('archived')">封存</button>
-          <button v-if="!post.pinned" class="btn btn-sm btn-ghost" @click="onPin">置顶</button>
-          <button v-else class="btn btn-sm btn-ghost" @click="onUnpin">取消置顶</button>
-        </div>
+        <div class="detail-actions-row flex flex-wrap justify-between items-end gap-12 mt-16 pt-16">
+          <div class="detail-actions-left flex gap-8 flex-wrap">
+            <template v-if="isAdmin && post.category !== 'emotion'">
+              <button type="button" class="btn btn-sm btn-danger" @click="onDeletePost">删除</button>
+              <button
+                type="button"
+                class="btn btn-sm"
+                :class="post.featured ? 'btn-ghost' : 'btn-success'"
+                @click="onToggleFeatured"
+              >{{ post.featured ? '取消精品' : '精品' }}</button>
+              <button type="button" class="btn btn-sm btn-warning" @click="onAction('archived')">封存</button>
+              <button v-if="!post.pinned" type="button" class="btn btn-sm btn-ghost" @click="onPin">置顶</button>
+              <button v-else type="button" class="btn btn-sm btn-ghost" @click="onUnpin">取消置顶</button>
+            </template>
+            <template v-else-if="isOwner && post.category !== 'emotion'">
+              <button type="button" class="btn btn-sm btn-danger" @click="onDeletePost">删除帖子</button>
+            </template>
+          </div>
 
-        <div v-else-if="isOwner && post.category !== 'emotion'" class="owner-actions mt-16">
-          <button class="btn btn-sm btn-danger" @click="onDeletePost">删除帖子</button>
+          <button
+            v-if="post.category !== 'emotion'"
+            type="button"
+            class="btn-like-detail"
+            :disabled="likeDisabled"
+            :title="likeTitle"
+            @click.stop="onLike"
+          >
+            <span aria-hidden="true">{{ post.likedByMe ? '❤️' : '🤍' }}</span>
+            <span>{{ post.likeCount ?? 0 }}</span>
+          </button>
         </div>
       </div>
 
@@ -133,7 +155,6 @@ const isOwner = computed(() => {
   return !!(p && me && p.authorId === me)
 })
 const post = ref(null)
-const realAuthor = ref(null)
 const comments = ref([])
 const newComment = ref('')
 const replyingTo = ref(null)
@@ -144,13 +165,23 @@ function applyReadCache(postId) {
   if (!c?.post) return false
   post.value = { ...c.post }
   comments.value = Array.isArray(c.comments) ? [...c.comments] : []
-  if (isAdmin.value && c.post.authorName) {
-    realAuthor.value = { nickname: c.post.authorName, class: c.post.authorClass || '' }
-  } else {
-    realAuthor.value = null
-  }
   return true
 }
+
+const likeDisabled = computed(() => {
+  const p = post.value
+  if (!p || p.category === 'emotion') return true
+  if (p.likedByMe) return true
+  if (p.status === 'published') return false
+  return !!(isAdmin.value || isOwner.value)
+})
+
+const likeTitle = computed(() => {
+  if (!post.value || post.value.category === 'emotion') return ''
+  if (post.value.likedByMe) return '你已点赞过本帖'
+  if (likeDisabled.value) return '当前状态不可点赞'
+  return '点赞（每人每帖一次，热度高更易在广场展示）'
+})
 
 function startReply(c) {
   replyingTo.value = { _id: c._id, authorName: c.authorName || '用户' }
@@ -173,11 +204,6 @@ async function loadData() {
     ])
     const p = Array.isArray(result.posts) ? result.posts[0] : result.post || result
     post.value = p || null
-    if (isAdmin.value && p && p.authorName) {
-      realAuthor.value = { nickname: p.authorName, class: p.authorClass || '' }
-    } else if (!isAdmin.value) {
-      realAuthor.value = null
-    }
     comments.value = cmtResult.comments || []
     if (post.value) {
       localPostCache.cacheReadPost(post.value, comments.value)
@@ -253,6 +279,42 @@ async function onAction(action) {
   }
 }
 
+async function onToggleFeatured() {
+  if (!post.value) return
+  try {
+    const want = !post.value.featured
+    await api.adminPostFeatured(post.value._id, want)
+    post.value.featured = want
+    if (want && ['pending', 'review', 'flagged'].includes(post.value.status)) {
+      post.value.status = 'published'
+      if (post.value.flagged) {
+        post.value.flagged = false
+        post.value.flaggedWords = []
+        post.value.flaggedCategories = []
+        post.value.flaggedHighlighted = ''
+      }
+    }
+    localPostCache.cacheReadPost(post.value, comments.value)
+    showToast(want ? '已设为优质帖' : '已取消优质标记')
+  } catch (e) {
+    showToast(e.message || '操作失败')
+  }
+}
+
+async function onLike() {
+  const p = post.value
+  if (!p || p.category === 'emotion' || likeDisabled.value) return
+  try {
+    const r = await api.postLike(p._id)
+    p.likeCount = r.likeCount ?? p.likeCount
+    p.likedByMe = true
+    localPostCache.cacheReadPost(p, comments.value)
+    showToast('点赞成功')
+  } catch (e) {
+    showToast(e.message || '点赞失败')
+  }
+}
+
 async function onPin() {
   await api.adminPinPost(post.value._id)
   post.value.pinned = true
@@ -300,9 +362,50 @@ watch(() => route.params.id, () => loadData())
 .detail-content { font-size: 0.95rem; line-height: 1.8; white-space: pre-wrap; word-break: break-word; margin: 12px 0; }
 .detail-images { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .detail-img { max-width: 200px; max-height: 200px; border-radius: var(--radius-sm); object-fit: cover; }
+.post-detail-main-card { position: relative; }
+.detail-corner-badges {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.detail-corner-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #FFF3CD;
+  color: #856404;
+  font-weight: 600;
+}
 .real-author-bar { background: #FFF3CD; border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.8rem; color: #856404; margin-bottom: 8px; }
-.pin-badge { font-size: 0.7rem; background: #FFF3CD; color: #856404; padding: 1px 6px; border-radius: 4px; }
-.admin-actions, .owner-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border); }
+.detail-actions-row { border-top: 1px solid var(--border); align-items: flex-end; }
+.detail-actions-left { flex: 1; min-width: 0; }
+.btn-like-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.btn-like-detail:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.btn-like-detail:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .comment-item:last-child { border-bottom: none; }
 .comment-item-clickable { cursor: pointer; border-radius: var(--radius-sm); }

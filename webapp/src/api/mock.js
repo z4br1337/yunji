@@ -60,10 +60,12 @@ function _rebuildUsernameIndex() {
 }
 _rebuildUsernameIndex()
 
+const _postLikes = new Set() // `${userId}:${postId}`
+
 const _posts = [
-  { _id: 'post_001', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '大家好！这是云迹的第一条帖子，欢迎大家来交流~', images: [], category: 'cognition', status: 'published', pinned: false, pointsAwarded: 0, createdAt: '2026-03-10T09:00:00Z', updatedAt: '2026-03-10T09:00:00Z' },
-  { _id: 'post_002', authorId: 'test_user_001', isAnonymous: true, visibleAuthorName: '匿名用户', content: '最近学业压力好大，感觉有点撑不住了…希望有人能理解。', images: [], category: 'emotion', status: 'published', pinned: false, pointsAwarded: 0, needOffline: false, offlineTime: '', offlinePlace: '', createdAt: '2026-03-10T10:30:00Z', updatedAt: '2026-03-10T10:30:00Z' },
-  { _id: 'post_003', authorId: 'test_admin_001', isAnonymous: false, visibleAuthorName: '导生小王', content: '校运会志愿者招募开始了！有兴趣的同学可以在成果页提交德育成果哦~', images: [], category: 'knowledge', status: 'published', pinned: true, pointsAwarded: 0, createdAt: '2026-03-09T14:00:00Z', updatedAt: '2026-03-09T14:00:00Z' }
+  { _id: 'post_001', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '大家好！这是云迹的第一条帖子，欢迎大家来交流~', images: [], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 2, pointsAwarded: 0, createdAt: '2026-03-10T09:00:00Z', updatedAt: '2026-03-10T09:00:00Z' },
+  { _id: 'post_002', authorId: 'test_user_001', isAnonymous: true, visibleAuthorName: '匿名用户', content: '最近学业压力好大，感觉有点撑不住了…希望有人能理解。', images: [], category: 'emotion', status: 'published', pinned: false, featured: false, likeCount: 0, pointsAwarded: 0, needOffline: false, offlineTime: '', offlinePlace: '', createdAt: '2026-03-10T10:30:00Z', updatedAt: '2026-03-10T10:30:00Z' },
+  { _id: 'post_003', authorId: 'test_admin_001', isAnonymous: false, visibleAuthorName: '导生小王', content: '校运会志愿者招募开始了！有兴趣的同学可以在成果页提交德育成果哦~', images: [], category: 'knowledge', status: 'published', pinned: true, featured: true, likeCount: 5, pointsAwarded: 0, createdAt: '2026-03-09T14:00:00Z', updatedAt: '2026-03-09T14:00:00Z' }
 ]
 
 const _comments = [
@@ -305,13 +307,26 @@ export async function mockGetPosts(params = {}) {
     return true
   })
 
-  filtered.sort((a, b) => {
-    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
-    return new Date(b.createdAt) - new Date(a.createdAt)
-  })
+  if (myPosts) {
+    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  } else if (category !== 'emotion') {
+    filtered.sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+      if (a.featured !== b.featured) return a.featured ? -1 : 1
+      const lc = (b.likeCount || 0) - (a.likeCount || 0)
+      if (lc !== 0) return lc
+      return new Date(b.createdAt) - new Date(a.createdAt)
+    })
+  } else {
+    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  }
 
   const start = (page - 1) * pageSize
-  return { posts: filtered.slice(start, start + pageSize), total: filtered.length, hasMore: start + pageSize < filtered.length }
+  const slice = filtered.slice(start, start + pageSize).map((p) => ({
+    ...p,
+    likedByMe: _postLikes.has(`${_currentUserId}:${p._id}`),
+  }))
+  return { posts: slice, total: filtered.length, hasMore: start + pageSize < filtered.length }
 }
 
 export async function mockGetPostDetail(postId) {
@@ -336,10 +351,16 @@ export async function mockGetPostDetail(postId) {
   }
   const isAdmin = user && user.role === 'admin'
   const authorUser = _users[post.authorId]
-  const postData = { ...post }
+  const postData = {
+    ...post,
+    likeCount: post.likeCount || 0,
+    featured: !!post.featured,
+    likedByMe: _currentUserId ? _postLikes.has(`${_currentUserId}:${postId}`) : false,
+  }
   if (isAdmin && authorUser) {
     postData.authorName = authorUser.nickname
     postData.authorClass = authorUser.class || ''
+    postData.authorStudentId = (authorUser.studentId || '').trim()
   }
   return { posts: [postData], total: 1, hasMore: false }
 }
@@ -357,7 +378,7 @@ export async function mockCreatePost(data) {
     visibleAuthorName: data.isAnonymous ? '匿名用户' : (user ? user.nickname : '未知'),
     content: data.content, images: data.images || [],
     category: data.category || 'cognition',
-    status: 'published', pinned: false, pointsAwarded: 0,
+    status: 'published', pinned: false, featured: false, likeCount: 0, pointsAwarded: 0,
     needOffline: !!data.needOffline, offlineTime: data.offlineTime || '', offlinePlace: data.offlinePlace || '',
     flagged: false, flaggedWords: [], flaggedCategories: [], flaggedHighlighted: '',
     createdAt: now(), updatedAt: now()
@@ -703,6 +724,42 @@ export async function mockAdminUnpinPost(postId) {
   post.pinned = false
   post.updatedAt = now()
   return {}
+}
+
+export async function mockPostLike(postId) {
+  await delay()
+  const post = _posts.find(p => p._id === postId)
+  if (!post) throw new Error('帖子不存在')
+  if (post.category === 'emotion') throw new Error('该类型帖子不支持点赞')
+  const key = `${_currentUserId}:${postId}`
+  if (_postLikes.has(key)) {
+    return { likeCount: post.likeCount || 0, likedByMe: true }
+  }
+  _postLikes.add(key)
+  post.likeCount = (post.likeCount || 0) + 1
+  post.updatedAt = now()
+  return { likeCount: post.likeCount, likedByMe: true }
+}
+
+export async function mockAdminPostFeatured(postId, featured) {
+  await delay()
+  const post = _posts.find(p => p._id === postId)
+  if (!post) throw new Error('帖子不存在')
+  if (!_mockAdminActsOnAuthor(post.authorId)) throw new Error('无权操作')
+  if (post.category === 'emotion') throw new Error('情感倾诉不可设为优质帖')
+  const want = !!featured
+  post.featured = want
+  if (want && post.status === 'flagged') {
+    post.status = 'published'
+    post.flagged = false
+    post.flaggedWords = []
+    post.flaggedCategories = []
+    post.flaggedHighlighted = ''
+  } else if (want && (post.status === 'pending' || post.status === 'review')) {
+    post.status = 'published'
+  }
+  post.updatedAt = now()
+  return { featured: want }
 }
 
 export async function mockAdminGetPendingAchievements() {

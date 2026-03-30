@@ -4,9 +4,15 @@
       <h2>我的</h2>
     </div>
 
-    <!-- Profile Card -->
-    <div class="profile-card card mb-16" v-if="user">
-      <div class="profile-top flex items-center gap-16">
+    <!-- Profile Card：点击进入个人主页（统计与成长手册已迁至个人主页） -->
+    <div class="profile-card card mb-16 profile-card-home-entry" v-if="user">
+      <div
+        class="profile-top flex items-center gap-16"
+        role="button"
+        tabindex="0"
+        @click="goPersonalHome"
+        @keyup.enter="goPersonalHome"
+      >
         <div class="profile-left flex items-center gap-12">
           <div class="avatar avatar-lg">
             <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" />
@@ -27,31 +33,7 @@
           </div>
         </div>
       </div>
-      <div class="profile-stats flex justify-between mt-16">
-        <div class="stat-item text-center">
-          <div class="stat-num">{{ user.exp || 0 }}</div>
-          <div class="stat-label text-xs text-muted">经验值</div>
-        </div>
-        <div class="stat-item text-center">
-          <div class="stat-num">{{ user.score || 0 }}</div>
-          <div class="stat-label text-xs text-muted">积分</div>
-        </div>
-        <div class="stat-item text-center clickable" @click="$router.push('/my-posts')">
-          <div class="stat-num">{{ user.postCount || 0 }}</div>
-          <div class="stat-label text-xs text-muted">我发布过的帖子</div>
-        </div>
-        <div class="stat-item text-center clickable" @click="$router.push('/my-files')">
-          <div class="stat-num">{{ fileShareCount }}</div>
-          <div class="stat-label text-xs text-muted">我分享的文件</div>
-        </div>
-      </div>
-      <!-- EXP progress -->
-      <div class="exp-bar mt-8">
-        <div class="exp-fill" :style="{ width: (levelInfo.progress * 100) + '%' }"></div>
-      </div>
-      <p class="text-xs text-muted mt-4" v-if="!levelInfo.isMax">
-        距下一级还需 {{ levelInfo.expToNext - levelInfo.expInLevel }} 经验
-      </p>
+      <p class="profile-home-hint text-muted">点击进入个人主页 ›</p>
     </div>
 
     <!-- Menu -->
@@ -63,9 +45,6 @@
           <span class="menu-sub">个人资料 · 修改密码</span>
         </div>
         <span class="arrow">›</span>
-      </div>
-      <div class="menu-item" @click="$router.push('/growth-book')">
-        <span class="menu-icon">📖</span><span>成长手册</span><span class="arrow">›</span>
       </div>
       <div class="menu-item" @click="$router.push('/chat')">
         <span class="menu-icon-wrap-badge">
@@ -111,8 +90,6 @@ import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { getLevelInfo, getUserBadges } from '../utils/level.js'
-import * as api from '../api/index.js'
-
 const router = useRouter()
 const { state, logout } = useUserStore()
 const showToast = inject('showToast')
@@ -132,13 +109,11 @@ const badges = computed(() => {
   return b.filter(x => x.type !== 'level')
 })
 
-const fileShareCount = ref(0)
+function goPersonalHome() {
+  router.push('/profile')
+}
 
 onMounted(async () => {
-  try {
-    const r = await api.getFileShareList({ myFiles: true, pageSize: 1 })
-    fileShareCount.value = r.total || 0
-  } catch { /* ignore */ }
   try {
     await refreshInteractionUnread()
   } catch { /* ignore */ }
@@ -177,7 +152,11 @@ function handleLogout() {
 .menu-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .menu-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
 .menu-sub { font-size: 0.75rem; color: var(--text-muted); }
-.profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.profile-card-home-entry { position: relative; padding-bottom: 28px; }
+.profile-top { padding-bottom: 16px; border-bottom: 1px solid var(--border); border-radius: var(--radius-sm); transition: background 0.15s ease; }
+.profile-top:hover { background: var(--bg); }
+.profile-top:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.profile-home-hint { position: absolute; right: 14px; bottom: 10px; margin: 0; font-size: 0.65rem; opacity: 0.78; pointer-events: none; }
 .profile-left { display: flex; align-items: center; gap: 12px; }
 .level-display {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -191,13 +170,6 @@ function handleLogout() {
 .level-title {
   font-size: 0.7rem; color: #7EC8E3; opacity: 0.9;
 }
-.profile-stats { flex-wrap: wrap; gap: 8px; }
-.stat-item { min-width: 60px; }
-.stat-num { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }
-.stat-item.clickable { cursor: pointer; transition: var(--transition); }
-.stat-item.clickable:hover .stat-num { color: var(--primary); }
-.exp-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.exp-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; transition: width 0.5s ease; }
 .menu-icon-wrap-badge {
   position: relative;
   display: inline-flex;

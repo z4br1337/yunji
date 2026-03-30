@@ -16,6 +16,7 @@ const routes = [
   { path: '/file-share', name: 'FileShare', component: () => import('../views/FileShare.vue') },
   { path: '/ai-chat', name: 'AiChat', component: () => import('../views/AiChat.vue') },
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
+  { path: '/profile', name: 'PersonalHome', component: () => import('../views/PersonalHome.vue') },
   { path: '/settings/preferences', name: 'SettingsPreferences', component: () => import('../views/SettingsPreferences.vue') },
   { path: '/settings/invite', name: 'SettingsInvite', component: () => import('../views/SettingsInvite.vue') },
   { path: '/my-posts', name: 'MyPosts', component: () => import('../views/MyPosts.vue') },

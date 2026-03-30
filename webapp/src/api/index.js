@@ -164,6 +164,13 @@ export async function getPostDetail(postId) {
   return request('/post/detail', { postId })
 }
 
+export async function postLike(postId) {
+  if (LOCAL_TEST_MODE) return mock.mockPostLike(postId)
+  const result = await request('/post/like', { postId })
+  clearCache()
+  return result
+}
+
 export async function createPost(data) {
   if (LOCAL_TEST_MODE) return mock.mockCreatePost(data)
   const result = await request('/post/create', data)
@@ -411,6 +418,13 @@ export async function adminPinPost(postId) {
 export async function adminUnpinPost(postId) {
   if (LOCAL_TEST_MODE) return mock.mockAdminUnpinPost(postId)
   return request('/admin/post/unpin', { postId })
+}
+
+export async function adminPostFeatured(postId, featured) {
+  if (LOCAL_TEST_MODE) return mock.mockAdminPostFeatured(postId, featured)
+  const result = await request('/admin/post/featured', { postId, featured })
+  clearCache()
+  return result
 }
 
 export async function adminGetPendingAchievements() {
