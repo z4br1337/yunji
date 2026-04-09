@@ -4,6 +4,7 @@
 鉴权: Authorization: Bearer <token>
 """
 import json
+import logging
 import os
 import uuid
 from collections import Counter
@@ -40,6 +41,74 @@ ACHIEVEMENT_MAX_EXP = 2500
 PAGE_SIZE = 20
 MAX_TOPICS_PER_POST = 5
 MAX_TOPIC_NAME_LEN = 24
+
+logger = logging.getLogger(__name__)
+
+
+def _filter_posts_by_topic_sql(qs, topic_f):
+    """按话题名精确匹配 posts.topics JSON 数组中的字符串元素。"""
+    tbl = connection.ops.quote_name(Post._meta.db_table)
+    col = connection.ops.quote_name('topics')
+    vendor = connection.vendor
+    if vendor == 'postgresql':
+        piece = json.dumps([topic_f], ensure_ascii=False)
+        return qs.extra(
+            where=[
+                f'({tbl}.{col} IS NOT NULL AND {tbl}.{col}::jsonb @> %s::jsonb)',
+            ],
+            params=[piece],
+        )
+    if vendor == 'sqlite':
+        return qs.extra(
+            where=[
+                f'''(
+                    json_valid(COALESCE({tbl}.{col}, '[]'))
+                    AND EXISTS (
+                        SELECT 1 FROM json_each(COALESCE({tbl}.{col}, '[]')) AS _je
+                        WHERE json_type(_je.value) = 'text' AND _je.value = %s
+                    )
+                )''',
+            ],
+            params=[topic_f],
+        )
+    if vendor == 'mysql':
+        # LONGTEXT / JSON 列通用：先转 CHAR 再 CAST 回 JSON；执行失败时由 best_effort 回退 Python
+        cand = json.dumps(topic_f, ensure_ascii=False)
+        return qs.extra(
+            where=[
+                f'''JSON_CONTAINS(
+                    CAST(COALESCE(NULLIF(TRIM(CAST({tbl}.{col} AS CHAR)), ''), '[]') AS JSON),
+                    CAST(%s AS JSON),
+                    '$'
+                )''',
+            ],
+            params=[cand],
+        )
+    return qs.filter(topics__contains=[topic_f])
+
+
+def _filter_posts_by_topic_python(qs, topic_f):
+    """不依赖数据库 JSON 函数（兼容旧 SQLite、异常列类型或脏数据）。"""
+    ids = []
+    for row in qs.values('id', 'topics').iterator(chunk_size=400):
+        topics = row.get('topics')
+        if not isinstance(topics, list):
+            continue
+        if topic_f in topics:
+            ids.append(row['id'])
+    if not ids:
+        return qs.none()
+    return qs.filter(id__in=ids)
+
+
+def _filter_posts_by_topic_best_effort(qs, topic_f):
+    sql_qs = _filter_posts_by_topic_sql(qs, topic_f)
+    try:
+        sql_qs.exists()
+    except Exception as e:
+        logger.warning('话题筛选 SQL 执行失败，改用 Python 匹配: %s', e, exc_info=True)
+        return _filter_posts_by_topic_python(qs, topic_f)
+    return sql_qs
 
 
 def _normalize_topics(raw):
@@ -660,43 +729,7 @@ def post_list(request):
 
     topic_f = (f.get('topic') or '').strip().replace('#', '')
     if topic_f:
-        tbl = connection.ops.quote_name(Post._meta.db_table)
-        col = connection.ops.quote_name('topics')
-        vendor = connection.vendor
-        if vendor == 'postgresql':
-            # 显式 jsonb @>（自行配置 PG 数据库时使用）
-            piece = json.dumps([topic_f], ensure_ascii=False)
-            qs = qs.extra(
-                where=[
-                    f'({tbl}.{col} IS NOT NULL AND {tbl}.{col}::jsonb @> %s::jsonb)',
-                ],
-                params=[piece],
-            )
-        elif vendor == 'sqlite':
-            # 使用模型表名；json_valid 避免脏 JSON 导致 json_each 崩
-            qs = qs.extra(
-                where=[
-                    f'''(
-                        json_valid(COALESCE({tbl}.{col}, '[]'))
-                        AND EXISTS (
-                            SELECT 1 FROM json_each(COALESCE({tbl}.{col}, '[]')) AS _je
-                            WHERE json_type(_je.value) = 'text' AND _je.value = %s
-                        )
-                    )''',
-                ],
-                params=[topic_f],
-            )
-        elif vendor == 'mysql':
-            # 仓库默认仅 sqlite/mysql：生产常见 MySQL/MariaDB，ORM topics__contains 易报错或 500
-            # JSON_QUOTE(%s) 将话题名安全转为 JSON 字符串，与数组元素精确匹配
-            qs = qs.extra(
-                where=[
-                    f'JSON_CONTAINS(COALESCE({tbl}.{col}, CAST(\'[]\' AS JSON)), JSON_QUOTE(%s), \'$\')',
-                ],
-                params=[topic_f],
-            )
-        else:
-            qs = qs.filter(topics__contains=[topic_f])
+        qs = _filter_posts_by_topic_best_effort(qs, topic_f)
 
     if f.get('myPosts') or f.get('authorId'):
         qs = qs.order_by('-created_at')

@@ -80,11 +80,15 @@ const filterHint = computed(() => {
   return `当前筛选：${parts.join(' · ')} · 点搜索框可修改`
 })
 
+function queryString(val) {
+  if (typeof val === 'string') return val.trim()
+  if (Array.isArray(val) && val.length) return String(val[0] ?? '').trim()
+  return ''
+}
+
 function syncQueryFromRoute() {
-  const q = route.query.q
-  const t = route.query.topic
-  searchKeyword.value = typeof q === 'string' ? q.trim() : ''
-  activeTopic.value = typeof t === 'string' ? t.trim() : ''
+  searchKeyword.value = queryString(route.query.q)
+  activeTopic.value = queryString(route.query.topic)
 }
 
 async function loadPosts(reset = true) {
