@@ -13,38 +13,56 @@
       <button type="button" class="btn btn-primary btn-sm search-submit" @click="runSearch">搜索</button>
     </div>
 
-    <h3 class="section-title">热门话题</h3>
-    <p class="section-hint text-xs text-muted">按帖子使用次数排序（不展示具体数字）</p>
-
     <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
     <template v-else>
-      <ul class="hot-list">
-        <li
-          v-for="(t, i) in hotTopics"
-          :key="'t-' + t"
-          class="hot-row flex items-center"
-          @click="goTopic(t)"
-        >
-          <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
-          <span class="hot-topic-name">#{{ t }}#</span>
-        </li>
-      </ul>
-      <div v-if="!hotTopics.length" class="empty-hint text-muted text-sm">暂无话题数据，去发帖添加话题吧</div>
+      <div class="hot-tabs flex" role="tablist" aria-label="热门切换">
+        <button
+          type="button"
+          role="tab"
+          class="hot-tab"
+          :class="{ active: hotTab === 'topics' }"
+          :aria-selected="hotTab === 'topics'"
+          @click="hotTab = 'topics'"
+        >热门话题</button>
+        <button
+          type="button"
+          role="tab"
+          class="hot-tab"
+          :class="{ active: hotTab === 'posts' }"
+          :aria-selected="hotTab === 'posts'"
+          @click="hotTab = 'posts'"
+        >热门帖子</button>
+      </div>
 
-      <h3 class="section-title section-title-spaced">热门帖子</h3>
-      <p class="section-hint text-xs text-muted">按点赞量排序（不展示具体数字）</p>
-      <ul v-if="hotPosts.length" class="hot-list">
-        <li
-          v-for="(row, i) in hotPosts"
-          :key="'p-' + row._id"
-          class="hot-row flex items-center"
-          @click="goPost(row._id)"
-        >
-          <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
-          <span class="hot-post-snippet">{{ row.snippet }}</span>
-        </li>
-      </ul>
-      <div v-else class="empty-hint text-muted text-sm">暂无热门帖子</div>
+      <template v-if="hotTab === 'topics'">
+        <ul class="hot-list">
+          <li
+            v-for="(t, i) in hotTopics"
+            :key="'t-' + t"
+            class="hot-row flex items-center"
+            @click="goTopic(t)"
+          >
+            <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
+            <span class="hot-topic-name">#{{ t }}#</span>
+          </li>
+        </ul>
+        <div v-if="!hotTopics.length" class="empty-hint text-muted text-sm">暂无话题数据，去发帖添加话题吧</div>
+      </template>
+
+      <template v-else>
+        <ul v-if="hotPosts.length" class="hot-list">
+          <li
+            v-for="(row, i) in hotPosts"
+            :key="'p-' + row._id"
+            class="hot-row flex items-center"
+            @click="goPost(row._id)"
+          >
+            <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
+            <span class="hot-post-snippet">{{ row.snippet }}</span>
+          </li>
+        </ul>
+        <div v-else class="empty-hint text-muted text-sm">暂无热门帖子</div>
+      </template>
     </template>
   </div>
 </template>
@@ -60,6 +78,7 @@ const showToast = inject('showToast')
 const keyword = ref('')
 const hotTopics = ref([])
 const hotPosts = ref([])
+const hotTab = ref('topics')
 const loading = ref(true)
 
 function rankClass(n) {
@@ -87,8 +106,8 @@ onMounted(async () => {
   loading.value = true
   try {
     const [r, hp] = await Promise.all([api.getHotTopics(), api.getHotPostSnippets()])
-    hotTopics.value = r.topics || []
-    hotPosts.value = hp.posts || []
+    hotTopics.value = (r.topics || []).slice(0, 20)
+    hotPosts.value = (hp.posts || []).slice(0, 20)
   } catch (e) {
     showToast(e.message || '加载失败')
   } finally {
@@ -113,13 +132,36 @@ onMounted(async () => {
   font-size: 0.95rem;
 }
 .search-submit { flex-shrink: 0; border-radius: 20px; padding: 8px 16px; }
-.section-title {
-  font-size: 1.05rem;
-  margin: 8px 0 4px;
-  font-weight: 700;
+.hot-tabs {
+  margin: 8px 0 14px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  gap: 6px;
 }
-.section-title-spaced { margin-top: 28px; }
-.section-hint { margin-bottom: 12px; }
+.hot-tab {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.hot-tab:hover {
+  color: var(--primary);
+  background: rgba(74, 144, 217, 0.08);
+}
+.hot-tab.active {
+  background: var(--bg-card);
+  color: var(--primary);
+  box-shadow: var(--shadow);
+}
 .hot-list {
   list-style: none;
   margin: 0;

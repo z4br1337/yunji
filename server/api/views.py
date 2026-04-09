@@ -660,13 +660,29 @@ def post_list(request):
 
     topic_f = (f.get('topic') or '').strip().replace('#', '')
     if topic_f:
-        if connection.vendor == 'postgresql':
-            qs = qs.filter(topics__contains=[topic_f])
-        elif connection.vendor == 'sqlite':
+        tbl = connection.ops.quote_name(Post._meta.db_table)
+        col = connection.ops.quote_name('topics')
+        vendor = connection.vendor
+        if vendor == 'postgresql':
+            # 显式 jsonb @>，避免部分环境下 ORM contains 与列类型不兼容导致 500
+            piece = json.dumps([topic_f], ensure_ascii=False)
             qs = qs.extra(
                 where=[
-                    "EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(TRIM(posts.topics), ''), '[]')) "
-                    "AS _je WHERE json_type(_je.value) = 'text' AND _je.value = %s)"
+                    f'({tbl}.{col} IS NOT NULL AND {tbl}.{col}::jsonb @> %s::jsonb)',
+                ],
+                params=[piece],
+            )
+        elif vendor == 'sqlite':
+            # 使用真实表名，避免 ORM 别名与手写 posts. 不一致；json_valid 避免脏数据拖垮查询
+            qs = qs.extra(
+                where=[
+                    f'''(
+                        json_valid(COALESCE({tbl}.{col}, '[]'))
+                        AND EXISTS (
+                            SELECT 1 FROM json_each(COALESCE({tbl}.{col}, '[]')) AS _je
+                            WHERE json_type(_je.value) = 'text' AND _je.value = %s
+                        )
+                    )''',
                 ],
                 params=[topic_f],
             )
@@ -706,7 +722,7 @@ def topic_hot_list(request):
                 s = t.strip()
                 if s:
                     c[s] += 1
-    topics = [name for name, _ in c.most_common(80)]
+    topics = [name for name, _ in c.most_common(20)]
     return ok({'topics': topics})
 
 
@@ -719,7 +735,7 @@ def post_hot_snippets(request):
     qs = (
         Post.objects.filter(status='published')
         .exclude(category='emotion')
-        .order_by('-like_count', '-created_at')[:50]
+        .order_by('-like_count', '-created_at')[:20]
     )
     posts = []
     for p in qs:

@@ -730,7 +730,7 @@ export async function mockGetHotTopics() {
       if (s) c[s] = (c[s] || 0) + 1
     }
   }
-  const topics = Object.entries(c).sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 80)
+  const topics = Object.entries(c).sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 20)
   return { topics }
 }
 
@@ -739,7 +739,7 @@ export async function mockGetHotPostSnippets() {
   const list = _posts
     .filter((p) => p.status === 'published' && p.category !== 'emotion')
     .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0) || String(b.createdAt).localeCompare(String(a.createdAt)))
-    .slice(0, 50)
+    .slice(0, 20)
   const posts = list.map((p) => {
     let text = String(p.content || '').trim().replace(/\n/g, ' ')
     if (text.length > 72) text = text.slice(0, 72) + '…'
