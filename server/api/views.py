@@ -14,7 +14,7 @@ import re
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.db import models as db_models
+from django.db import models as db_models, connection
 from django.db.models import Q, F, Count, Max, Exists, OuterRef
 from django.db.models.functions import Greatest
 from django.conf import settings
@@ -660,19 +660,24 @@ def post_list(request):
 
     topic_f = (f.get('topic') or '').strip().replace('#', '')
     if topic_f:
-        # SQLite：按 JSON 数组元素精确匹配（避免子串误匹配）
-        qs = qs.extra(
-            where=[
-                "EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(TRIM(posts.topics), ''), '[]')) "
-                "AS _je WHERE json_type(_je.value) = 'text' AND _je.value = %s)"
-            ],
-            params=[topic_f],
-        )
+        if connection.vendor == 'postgresql':
+            qs = qs.filter(topics__contains=[topic_f])
+        elif connection.vendor == 'sqlite':
+            qs = qs.extra(
+                where=[
+                    "EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(TRIM(posts.topics), ''), '[]')) "
+                    "AS _je WHERE json_type(_je.value) = 'text' AND _je.value = %s)"
+                ],
+                params=[topic_f],
+            )
+        else:
+            qs = qs.filter(topics__contains=[topic_f])
 
     if f.get('myPosts') or f.get('authorId'):
         qs = qs.order_by('-created_at')
     elif not f.get('_id') and f.get('category') != 'emotion' and f.get('status') != 'flagged':
-        qs = qs.order_by('-pinned', '-featured', '-like_count', '-created_at')
+        # 广场：置顶优先，其余按发布时间（新在前）
+        qs = qs.order_by('-pinned', '-created_at')
     else:
         qs = qs.order_by('-pinned', '-created_at')
 
@@ -703,6 +708,26 @@ def topic_hot_list(request):
                     c[s] += 1
     topics = [name for name, _ in c.most_common(80)]
     return ok({'topics': topics})
+
+
+@csrf_exempt
+@require_POST
+def post_hot_snippets(request):
+    """搜索页「热门帖子」：按点赞量排序，仅返回短文字摘要（不含图）。"""
+    openid = request.user_token
+    get_or_create_user(openid)
+    qs = (
+        Post.objects.filter(status='published')
+        .exclude(category='emotion')
+        .order_by('-like_count', '-created_at')[:50]
+    )
+    posts = []
+    for p in qs:
+        text = (p.content or '').strip().replace('\n', ' ')
+        if len(text) > 72:
+            text = text[:72] + '…'
+        posts.append({'_id': str(p.id), 'snippet': text or '（无文字）'})
+    return ok({'posts': posts})
 
 
 @csrf_exempt

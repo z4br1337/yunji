@@ -165,6 +165,11 @@ export async function getHotTopics() {
   return request('/topic/hot', {})
 }
 
+export async function getHotPostSnippets() {
+  if (LOCAL_TEST_MODE) return mock.mockGetHotPostSnippets()
+  return request('/post/hot-snippets', {})
+}
+
 export async function getPostDetail(postId) {
   if (LOCAL_TEST_MODE) return mock.mockGetPostDetail(postId)
   return request('/post/detail', { postId })

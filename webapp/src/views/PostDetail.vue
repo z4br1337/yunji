@@ -59,7 +59,7 @@
             @click.stop="openLightbox(img)"
           >
             <img
-              :src="img"
+              :src="thumbSrc(img)"
               alt=""
               loading="lazy"
               decoding="async"
@@ -174,6 +174,7 @@ import { useUserStore } from '../stores/user.js'
 import { check as sensitiveCheck } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
 import * as localPostCache from '../utils/localPostCache.js'
+import { withFeedThumb, originalImageUrl } from '../utils/imageUrl.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -203,8 +204,12 @@ function resolveImageUrl(src) {
   return s
 }
 
+function thumbSrc(src) {
+  return withFeedThumb(src)
+}
+
 function openLightbox(src) {
-  lightboxUrl.value = resolveImageUrl(src)
+  lightboxUrl.value = resolveImageUrl(originalImageUrl(src))
 }
 
 function closeLightbox() {
@@ -447,15 +452,17 @@ watch(() => route.params.id, () => loadData())
 }
 .topic-hash {
   border: none;
-  background: none;
-  padding: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
+  background: rgba(74, 144, 217, 0.12);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--primary);
   cursor: pointer;
   font-family: inherit;
+  line-height: 1.35;
 }
-.topic-hash:hover { text-decoration: underline; }
+.topic-hash:hover { text-decoration: underline; background: rgba(74, 144, 217, 0.2); }
 .detail-media-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

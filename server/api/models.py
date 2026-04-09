@@ -59,7 +59,7 @@ class Post(models.Model):
 
     class Meta:
         db_table = 'posts'
-        ordering = ['-pinned', '-featured', '-like_count', '-created_at']
+        ordering = ['-pinned', '-created_at']
 
 
 class PostLike(models.Model):

@@ -734,6 +734,20 @@ export async function mockGetHotTopics() {
   return { topics }
 }
 
+export async function mockGetHotPostSnippets() {
+  await delay()
+  const list = _posts
+    .filter((p) => p.status === 'published' && p.category !== 'emotion')
+    .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0) || String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 50)
+  const posts = list.map((p) => {
+    let text = String(p.content || '').trim().replace(/\n/g, ' ')
+    if (text.length > 72) text = text.slice(0, 72) + '…'
+    return { _id: p._id, snippet: text || '（无文字）' }
+  })
+  return { posts }
+}
+
 export async function mockGetUserPublicHome(userId) {
   await delay()
   const uid = (userId && String(userId).trim()) || _currentUserId

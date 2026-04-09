@@ -59,7 +59,13 @@
           :key="i"
           class="post-media-cell"
         >
-          <img :src="img" alt="" loading="lazy" decoding="async" :fetchpriority="i === 0 ? 'high' : 'low'" />
+          <img
+            :src="thumbSrc(img)"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            :fetchpriority="i === 0 ? 'high' : 'low'"
+          />
         </div>
       </div>
     </div>
@@ -76,6 +82,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { POST_CATEGORIES, POST_STATUS_LABELS } from '../utils/config.js'
+import { withFeedThumb } from '../utils/imageUrl.js'
 
 const props = defineProps({
   post: { type: Object, required: true },
@@ -115,6 +122,10 @@ function goTopic(t) {
   if (!name) return
   router.push({ path: '/feed', query: { topic: name } })
 }
+
+function thumbSrc(url) {
+  return withFeedThumb(url)
+}
 </script>
 
 <style scoped>
@@ -137,6 +148,11 @@ function goTopic(t) {
 .post-boutique .post-author,
 .post-boutique .post-content,
 .post-boutique .post-time { color: var(--text-primary); }
+.post-boutique .topic-hash {
+  background: rgba(255, 255, 255, 0.55);
+  color: #1e4d8c;
+}
+.post-boutique .topic-hash:hover { background: rgba(255, 255, 255, 0.85); }
 .post-highlight { border-left: 3px solid var(--warning); background: #FFFDF5; }
 .post-flagged { border-left: 3px solid var(--danger); background: #FFF5F5; }
 .post-corner-badges {
@@ -180,15 +196,17 @@ function goTopic(t) {
 }
 .topic-hash {
   border: none;
-  background: none;
-  padding: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
+  background: rgba(74, 144, 217, 0.12);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--primary);
   cursor: pointer;
   font-family: inherit;
+  line-height: 1.35;
 }
-.topic-hash:hover { text-decoration: underline; }
+.topic-hash:hover { text-decoration: underline; background: rgba(74, 144, 217, 0.2); }
 .post-content { font-size: 0.9rem; line-height: 1.6; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .flagged-content { font-size: 0.9rem; line-height: 1.6; }
 .post-media-grid {

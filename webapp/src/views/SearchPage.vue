@@ -17,18 +17,35 @@
     <p class="section-hint text-xs text-muted">按帖子使用次数排序（不展示具体数字）</p>
 
     <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
-    <ul v-else class="hot-list">
-      <li
-        v-for="(t, i) in hotTopics"
-        :key="t"
-        class="hot-row flex items-center"
-        @click="goTopic(t)"
-      >
-        <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
-        <span class="hot-topic-name">#{{ t }}#</span>
-      </li>
-    </ul>
-    <div v-if="!loading && !hotTopics.length" class="empty-hint text-muted text-sm">暂无话题数据，去发帖添加话题吧</div>
+    <template v-else>
+      <ul class="hot-list">
+        <li
+          v-for="(t, i) in hotTopics"
+          :key="'t-' + t"
+          class="hot-row flex items-center"
+          @click="goTopic(t)"
+        >
+          <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
+          <span class="hot-topic-name">#{{ t }}#</span>
+        </li>
+      </ul>
+      <div v-if="!hotTopics.length" class="empty-hint text-muted text-sm">暂无话题数据，去发帖添加话题吧</div>
+
+      <h3 class="section-title section-title-spaced">热门帖子</h3>
+      <p class="section-hint text-xs text-muted">按点赞量排序（不展示具体数字）</p>
+      <ul v-if="hotPosts.length" class="hot-list">
+        <li
+          v-for="(row, i) in hotPosts"
+          :key="'p-' + row._id"
+          class="hot-row flex items-center"
+          @click="goPost(row._id)"
+        >
+          <span class="rank" :class="rankClass(i + 1)">{{ i + 1 }}</span>
+          <span class="hot-post-snippet">{{ row.snippet }}</span>
+        </li>
+      </ul>
+      <div v-else class="empty-hint text-muted text-sm">暂无热门帖子</div>
+    </template>
   </div>
 </template>
 
@@ -42,6 +59,7 @@ const showToast = inject('showToast')
 
 const keyword = ref('')
 const hotTopics = ref([])
+const hotPosts = ref([])
 const loading = ref(true)
 
 function rankClass(n) {
@@ -60,11 +78,17 @@ function goTopic(t) {
   router.push({ path: '/feed', query: { topic: t } })
 }
 
+function goPost(id) {
+  if (!id) return
+  router.push(`/post/${id}`)
+}
+
 onMounted(async () => {
   loading.value = true
   try {
-    const r = await api.getHotTopics()
+    const [r, hp] = await Promise.all([api.getHotTopics(), api.getHotPostSnippets()])
     hotTopics.value = r.topics || []
+    hotPosts.value = hp.posts || []
   } catch (e) {
     showToast(e.message || '加载失败')
   } finally {
@@ -94,6 +118,7 @@ onMounted(async () => {
   margin: 8px 0 4px;
   font-weight: 700;
 }
+.section-title-spaced { margin-top: 28px; }
 .section-hint { margin-bottom: 12px; }
 .hot-list {
   list-style: none;
@@ -129,10 +154,19 @@ onMounted(async () => {
 .rank-gold { background: linear-gradient(145deg, #ffd54f, #ffb300); color: #5d4200; }
 .rank-silver { background: linear-gradient(145deg, #e0e0e0, #bdbdbd); color: #424242; }
 .rank-bronze { background: linear-gradient(145deg, #ffcc80, #ef6c00); color: #4e2500; }
-.hot-topic-name {
+.hot-topic-name,
+.hot-post-snippet {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
+  min-width: 0;
+  flex: 1;
+  line-height: 1.35;
+}
+.hot-post-snippet {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .empty-hint { padding: 24px; text-align: center; }
 </style>
