@@ -37,13 +37,13 @@
       <span class="post-time text-xs text-muted">{{ formatTime(post.createdAt) }}</span>
     </div>
     <div class="post-body">
-      <div v-if="post.topics && post.topics.length" class="post-topics" @click.stop>
+      <div v-if="post.topics && post.topics.length" class="post-topics">
         <button
           v-for="t in post.topics"
           :key="t"
           type="button"
           class="topic-hash"
-          @click="goTopic(t)"
+          @click.stop="goTopic(t)"
         >#{{ t }}#</button>
       </div>
       <p v-if="post.status === 'flagged' && isAdmin" class="flagged-content" v-html="post.flaggedHighlighted || post.content"></p>
