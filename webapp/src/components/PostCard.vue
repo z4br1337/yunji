@@ -52,7 +52,6 @@
         v-if="post.images && post.images.length"
         class="post-media-grid"
         :class="'count-' + Math.min(post.images.length, 9)"
-        @click.stop
       >
         <div
           v-for="(img, i) in post.images.slice(0, 9)"
