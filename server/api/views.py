@@ -664,7 +664,7 @@ def post_list(request):
         col = connection.ops.quote_name('topics')
         vendor = connection.vendor
         if vendor == 'postgresql':
-            # 显式 jsonb @>，避免部分环境下 ORM contains 与列类型不兼容导致 500
+            # 显式 jsonb @>（自行配置 PG 数据库时使用）
             piece = json.dumps([topic_f], ensure_ascii=False)
             qs = qs.extra(
                 where=[
@@ -673,7 +673,7 @@ def post_list(request):
                 params=[piece],
             )
         elif vendor == 'sqlite':
-            # 使用真实表名，避免 ORM 别名与手写 posts. 不一致；json_valid 避免脏数据拖垮查询
+            # 使用模型表名；json_valid 避免脏 JSON 导致 json_each 崩
             qs = qs.extra(
                 where=[
                     f'''(
@@ -683,6 +683,15 @@ def post_list(request):
                             WHERE json_type(_je.value) = 'text' AND _je.value = %s
                         )
                     )''',
+                ],
+                params=[topic_f],
+            )
+        elif vendor == 'mysql':
+            # 仓库默认仅 sqlite/mysql：生产常见 MySQL/MariaDB，ORM topics__contains 易报错或 500
+            # JSON_QUOTE(%s) 将话题名安全转为 JSON 字符串，与数组元素精确匹配
+            qs = qs.extra(
+                where=[
+                    f'JSON_CONTAINS(COALESCE({tbl}.{col}, CAST(\'[]\' AS JSON)), JSON_QUOTE(%s), \'$\')',
                 ],
                 params=[topic_f],
             )
