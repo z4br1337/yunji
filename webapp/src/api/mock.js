@@ -63,10 +63,10 @@ _rebuildUsernameIndex()
 const _postLikes = new Set() // `${userId}:${postId}`
 
 const _posts = [
-  { _id: 'post_001', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '大家好！这是云迹的第一条帖子，欢迎大家来交流~', images: [], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 2, pointsAwarded: 0, createdAt: '2026-03-10T09:00:00Z', updatedAt: '2026-03-10T09:00:00Z' },
-  { _id: 'post_002', authorId: 'test_user_001', isAnonymous: true, visibleAuthorName: '匿名用户', content: '最近学业压力好大，感觉有点撑不住了…希望有人能理解。', images: [], category: 'emotion', status: 'published', pinned: false, featured: false, likeCount: 0, pointsAwarded: 0, needOffline: false, offlineTime: '', offlinePlace: '', createdAt: '2026-03-10T10:30:00Z', updatedAt: '2026-03-10T10:30:00Z' },
-  { _id: 'post_003', authorId: 'test_admin_001', isAnonymous: false, visibleAuthorName: '导生小王', content: '校运会志愿者招募开始了！有兴趣的同学可以在成果页提交德育成果哦~', images: [], category: 'knowledge', status: 'published', pinned: true, featured: true, likeCount: 5, pointsAwarded: 0, createdAt: '2026-03-09T14:00:00Z', updatedAt: '2026-03-09T14:00:00Z' },
-  { _id: 'post_004', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '这是一条高赞帖（用于展示自动精品样式）。', images: [], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 35, pointsAwarded: 0, createdAt: '2026-03-08T12:00:00Z', updatedAt: '2026-03-08T12:00:00Z' },
+  { _id: 'post_001', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '大家好！这是云迹的第一条帖子，欢迎大家来交流~', images: [], topics: ['云迹广场', '新生'], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 2, pointsAwarded: 0, createdAt: '2026-03-10T09:00:00Z', updatedAt: '2026-03-10T09:00:00Z' },
+  { _id: 'post_002', authorId: 'test_user_001', isAnonymous: true, visibleAuthorName: '匿名用户', content: '最近学业压力好大，感觉有点撑不住了…希望有人能理解。', images: [], topics: [], category: 'emotion', status: 'published', pinned: false, featured: false, likeCount: 0, pointsAwarded: 0, needOffline: false, offlineTime: '', offlinePlace: '', createdAt: '2026-03-10T10:30:00Z', updatedAt: '2026-03-10T10:30:00Z' },
+  { _id: 'post_003', authorId: 'test_admin_001', isAnonymous: false, visibleAuthorName: '导生小王', content: '校运会志愿者招募开始了！有兴趣的同学可以在成果页提交德育成果哦~', images: [], topics: ['校运会', '志愿者'], category: 'knowledge', status: 'published', pinned: true, featured: true, likeCount: 5, pointsAwarded: 0, createdAt: '2026-03-09T14:00:00Z', updatedAt: '2026-03-09T14:00:00Z' },
+  { _id: 'post_004', authorId: 'test_user_001', isAnonymous: false, visibleAuthorName: '测试同学', content: '这是一条高赞帖（用于展示自动精品样式）。', images: [], topics: ['云迹广场'], category: 'cognition', status: 'published', pinned: false, featured: false, likeCount: 35, pointsAwarded: 0, createdAt: '2026-03-08T12:00:00Z', updatedAt: '2026-03-08T12:00:00Z' },
 ]
 
 const _fileShareLikes = new Set() // `${userId}:${fileId}`
@@ -311,9 +311,23 @@ export async function mockGetPointsLog() {
 
 // ========== Posts ==========
 
+function _normalizeTopicsMock(raw) {
+  if (!raw || !Array.isArray(raw)) return []
+  const out = []
+  const seen = new Set()
+  for (const x of raw) {
+    const s = String(x || '').trim().replace(/#/g, '').replace(/\|/g, '').replace(/\n/g, '').slice(0, 24)
+    if (!s || seen.has(s)) continue
+    seen.add(s)
+    out.push(s)
+    if (out.length >= 5) break
+  }
+  return out
+}
+
 export async function mockGetPosts(params = {}) {
   await delay()
-  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts, keyword, authorId } = params
+  const { category, page = 1, pageSize = 20, excludeEmotion, myPosts, keyword, authorId, topic } = params
   const user = cur()
   const isAdmin = user && user.role === 'admin'
   const kw = (keyword || '').trim()
@@ -330,6 +344,10 @@ export async function mockGetPosts(params = {}) {
     if (category && category !== 'all' && p.category !== category) return false
     if (!isAdmin && p.status !== 'published' && p.authorId !== _currentUserId) return false
     if (kw && !(p.content || '').includes(kw)) return false
+    if (topic && String(topic).trim()) {
+      const tf = String(topic).trim()
+      if (!(p.topics || []).includes(tf)) return false
+    }
     return true
   })
 
@@ -380,6 +398,7 @@ export async function mockGetPostDetail(postId) {
   const authorUser = _users[post.authorId]
   const postData = {
     ...post,
+    topics: Array.isArray(post.topics) ? [...post.topics] : [],
     likeCount: post.likeCount || 0,
     featured: !!post.featured,
     boutique: _postBoutique(post),
@@ -400,11 +419,15 @@ export async function mockCreatePost(data) {
     throw new Error('内容包含敏感词，无法发布')
   }
   const user = cur()
+  const topics = _normalizeTopicsMock(data.topics)
+  for (const t of topics) {
+    if (!sensitiveCheck(t).pass) throw new Error('话题包含敏感词')
+  }
   const post = {
     _id: genId(), authorId: _currentUserId,
     isAnonymous: !!data.isAnonymous,
     visibleAuthorName: data.isAnonymous ? '匿名用户' : (user ? user.nickname : '未知'),
-    content: data.content, images: data.images || [],
+    content: data.content, images: data.images || [], topics,
     category: data.category || 'cognition',
     status: 'published', pinned: false, featured: false, likeCount: 0, pointsAwarded: 0,
     needOffline: !!data.needOffline, offlineTime: data.offlineTime || '', offlinePlace: data.offlinePlace || '',
@@ -695,6 +718,20 @@ export async function mockCommentsOnMyPosts() {
 export async function mockUploadImage(file) {
   await delay(50)
   return { url: URL.createObjectURL(file) }
+}
+
+export async function mockGetHotTopics() {
+  await delay()
+  const c = {}
+  for (const p of _posts) {
+    if (p.status !== 'published' || p.category === 'emotion') continue
+    for (const t of p.topics || []) {
+      const s = String(t).trim()
+      if (s) c[s] = (c[s] || 0) + 1
+    }
+  }
+  const topics = Object.entries(c).sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 80)
+  return { topics }
 }
 
 export async function mockGetUserPublicHome(userId) {

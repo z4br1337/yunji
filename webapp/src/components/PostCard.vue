@@ -37,18 +37,30 @@
       <span class="post-time text-xs text-muted">{{ formatTime(post.createdAt) }}</span>
     </div>
     <div class="post-body">
+      <div v-if="post.topics && post.topics.length" class="post-topics" @click.stop>
+        <button
+          v-for="t in post.topics"
+          :key="t"
+          type="button"
+          class="topic-hash"
+          @click="goTopic(t)"
+        >#{{ t }}#</button>
+      </div>
       <p v-if="post.status === 'flagged' && isAdmin" class="flagged-content" v-html="post.flaggedHighlighted || post.content"></p>
       <p v-else class="post-content">{{ post.content }}</p>
-      <div v-if="post.images && post.images.length" class="post-images">
-        <img
-          v-for="(img, i) in post.images.slice(0, 3)"
+      <div
+        v-if="post.images && post.images.length"
+        class="post-media-grid"
+        :class="'count-' + Math.min(post.images.length, 9)"
+        @click.stop
+      >
+        <div
+          v-for="(img, i) in post.images.slice(0, 9)"
           :key="i"
-          :src="img"
-          class="post-img"
-          loading="lazy"
-          decoding="async"
-          :fetchpriority="i === 0 ? 'high' : 'low'"
-        />
+          class="post-media-cell"
+        >
+          <img :src="img" alt="" loading="lazy" decoding="async" :fetchpriority="i === 0 ? 'high' : 'low'" />
+        </div>
       </div>
     </div>
     <div class="post-footer">
@@ -62,6 +74,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { POST_CATEGORIES, POST_STATUS_LABELS } from '../utils/config.js'
 
 const props = defineProps({
@@ -69,6 +82,7 @@ const props = defineProps({
   isAdmin: { type: Boolean, default: false }
 })
 const emit = defineEmits(['click', 'avatar-click'])
+const router = useRouter()
 
 const catMap = {}
 POST_CATEGORIES.forEach(c => { catMap[c.key] = c.label })
@@ -94,6 +108,12 @@ function formatTime(ts) {
 function onAvatarClick() {
   if (props.post.isAnonymous) return
   emit('avatar-click', props.post)
+}
+
+function goTopic(t) {
+  const name = String(t || '').trim()
+  if (!name) return
+  router.push({ path: '/feed', query: { topic: name } })
 }
 </script>
 
@@ -151,10 +171,53 @@ function onAvatarClick() {
 .flag-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; background: #F8D7DA; color: #721C24; }
 .post-time { white-space: nowrap; flex-shrink: 0; }
 .post-body { margin-bottom: 10px; }
+.post-topics {
+  margin-bottom: 8px;
+  line-height: 1.7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.topic-hash {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+.topic-hash:hover { text-decoration: underline; }
 .post-content { font-size: 0.9rem; line-height: 1.6; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .flagged-content { font-size: 0.9rem; line-height: 1.6; }
-.post-images { display: flex; gap: 8px; margin-top: 10px; }
-.post-img { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius-sm); }
+.post-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+  max-width: 100%;
+}
+.post-media-grid.count-1 {
+  grid-template-columns: 1fr;
+  max-width: 240px;
+}
+.post-media-grid.count-2 {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 360px;
+}
+.post-media-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--border);
+}
+.post-media-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .post-footer { display: flex; align-items: center; gap: 8px; }
 .category-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; background: rgba(74,144,217,0.1); color: var(--primary); }
 .status-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; }

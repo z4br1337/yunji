@@ -6,6 +6,7 @@
 import json
 import os
 import uuid
+from collections import Counter
 import time
 import hashlib
 import re
@@ -37,6 +38,29 @@ ACHIEVEMENT_BASE_EXP = 500
 ACHIEVEMENT_LEVEL_MULTIPLIER = 500
 ACHIEVEMENT_MAX_EXP = 2500
 PAGE_SIZE = 20
+MAX_TOPICS_PER_POST = 5
+MAX_TOPIC_NAME_LEN = 24
+
+
+def _normalize_topics(raw):
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, (list, tuple)):
+        return []
+    out = []
+    seen = set()
+    for x in raw:
+        s = (str(x) or '').strip().replace('#', '').replace('\n', '').replace('\r', '')[:MAX_TOPIC_NAME_LEN]
+        s = s.replace('|', '')
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+        if len(out) >= MAX_TOPICS_PER_POST:
+            break
+    return out
 
 
 def _log_admin_action(admin, action, target_type, target_id, detail):
@@ -156,6 +180,7 @@ def post_to_dict(p, reveal_author=False, viewer_id=None):
         'flaggedHighlighted': p.flagged_highlighted,
         'createdAt': p.created_at.isoformat() if p.created_at else '',
         'updatedAt': p.updated_at.isoformat() if p.updated_at else '',
+        'topics': list(p.topics) if getattr(p, 'topics', None) else [],
     }
     if viewer_id:
         d['likedByMe'] = PostLike.objects.filter(post_id=p.id, user_id=viewer_id).exists()
@@ -495,6 +520,11 @@ def post_create(request):
     if not sensitive_check.content_passes(content):
         return err('SENSITIVE_CONTENT', '内容包含敏感词，无法发布')
 
+    topics_norm = _normalize_topics(body.get('topics'))
+    for t in topics_norm:
+        if not sensitive_check.content_passes(t):
+            return err('SENSITIVE_CONTENT', '话题包含敏感词，请修改')
+
     p = Post.objects.create(
         author_id=openid,
         is_anonymous=bool(body.get('isAnonymous')),
@@ -503,6 +533,7 @@ def post_create(request):
         images=body.get('images', []),
         category=body.get('category', 'cognition'),
         status='published',
+        topics=topics_norm,
         notify_admin=bool(body.get('notifyAdminFlag')),
         need_offline=bool(body.get('needOffline')),
         offline_time=body.get('offlineTime', ''),
@@ -627,6 +658,17 @@ def post_list(request):
     if search_kw:
         qs = qs.filter(content__icontains=search_kw)
 
+    topic_f = (f.get('topic') or '').strip().replace('#', '')
+    if topic_f:
+        # SQLite：按 JSON 数组元素精确匹配（避免子串误匹配）
+        qs = qs.extra(
+            where=[
+                "EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(TRIM(posts.topics), ''), '[]')) "
+                "AS _je WHERE json_type(_je.value) = 'text' AND _je.value = %s)"
+            ],
+            params=[topic_f],
+        )
+
     if f.get('myPosts') or f.get('authorId'):
         qs = qs.order_by('-created_at')
     elif not f.get('_id') and f.get('category') != 'emotion' and f.get('status') != 'flagged':
@@ -642,6 +684,25 @@ def post_list(request):
         'total': total,
         'hasMore': start + page_size < total,
     })
+
+
+@csrf_exempt
+@require_POST
+def topic_hot_list(request):
+    openid = request.user_token
+    get_or_create_user(openid)
+    c = Counter()
+    base = Post.objects.filter(status='published').exclude(category='emotion')
+    for arr in base.values_list('topics', flat=True).iterator(chunk_size=400):
+        if not arr:
+            continue
+        for t in arr:
+            if isinstance(t, str):
+                s = t.strip()
+                if s:
+                    c[s] += 1
+    topics = [name for name, _ in c.most_common(80)]
+    return ok({'topics': topics})
 
 
 @csrf_exempt

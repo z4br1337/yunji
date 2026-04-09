@@ -151,12 +151,18 @@ export async function getPosts(params = {}) {
   if (LOCAL_TEST_MODE) return mock.mockGetPosts(params)
   const { page, pageSize, ...filterFields } = params
   const hasKeyword = !!(filterFields.keyword && String(filterFields.keyword).trim())
+  const hasTopic = !!(filterFields.topic && String(filterFields.topic).trim())
   return request(
     '/post/list',
     { filter: filterFields, page: page || 1, pageSize: pageSize || 12 },
     'POST',
-    { cacheable: !hasKeyword, cacheTTL: 8000 }
+    { cacheable: !hasKeyword && !hasTopic, cacheTTL: 8000 }
   )
+}
+
+export async function getHotTopics() {
+  if (LOCAL_TEST_MODE) return mock.mockGetHotTopics()
+  return request('/topic/hot', {})
 }
 
 export async function getPostDetail(postId) {

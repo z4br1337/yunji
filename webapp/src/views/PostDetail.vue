@@ -35,18 +35,37 @@
           真实身份：{{ (post.authorStudentId && String(post.authorStudentId).trim()) || '未绑定学号' }}（{{ post.authorClass || '—' }}）
         </div>
 
+        <div v-if="post.topics?.length && post.category !== 'emotion'" class="detail-topics">
+          <button
+            v-for="t in post.topics"
+            :key="t"
+            type="button"
+            class="topic-hash"
+            @click.stop="goTopic(t)"
+          >#{{ t }}#</button>
+        </div>
         <p class="detail-content">{{ post.content }}</p>
 
-        <div v-if="post.images && post.images.length" class="detail-images">
-          <img
-            v-for="(img, i) in post.images"
+        <div
+          v-if="post.images && post.images.length"
+          class="detail-media-grid"
+          :class="'count-' + Math.min(post.images.length, 9)"
+        >
+          <button
+            v-for="(img, i) in post.images.slice(0, 9)"
             :key="i"
-            :src="img"
-            class="detail-img"
-            loading="lazy"
-            decoding="async"
-            :fetchpriority="i === 0 ? 'high' : 'low'"
-          />
+            type="button"
+            class="detail-media-cell"
+            @click.stop="openLightbox(img)"
+          >
+            <img
+              :src="img"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              :fetchpriority="i === 0 ? 'high' : 'low'"
+            />
+          </button>
         </div>
 
         <div class="detail-actions-row flex flex-wrap justify-between items-end gap-12 mt-16 pt-16">
@@ -135,6 +154,16 @@
         </div>
       </div>
     </template>
+
+    <Teleport to="body">
+      <div v-if="lightboxUrl" class="img-lightbox" role="dialog" aria-modal="true" @click.self="closeLightbox">
+        <button type="button" class="lightbox-close" aria-label="关闭" @click="closeLightbox">×</button>
+        <img :src="lightboxUrl" class="lightbox-img" alt="预览" @click.stop />
+        <div class="lightbox-bar">
+          <button type="button" class="btn btn-primary btn-sm" @click.stop="downloadLightbox">下载原图</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -164,6 +193,49 @@ const comments = ref([])
 const newComment = ref('')
 const replyingTo = ref(null)
 const loading = ref(true)
+const lightboxUrl = ref('')
+
+function resolveImageUrl(src) {
+  if (!src) return ''
+  const s = String(src)
+  if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith('/')) return `${window.location.origin}${s}`
+  return s
+}
+
+function openLightbox(src) {
+  lightboxUrl.value = resolveImageUrl(src)
+}
+
+function closeLightbox() {
+  lightboxUrl.value = ''
+}
+
+async function downloadLightbox() {
+  const url = lightboxUrl.value
+  if (!url) return
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('fail')
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    const name = url.split('/').pop()?.split('?')[0] || 'image.jpg'
+    a.href = URL.createObjectURL(blob)
+    a.download = /\.[a-z0-9]+$/i.test(name) ? name : `${name}.jpg`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    showToast('下载已开始')
+  } catch {
+    window.open(url, '_blank', 'noopener')
+    showToast('请在新标签页中长按或右键保存图片')
+  }
+}
+
+function goTopic(t) {
+  const name = String(t || '').trim()
+  if (!name) return
+  router.push({ path: '/feed', query: { topic: name } })
+}
 
 function applyReadCache(postId) {
   const c = localPostCache.getCachedReadPost(postId)
@@ -367,8 +439,86 @@ watch(() => route.params.id, () => loadData())
 .page-header { margin-bottom: 16px; }
 .page-header h2 { font-size: 1.3rem; }
 .detail-content { font-size: 0.95rem; line-height: 1.8; white-space: pre-wrap; word-break: break-word; margin: 12px 0; }
-.detail-images { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.detail-img { max-width: 200px; max-height: 200px; border-radius: var(--radius-sm); object-fit: cover; }
+.detail-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.topic-hash {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+.topic-hash:hover { text-decoration: underline; }
+.detail-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  max-width: 100%;
+}
+.detail-media-grid.count-1 { grid-template-columns: 1fr; max-width: 280px; }
+.detail-media-grid.count-2 { grid-template-columns: repeat(2, 1fr); max-width: 400px; }
+.detail-media-cell {
+  aspect-ratio: 1;
+  border: none;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: zoom-in;
+  background: var(--border);
+  display: block;
+}
+.detail-media-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px 80px;
+}
+.lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: calc(100vh - 140px);
+  object-fit: contain;
+}
+.lightbox-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+}
 .post-detail-main-card { position: relative; }
 .detail-corner-badges {
   position: absolute;

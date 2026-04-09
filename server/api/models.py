@@ -53,6 +53,7 @@ class Post(models.Model):
     flagged_words = models.JSONField(default=list)
     flagged_categories = models.JSONField(default=list)
     flagged_highlighted = models.TextField(default='')
+    topics = models.JSONField(default=list)  # 话题名列表，不含 #，如 ["期末周","云迹"]
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

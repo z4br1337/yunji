@@ -95,16 +95,17 @@ export function invalidateReadPost(postId) {
   persistReadStore(store)
 }
 
-function feedKey(category, keyword, pageSize) {
+function feedKey(category, keyword, topic, pageSize) {
   const cat = category || 'all'
   const kw = (keyword || '').trim()
-  return `${PREFIX_FEED}${getUserId()}_${encodeURIComponent(`${cat}|${kw}|${pageSize}`)}`
+  const tp = (topic || '').trim()
+  return `${PREFIX_FEED}${getUserId()}_${encodeURIComponent(`${cat}|${kw}|${tp}|${pageSize}`)}`
 }
 
-/** 广场首屏快照（仅第一页，与分类/搜索/分页大小绑定） */
-export function getFeedSnapshot(category, keyword, pageSize) {
+/** 广场首屏快照（仅第一页，与分类/搜索/话题/分页大小绑定） */
+export function getFeedSnapshot(category, keyword, topic, pageSize) {
   try {
-    const raw = localStorage.getItem(feedKey(category, keyword, pageSize))
+    const raw = localStorage.getItem(feedKey(category, keyword, topic, pageSize))
     if (!raw) return null
     const o = JSON.parse(raw)
     if (!Array.isArray(o.posts)) return null
@@ -114,14 +115,14 @@ export function getFeedSnapshot(category, keyword, pageSize) {
   }
 }
 
-export function saveFeedSnapshot(category, keyword, pageSize, posts, hasMore) {
+export function saveFeedSnapshot(category, keyword, topic, pageSize, posts, hasMore) {
   try {
     const payload = {
       posts: JSON.parse(JSON.stringify(posts || [])),
       hasMore: !!hasMore,
       savedAt: Date.now(),
     }
-    localStorage.setItem(feedKey(category, keyword, pageSize), JSON.stringify(payload))
+    localStorage.setItem(feedKey(category, keyword, topic, pageSize), JSON.stringify(payload))
   } catch { /* quota */ }
 }
 

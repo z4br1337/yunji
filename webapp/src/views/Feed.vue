@@ -4,18 +4,11 @@
       <h2 class="page-title">广场</h2>
     </div>
 
-    <div class="search-bar">
-      <input
-        v-model.trim="searchKeyword"
-        class="form-input search-input"
-        type="search"
-        placeholder="搜索帖子关键词…"
-        enterkeyhint="search"
-        @keyup.enter="applySearch"
-      />
-      <button type="button" class="btn btn-primary btn-sm" @click="applySearch">搜索</button>
-      <button v-if="searchKeyword" type="button" class="btn btn-ghost btn-sm" @click="clearSearch">清除</button>
-    </div>
+    <button type="button" class="search-entry" @click="goSearch">
+      <span class="search-entry-icon" aria-hidden="true">🔍</span>
+      <span class="search-entry-text">{{ searchPlaceholder }}</span>
+    </button>
+    <p v-if="filterHint" class="filter-hint text-sm text-muted">{{ filterHint }}</p>
 
     <!-- Category Tabs -->
     <div class="category-bar">
@@ -47,7 +40,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { POST_CATEGORIES } from '../utils/config.js'
 import * as api from '../api/index.js'
@@ -55,6 +48,7 @@ import * as localPostCache from '../utils/localPostCache.js'
 import PostCard from '../components/PostCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { state } = useUserStore()
 const showToast = inject('showToast')
 const isMobile = inject('isMobile', ref(false))
@@ -64,6 +58,7 @@ const pageSize = computed(() => (isMobile.value ? 12 : 20))
 const categories = [{ key: 'all', label: '全部' }, ...POST_CATEGORIES]
 const currentCategory = ref('all')
 const searchKeyword = ref('')
+const activeTopic = ref('')
 const posts = ref([])
 const loading = ref(false)
 const refreshing = ref(false)
@@ -71,12 +66,34 @@ const page = ref(1)
 const hasMore = ref(false)
 let loaded = false
 
+const searchPlaceholder = computed(() => {
+  if (activeTopic.value) return `话题：#${activeTopic.value}#`
+  if (searchKeyword.value) return `搜索：${searchKeyword.value}`
+  return '搜索帖子、话题…'
+})
+
+const filterHint = computed(() => {
+  const parts = []
+  if (activeTopic.value) parts.push(`话题「#${activeTopic.value}#」`)
+  if (searchKeyword.value) parts.push(`关键词「${searchKeyword.value}」`)
+  if (!parts.length) return ''
+  return `当前筛选：${parts.join(' · ')} · 点搜索框可修改`
+})
+
+function syncQueryFromRoute() {
+  const q = route.query.q
+  const t = route.query.topic
+  searchKeyword.value = typeof q === 'string' ? q.trim() : ''
+  activeTopic.value = typeof t === 'string' ? t.trim() : ''
+}
+
 async function loadPosts(reset = true) {
   if (reset) {
     page.value = 1
     const snap = localPostCache.getFeedSnapshot(
       currentCategory.value,
       searchKeyword.value,
+      activeTopic.value,
       pageSize.value
     )
     if (snap?.posts?.length) {
@@ -99,6 +116,8 @@ async function loadPosts(reset = true) {
     if (currentCategory.value !== 'all') params.category = currentCategory.value
     const kw = searchKeyword.value.trim()
     if (kw) params.keyword = kw
+    const tf = activeTopic.value.trim()
+    if (tf) params.topic = tf
     const result = await api.getPosts(params)
     if (reset) {
       posts.value = result.posts || []
@@ -111,6 +130,7 @@ async function loadPosts(reset = true) {
       localPostCache.saveFeedSnapshot(
         currentCategory.value,
         searchKeyword.value,
+        activeTopic.value,
         pageSize.value,
         posts.value,
         hasMore.value
@@ -130,15 +150,7 @@ async function loadPosts(reset = true) {
 
 function switchCategory(key) {
   currentCategory.value = key
-  loadPosts()
-}
-
-function applySearch() {
-  loadPosts()
-}
-
-function clearSearch() {
-  searchKeyword.value = ''
+  router.replace({ path: '/feed', query: { ...route.query } })
   loadPosts()
 }
 
@@ -159,7 +171,12 @@ function onAvatarClick(post) {
   })
 }
 
+function goSearch() {
+  router.push('/search')
+}
+
 onMounted(() => {
+  syncQueryFromRoute()
   if (state.isLoggedIn) {
     loadPosts()
   }
@@ -168,16 +185,45 @@ onMounted(() => {
 watch(() => state.isLoggedIn, (val) => {
   if (val && !loaded) loadPosts()
 })
+
+watch(
+  () => route.query,
+  () => {
+    syncQueryFromRoute()
+    if (state.isLoggedIn) loadPosts()
+  },
+  { deep: true }
+)
 </script>
 
 <style scoped>
 .feed-page { max-width: 680px; margin: 0 auto; padding: 16px; }
-.feed-header { margin-bottom: 16px; }
+.feed-header { margin-bottom: 12px; }
 .page-title { font-size: 1.4rem; }
-.search-bar {
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px;
+.search-entry {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  transition: var(--transition);
+  margin-bottom: 8px;
 }
-.search-input { flex: 1; min-width: 160px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 0.95rem; }
+.search-entry:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.search-entry-icon { font-size: 1.1rem; opacity: 0.85; }
+.search-entry-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-hint { margin-bottom: 12px; line-height: 1.4; }
 .category-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
 .category-bar::-webkit-scrollbar { display: none; }
 .cat-btn {

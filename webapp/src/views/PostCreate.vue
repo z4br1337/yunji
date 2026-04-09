@@ -50,6 +50,13 @@
             <input type="file" accept="image/*" multiple hidden @change="onFileSelect" />
           </label>
         </div>
+        <button type="button" class="btn btn-ghost btn-sm topic-entry-btn mt-8" @click="openTopicPicker"># 话题</button>
+        <div v-if="selectedTopics.length" class="topic-chips mt-8">
+          <span v-for="(t, i) in selectedTopics" :key="t + i" class="topic-chip">
+            #{{ t }}#
+            <button type="button" class="topic-chip-x" aria-label="移除" @click="removeTopic(i)">×</button>
+          </span>
+        </div>
       </div>
 
       <!-- Anonymous -->
@@ -63,6 +70,29 @@
       <button class="btn btn-primary btn-block mt-16" :disabled="submitting" @click="handleSubmit">
         {{ submitting ? '发布中...' : '发布' }}
       </button>
+    </div>
+
+    <div v-if="showTopicModal" class="topic-modal-overlay" @click.self="showTopicModal = false">
+      <div class="topic-modal card">
+        <h4 class="mb-12">添加话题</h4>
+        <p class="text-xs text-muted mb-12">最多 5 个，每个不超过 24 字；不含 # 与竖线</p>
+        <div class="flex gap-8 mb-12">
+          <input v-model.trim="topicDraft" class="form-input flex-1" maxlength="24" placeholder="输入新话题" @keyup.enter="addCustomTopic" />
+          <button type="button" class="btn btn-primary btn-sm" @click="addCustomTopic">添加</button>
+        </div>
+        <p v-if="hotSuggest.length" class="text-sm text-secondary mb-8">热门话题（点击添加）</p>
+        <div class="hot-chip-wrap">
+          <button
+            v-for="t in hotSuggest"
+            :key="t"
+            type="button"
+            class="chip topic-suggest-chip"
+            :disabled="selectedTopics.includes(t) || selectedTopics.length >= 5"
+            @click="addTopicFromHot(t)"
+          >#{{ t }}#</button>
+        </div>
+        <button type="button" class="btn btn-ghost btn-block mt-16" @click="showTopicModal = false">完成</button>
+      </div>
     </div>
   </div>
 </template>
@@ -85,6 +115,54 @@ const content = ref('')
 const images = ref([])
 const isAnonymous = ref(false)
 const submitting = ref(false)
+const selectedTopics = ref([])
+const showTopicModal = ref(false)
+const topicDraft = ref('')
+const hotSuggest = ref([])
+
+const MAX_TOPICS = 5
+const MAX_TOPIC_LEN = 24
+
+function normalizeTopicName(s) {
+  return String(s || '')
+    .trim()
+    .replace(/#/g, '')
+    .replace(/\|/g, '')
+    .replace(/\n/g, '')
+    .slice(0, MAX_TOPIC_LEN)
+}
+
+function addTopicFromHot(t) {
+  const name = normalizeTopicName(t)
+  if (!name || selectedTopics.value.length >= MAX_TOPICS) return
+  if (selectedTopics.value.includes(name)) return
+  const check = sensitiveCheck(name)
+  if (!check.pass) {
+    showToast('该话题不可用')
+    return
+  }
+  selectedTopics.value = [...selectedTopics.value, name]
+}
+
+function addCustomTopic() {
+  addTopicFromHot(topicDraft.value)
+  topicDraft.value = ''
+}
+
+function removeTopic(i) {
+  selectedTopics.value = selectedTopics.value.filter((_, idx) => idx !== i)
+}
+
+async function openTopicPicker() {
+  showTopicModal.value = true
+  topicDraft.value = ''
+  try {
+    const r = await api.getHotTopics()
+    hotSuggest.value = r.topics || []
+  } catch {
+    hotSuggest.value = []
+  }
+}
 
 const sensitiveHighlight = computed(() => highlightSegments(content.value))
 
@@ -133,7 +211,8 @@ async function handleSubmit() {
     const data = {
       content: content.value, images: uploadedImages,
       category: category.value,
-      isAnonymous: isAnonymous.value
+      isAnonymous: isAnonymous.value,
+      topics: [...selectedTopics.value],
     }
 
     const result = await api.createPost(data)
@@ -210,4 +289,40 @@ async function handleSubmit() {
   padding: 0 1px;
 }
 .sensitive-fallback { margin: 10px 0 0; }
+.topic-entry-btn { width: 100%; border-style: dashed; }
+.topic-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: rgba(74, 144, 217, 0.12);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.topic-chip-x {
+  border: none;
+  background: none;
+  padding: 0 0 0 4px;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+}
+.topic-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.topic-modal { max-width: 400px; width: 100%; max-height: 85vh; overflow-y: auto; }
+.hot-chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic-suggest-chip:disabled { opacity: 0.45; }
+.flex-1 { flex: 1; }
 </style>

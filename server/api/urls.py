@@ -18,6 +18,7 @@ urlpatterns = [
     path('post/list', views.post_list),
     path('post/detail', views.post_detail),
     path('post/like', views.post_like),
+    path('topic/hot', views.topic_hot_list),
 
     # 评论
     path('comment/add', views.comment_add),
