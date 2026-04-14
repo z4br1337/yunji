@@ -62,6 +62,22 @@ class Post(models.Model):
         ordering = ['-pinned', '-created_at']
 
 
+class ActivityCampaign(models.Model):
+    """导生配置的「近期活动」：用户发帖时在话题中携带 tag 即视为参与。"""
+    title = models.CharField(max_length=120)
+    intro = models.TextField(blank=True, default='')
+    background_url = models.CharField(max_length=512, blank=True, default='')
+    tag = models.CharField(max_length=24, db_index=True)
+    is_active = models.BooleanField(default=False, db_index=True)
+    updated_by = models.CharField(max_length=128, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'activity_campaigns'
+        ordering = ['-updated_at']
+
+
 class PostLike(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_likes')
     user_id = models.CharField(max_length=128, db_index=True)

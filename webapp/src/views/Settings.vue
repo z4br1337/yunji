@@ -66,6 +66,9 @@
 
       <template v-if="isAdmin">
         <div class="divider"></div>
+        <div class="menu-item" @click="$router.push('/admin/activity')">
+          <span class="menu-icon">🎯</span><span>创建活动</span><span class="arrow">›</span>
+        </div>
         <div class="menu-item" @click="$router.push('/admin')">
           <span class="menu-icon">⚙️</span><span>管理后台</span><span class="arrow">›</span>
         </div>

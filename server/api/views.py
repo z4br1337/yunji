@@ -26,7 +26,7 @@ from . import sensitive_check
 from .models import (
     User, Post, PostLike, Comment, Achievement, Invite, PointsLog, Message, FileShare,
     FileShareLike, ProfileWallMessage,
-    ShopItem, ExchangeRecord, AdminActionLog,
+    ShopItem, ExchangeRecord, AdminActionLog, ActivityCampaign,
 )
 
 _STUDENT_ID_RE = re.compile(r'^[A-Za-z0-9_-]{4,32}$')
@@ -786,6 +786,64 @@ def post_hot_snippets(request):
             text = text[:72] + '…'
         posts.append({'_id': str(p.id), 'snippet': text or '（无文字）'})
     return ok({'posts': posts})
+
+
+def _campaign_to_dict(c):
+    if not c:
+        return None
+    return {
+        '_id': str(c.id),
+        'title': c.title,
+        'intro': c.intro,
+        'backgroundUrl': c.background_url or '',
+        'tag': c.tag,
+    }
+
+
+@csrf_exempt
+@require_POST
+def campaign_current(request):
+    """当前启用的近期活动（无则 campaign 为 null）。"""
+    openid = request.user_token
+    get_or_create_user(openid)
+    c = ActivityCampaign.objects.filter(is_active=True).order_by('-updated_at').first()
+    return ok({'campaign': _campaign_to_dict(c)})
+
+
+@csrf_exempt
+@require_POST
+def admin_campaign_save(request):
+    """导生保存近期活动配置；仅一条处于启用状态。"""
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    if user.role != 'admin':
+        return err('FORBIDDEN', '需要导生权限')
+    body = get_body(request)
+    title = (body.get('title') or '').strip()[:120]
+    intro = (body.get('intro') or '').strip()[:2000]
+    bg = (body.get('backgroundUrl') or '').strip()[:512]
+    tag = (body.get('tag') or '').strip().replace('#', '').replace('\n', '').replace('\r', '')[:MAX_TOPIC_NAME_LEN]
+    tag = tag.replace('|', '')
+    if not title:
+        return err('INVALID_PARAMS', '请填写活动名称')
+    if not tag:
+        return err('INVALID_PARAMS', '请填写活动 tag（用户在发帖话题中携带即参与）')
+    if not sensitive_check.content_passes(title):
+        return err('INVALID_CONTENT', '活动名称包含敏感词')
+    if intro and not sensitive_check.content_passes(intro):
+        return err('INVALID_CONTENT', '活动简介包含敏感词')
+    if not sensitive_check.content_passes(tag):
+        return err('INVALID_CONTENT', '活动 tag 包含敏感词')
+    ActivityCampaign.objects.filter(is_active=True).update(is_active=False)
+    c = ActivityCampaign.objects.create(
+        title=title,
+        intro=intro,
+        background_url=bg,
+        tag=tag,
+        is_active=True,
+        updated_by=openid,
+    )
+    return ok({'campaign': _campaign_to_dict(c)})
 
 
 @csrf_exempt

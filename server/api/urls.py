@@ -20,6 +20,7 @@ urlpatterns = [
     path('post/like', views.post_like),
     path('topic/hot', views.topic_hot_list),
     path('post/hot-snippets', views.post_hot_snippets),
+    path('campaign/current', views.campaign_current),
 
     # 评论
     path('comment/add', views.comment_add),
@@ -84,6 +85,7 @@ urlpatterns = [
     path('admin/file-share/list', views.admin_file_share_list),
     path('admin/file-share/approve', views.admin_file_share_approve),
     path('admin/file-share/delete', views.admin_file_share_delete),
+    path('admin/campaign/save', views.admin_campaign_save),
 
     # 积分商店
     path('shop/items', views.shop_items),

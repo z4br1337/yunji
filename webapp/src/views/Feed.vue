@@ -22,6 +22,19 @@
     <!-- Post List -->
     <div class="post-list">
       <div v-if="refreshing" class="refresh-strip" aria-hidden="true" title="正在更新"></div>
+      <button
+        v-if="activityBanner"
+        type="button"
+        class="activity-feed-entry"
+        @click="goActivity"
+      >
+        <span class="activity-feed-icon" aria-hidden="true">📅</span>
+        <span class="activity-feed-text">
+          <span class="activity-feed-label">近期活动</span>
+          <span class="activity-feed-title">{{ activityBanner.title }}</span>
+        </span>
+        <span class="activity-feed-arrow" aria-hidden="true">›</span>
+      </button>
       <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
       <template v-else-if="posts.length">
         <PostCard v-for="post in posts" :key="post._id" :post="post" :is-admin="isAdmin"
@@ -64,6 +77,7 @@ const loading = ref(false)
 const refreshing = ref(false)
 const page = ref(1)
 const hasMore = ref(false)
+const activityBanner = ref(null)
 let loaded = false
 
 const searchPlaceholder = computed(() => {
@@ -179,8 +193,23 @@ function goSearch() {
   router.push('/search')
 }
 
+function goActivity() {
+  router.push('/activity')
+}
+
+async function loadActivityBanner() {
+  try {
+    const r = await api.getActivityCampaign()
+    const c = r.campaign
+    activityBanner.value = c && c.tag ? c : null
+  } catch {
+    activityBanner.value = null
+  }
+}
+
 onMounted(() => {
   syncQueryFromRoute()
+  loadActivityBanner()
   if (state.isLoggedIn) {
     loadPosts()
   }
@@ -197,6 +226,13 @@ watch(
     if (state.isLoggedIn) loadPosts()
   },
   { deep: true }
+)
+
+watch(
+  () => route.path,
+  (p) => {
+    if (p === '/feed') loadActivityBanner()
+  }
 )
 </script>
 
@@ -238,6 +274,31 @@ watch(
 .cat-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .cat-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 .post-list { margin-top: 8px; position: relative; }
+.activity-feed-entry {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.12) 0%, var(--bg-card) 55%);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: var(--transition);
+}
+.activity-feed-entry:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+.activity-feed-icon { font-size: 1.35rem; flex-shrink: 0; }
+.activity-feed-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.activity-feed-label { font-size: 0.75rem; font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
+.activity-feed-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-feed-arrow { font-size: 1.2rem; color: var(--text-muted); flex-shrink: 0; }
 .refresh-strip {
   position: absolute; top: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, transparent, var(--primary), transparent);

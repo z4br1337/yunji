@@ -170,6 +170,18 @@ export async function getHotPostSnippets() {
   return request('/post/hot-snippets', {})
 }
 
+export async function getActivityCampaign() {
+  if (LOCAL_TEST_MODE) return mock.mockGetActivityCampaign()
+  return request('/campaign/current', {})
+}
+
+export async function saveActivityCampaign(data) {
+  if (LOCAL_TEST_MODE) return mock.mockSaveActivityCampaign(data)
+  const result = await request('/admin/campaign/save', data)
+  clearCache()
+  return result
+}
+
 export async function getPostDetail(postId) {
   if (LOCAL_TEST_MODE) return mock.mockGetPostDetail(postId)
   return request('/post/detail', { postId })

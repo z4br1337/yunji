@@ -12,6 +12,15 @@ const delay = (ms = 80) => new Promise(r => setTimeout(r, ms))
 
 let _currentUserId = null
 
+/** 近期活动 mock（与帖子 topics 可对应，便于列表有数据） */
+let _mockActivityCampaign = {
+  _id: 'mock_camp_1',
+  title: '校园主题周',
+  intro: '在发帖时为帖子添加话题 #云迹广场#，分享你的校园故事。',
+  backgroundUrl: '',
+  tag: '云迹广场',
+}
+
 const _users = {
   test_user_001: {
     _id: 'test_user_001', username: 'testuser', password: '123456', email: '', studentId: '2025001001',
@@ -746,6 +755,45 @@ export async function mockGetHotPostSnippets() {
     return { _id: p._id, snippet: text || '（无文字）' }
   })
   return { posts }
+}
+
+export async function mockGetActivityCampaign() {
+  await delay()
+  const c = _mockActivityCampaign
+  if (!c || !String(c.tag || '').trim()) return { campaign: null }
+  return {
+    campaign: {
+      _id: c._id,
+      title: c.title,
+      intro: c.intro,
+      backgroundUrl: c.backgroundUrl || '',
+      tag: c.tag,
+    },
+  }
+}
+
+export async function mockSaveActivityCampaign(data) {
+  await delay()
+  const uid = _currentUserId
+  const u = uid && _users[uid]
+  if (!u || u.role !== 'admin') throw new Error('需要导生权限')
+  const title = String(data.title || '').trim()
+  const intro = String(data.intro || '').trim()
+  const backgroundUrl = String(data.backgroundUrl || '').trim()
+  const tag = String(data.tag || '').trim().replace(/#/g, '').slice(0, 24)
+  if (!title) throw new Error('请填写活动名称')
+  if (!tag) throw new Error('请填写活动 tag')
+  if (!sensitiveCheck(title).pass) throw new Error('活动名称包含敏感词')
+  if (intro && !sensitiveCheck(intro).pass) throw new Error('活动简介包含敏感词')
+  if (!sensitiveCheck(tag).pass) throw new Error('活动 tag 包含敏感词')
+  _mockActivityCampaign = {
+    _id: genId(),
+    title,
+    intro,
+    backgroundUrl,
+    tag,
+  }
+  return await mockGetActivityCampaign()
 }
 
 export async function mockGetUserPublicHome(userId) {
