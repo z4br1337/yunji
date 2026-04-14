@@ -175,6 +175,18 @@ export async function getActivityCampaign() {
   return request('/campaign/current', {})
 }
 
+/** 全部活动列表（用户端「近期活动」列表页） */
+export async function listPublicActivityCampaigns() {
+  if (LOCAL_TEST_MODE) return mock.mockListPublicActivityCampaigns()
+  return request('/campaign/list', {})
+}
+
+/** 单个活动专栏 */
+export async function getActivityCampaignById(campaignId) {
+  if (LOCAL_TEST_MODE) return mock.mockGetActivityCampaignById(campaignId)
+  return request('/campaign/detail', { campaignId })
+}
+
 export async function saveActivityCampaign(data) {
   if (LOCAL_TEST_MODE) return mock.mockSaveActivityCampaign(data)
   const result = await request('/admin/campaign/save', data)

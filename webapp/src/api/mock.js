@@ -23,6 +23,15 @@ let _mockCampaigns = [
     isActive: true,
     updatedAt: now(),
   },
+  {
+    _id: 'mock_camp_2',
+    title: '晚安信箱',
+    intro: '晚安信箱上线啦✨\n烦恼心事、治愈好物、戳心文案都能投！\n四六级实习压力、人际小难题尽管说，\n全程匿名，温柔接住你的所有小情绪～',
+    backgroundUrl: '',
+    tag: '树洞',
+    isActive: false,
+    updatedAt: now(),
+  },
 ]
 
 function _mockActiveCampaignRow() {
@@ -791,6 +800,22 @@ export async function mockGetActivityCampaign() {
   const c = _mockActiveCampaignRow()
   if (!c) return { campaign: null }
   return { campaign: _mockCampaignToClient(c) }
+}
+
+export async function mockListPublicActivityCampaigns() {
+  await delay()
+  if (!_currentUserId) throw new Error('请先登录')
+  const list = [..._mockCampaigns].sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+  return { campaigns: list.map(_mockCampaignToClient) }
+}
+
+export async function mockGetActivityCampaignById(campaignId) {
+  await delay()
+  if (!_currentUserId) throw new Error('请先登录')
+  const id = String(campaignId || '')
+  const row = _mockCampaigns.find((c) => String(c._id) === id)
+  if (!row) throw new Error('活动不存在')
+  return { campaign: _mockCampaignToClient(row) }
 }
 
 export async function mockListActivityCampaigns() {

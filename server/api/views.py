@@ -822,6 +822,34 @@ def campaign_current(request):
 
 @csrf_exempt
 @require_POST
+def campaign_list_public(request):
+    """近期活动列表（广场入口二级页），含未在广场展示的活动，按更新时间倒序。"""
+    openid = request.user_token
+    get_or_create_user(openid)
+    qs = ActivityCampaign.objects.all().order_by('-updated_at')[:50]
+    return ok({'campaigns': [_campaign_to_dict(c) for c in qs]})
+
+
+@csrf_exempt
+@require_POST
+def campaign_detail(request):
+    """按 ID 获取单个活动（活动专栏页）。"""
+    openid = request.user_token
+    get_or_create_user(openid)
+    body = get_body(request)
+    try:
+        cid = int(body.get('campaignId') or body.get('id'))
+    except (TypeError, ValueError):
+        return err('INVALID_PARAMS', '活动 ID 无效')
+    try:
+        c = ActivityCampaign.objects.get(id=cid)
+    except ActivityCampaign.DoesNotExist:
+        return err('NOT_FOUND', '活动不存在')
+    return ok({'campaign': _campaign_to_dict(c)})
+
+
+@csrf_exempt
+@require_POST
 def admin_campaign_list(request):
     """导生：活动列表（含未启用），按更新时间倒序。"""
     openid = request.user_token

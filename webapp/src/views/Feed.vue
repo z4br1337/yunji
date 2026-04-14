@@ -194,14 +194,19 @@ function goSearch() {
 }
 
 function goActivity() {
-  router.push('/activity')
+  router.push({ name: 'ActivityList' })
 }
 
 async function loadActivityBanner() {
   try {
-    const r = await api.getActivityCampaign()
-    const c = r.campaign
-    activityBanner.value = c && c.tag ? c : null
+    const r = await api.listPublicActivityCampaigns()
+    const list = r.campaigns || []
+    if (!list.length) {
+      activityBanner.value = null
+      return
+    }
+    const featured = list.find((c) => c.isActive && String(c.tag || '').trim()) || list[0]
+    activityBanner.value = featured && String(featured.title || '').trim() ? featured : null
   } catch {
     activityBanner.value = null
   }

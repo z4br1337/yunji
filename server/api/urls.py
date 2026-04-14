@@ -21,6 +21,8 @@ urlpatterns = [
     path('topic/hot', views.topic_hot_list),
     path('post/hot-snippets', views.post_hot_snippets),
     path('campaign/current', views.campaign_current),
+    path('campaign/list', views.campaign_list_public),
+    path('campaign/detail', views.campaign_detail),
 
     # 评论
     path('comment/add', views.comment_add),

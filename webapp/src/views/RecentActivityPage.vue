@@ -8,7 +8,7 @@
 
     <template v-else-if="!campaign">
       <div class="empty-card card text-center text-muted p-24">
-        暂无近期活动，敬请期待
+        {{ campaignId ? '未找到该活动，可能已被删除' : '暂无近期活动，敬请期待' }}
       </div>
     </template>
 
@@ -47,13 +47,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, inject } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import * as api from '../api/index.js'
 import PostCard from '../components/PostCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { state } = useUserStore()
 const showToast = inject('showToast')
 
@@ -61,6 +62,8 @@ const loading = ref(true)
 const postsLoading = ref(false)
 const campaign = ref(null)
 const posts = ref([])
+
+const campaignId = computed(() => String(route.params.campaignId || '').trim())
 
 const isAdmin = computed(() => state.isAdmin)
 
@@ -89,7 +92,12 @@ const heroStyle = computed(() => {
 async function loadCampaign() {
   loading.value = true
   try {
-    const r = await api.getActivityCampaign()
+    const id = campaignId.value
+    if (!id) {
+      campaign.value = null
+      return
+    }
+    const r = await api.getActivityCampaignById(id)
     campaign.value = r.campaign || null
   } catch (e) {
     showToast(e.message || '加载失败')
@@ -134,9 +142,17 @@ function onAvatarClick(post) {
   router.push({ name: 'PersonalHome', params: { userId: post.authorId } })
 }
 
-onMounted(async () => {
+async function reloadAll() {
   await loadCampaign()
   await loadPosts()
+}
+
+watch(campaignId, () => {
+  reloadAll()
+})
+
+onMounted(() => {
+  reloadAll()
 })
 </script>
 
