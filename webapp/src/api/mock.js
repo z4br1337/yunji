@@ -2,7 +2,7 @@
  * Mock 数据层 —— 本地测试用，脱离服务器独立运行
  */
 import { check as sensitiveCheck } from '../utils/sensitive.js'
-import { EXP_RULES, SCHOOL_CLASSES } from '../utils/config.js'
+import { SCHOOL_CLASSES } from '../utils/config.js'
 import { calcPostExp, calcAchievementExp } from '../utils/level.js'
 
 let _nextId = 100
@@ -12,13 +12,34 @@ const delay = (ms = 80) => new Promise(r => setTimeout(r, ms))
 
 let _currentUserId = null
 
-/** 近期活动 mock（与帖子 topics 可对应，便于列表有数据） */
-let _mockActivityCampaign = {
-  _id: 'mock_camp_1',
-  title: '校园主题周',
-  intro: '在发帖时为帖子添加话题 #云迹广场#，分享你的校园故事。',
-  backgroundUrl: '',
-  tag: '云迹广场',
+/** 近期活动 mock（数组；isActive 为 true 的最多一条用于广场入口） */
+let _mockCampaigns = [
+  {
+    _id: 'mock_camp_1',
+    title: '校园主题周',
+    intro: '在发帖时为帖子添加话题 #云迹广场#，分享你的校园故事。',
+    backgroundUrl: '',
+    tag: '云迹广场',
+    isActive: true,
+    updatedAt: now(),
+  },
+]
+
+function _mockActiveCampaignRow() {
+  return _mockCampaigns.find((c) => c.isActive && String(c.tag || '').trim()) || null
+}
+
+function _mockCampaignToClient(c) {
+  if (!c) return null
+  return {
+    _id: c._id,
+    title: c.title,
+    intro: c.intro,
+    backgroundUrl: c.backgroundUrl || '',
+    tag: c.tag,
+    isActive: !!c.isActive,
+    updatedAt: c.updatedAt || now(),
+  }
 }
 
 const _users = {
@@ -445,11 +466,19 @@ export async function mockCreatePost(data) {
   }
   _posts.unshift(post)
 
+  const activeCamp = _mockActiveCampaignRow()
+  const baseExp = calcPostExp()
+  let expAmt = baseExp
+  let reason = 'post_published'
+  if (activeCamp && activeCamp.tag && topics.includes(activeCamp.tag)) {
+    expAmt = baseExp * 5
+    reason = 'post_activity'
+  }
   if (user) {
-    addExp(user, calcPostExp(), 'post_published', post._id)
+    addExp(user, expAmt, reason, post._id)
     user.postCount = (user.postCount || 0) + 1
   }
-  return { postId: post._id, expGain: EXP_RULES.POST_PUBLISH }
+  return { postId: post._id, expGain: expAmt }
 }
 
 export async function mockDeletePost(postId) {
@@ -759,17 +788,30 @@ export async function mockGetHotPostSnippets() {
 
 export async function mockGetActivityCampaign() {
   await delay()
-  const c = _mockActivityCampaign
-  if (!c || !String(c.tag || '').trim()) return { campaign: null }
-  return {
-    campaign: {
-      _id: c._id,
-      title: c.title,
-      intro: c.intro,
-      backgroundUrl: c.backgroundUrl || '',
-      tag: c.tag,
-    },
-  }
+  const c = _mockActiveCampaignRow()
+  if (!c) return { campaign: null }
+  return { campaign: _mockCampaignToClient(c) }
+}
+
+export async function mockListActivityCampaigns() {
+  await delay()
+  const uid = _currentUserId
+  const u = uid && _users[uid]
+  if (!u || u.role !== 'admin') throw new Error('需要导生权限')
+  const list = [..._mockCampaigns].sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+  return { campaigns: list.map(_mockCampaignToClient) }
+}
+
+export async function mockDeleteActivityCampaign(campaignId) {
+  await delay()
+  const uid = _currentUserId
+  const u = uid && _users[uid]
+  if (!u || u.role !== 'admin') throw new Error('需要导生权限')
+  const id = String(campaignId || '')
+  const idx = _mockCampaigns.findIndex((c) => String(c._id) === id)
+  if (idx < 0) throw new Error('活动不存在')
+  _mockCampaigns.splice(idx, 1)
+  return {}
 }
 
 export async function mockSaveActivityCampaign(data) {
@@ -786,13 +828,40 @@ export async function mockSaveActivityCampaign(data) {
   if (!sensitiveCheck(title).pass) throw new Error('活动名称包含敏感词')
   if (intro && !sensitiveCheck(intro).pass) throw new Error('活动简介包含敏感词')
   if (!sensitiveCheck(tag).pass) throw new Error('活动 tag 包含敏感词')
-  _mockActivityCampaign = {
+  let wantActive = data.isActive
+  if (wantActive === undefined || wantActive === null) wantActive = true
+  else wantActive = !!wantActive
+
+  const cid = data.campaignId || data.id
+  if (cid) {
+    const row = _mockCampaigns.find((c) => String(c._id) === String(cid))
+    if (!row) throw new Error('活动不存在')
+    row.title = title
+    row.intro = intro
+    row.backgroundUrl = backgroundUrl
+    row.tag = tag
+    row.updatedAt = now()
+    if (wantActive) {
+      _mockCampaigns.forEach((c) => { c.isActive = false })
+      row.isActive = true
+    } else {
+      row.isActive = false
+    }
+    return await mockGetActivityCampaign()
+  }
+
+  if (wantActive) {
+    _mockCampaigns.forEach((c) => { c.isActive = false })
+  }
+  _mockCampaigns.unshift({
     _id: genId(),
     title,
     intro,
     backgroundUrl,
     tag,
-  }
+    isActive: wantActive,
+    updatedAt: now(),
+  })
   return await mockGetActivityCampaign()
 }
 

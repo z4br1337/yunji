@@ -85,7 +85,9 @@ urlpatterns = [
     path('admin/file-share/list', views.admin_file_share_list),
     path('admin/file-share/approve', views.admin_file_share_approve),
     path('admin/file-share/delete', views.admin_file_share_delete),
+    path('admin/campaign/list', views.admin_campaign_list),
     path('admin/campaign/save', views.admin_campaign_save),
+    path('admin/campaign/delete', views.admin_campaign_delete),
 
     # 积分商店
     path('shop/items', views.shop_items),

@@ -1,13 +1,37 @@
 <template>
   <div class="page-container">
     <div class="page-header flex justify-between items-center mb-16">
-      <h2>创建活动</h2>
+      <h2>管理活动</h2>
       <button type="button" class="btn btn-ghost btn-sm" @click="$router.back()">返回</button>
     </div>
 
+    <div class="card mb-16">
+      <div class="flex justify-between items-center mb-12">
+        <h3 class="section-title">活动列表</h3>
+        <button type="button" class="btn btn-primary btn-sm" @click="startNew">新建活动</button>
+      </div>
+      <p v-if="listLoading" class="text-sm text-muted">加载中…</p>
+      <p v-else-if="!campaigns.length" class="text-sm text-muted">暂无活动，点击「新建活动」创建。</p>
+      <ul v-else class="campaign-list">
+        <li v-for="c in campaigns" :key="c._id" class="campaign-row flex flex-wrap items-center gap-8">
+          <div class="campaign-main flex-1 min-w-0">
+            <span class="campaign-title">{{ c.title }}</span>
+            <span class="text-xs text-muted">· tag: {{ c.tag }}</span>
+            <span v-if="c.isActive" class="badge badge-on">展示中</span>
+            <span v-else class="badge badge-off">未展示</span>
+          </div>
+          <div class="campaign-actions flex gap-8">
+            <button type="button" class="btn btn-ghost btn-sm" @click="startEdit(c)">编辑</button>
+            <button type="button" class="btn btn-ghost btn-sm btn-danger" @click="onDelete(c)">删除</button>
+          </div>
+        </li>
+      </ul>
+    </div>
+
     <div class="card">
+      <h3 class="section-title mb-12">{{ editingId ? '编辑活动' : '新建活动' }}</h3>
       <p class="hint text-sm text-muted mb-16">
-        保存后，所有用户广场将出现「近期活动」入口。用户<strong>发帖时在话题中添加下方指定的 tag</strong>即视为参与。
+        勾选「在广场展示」后，用户广场将出现「近期活动」入口；仅会有一条活动处于展示中。用户<strong>发帖时在话题中添加下方指定的 tag</strong>即视为参与，并获得更高经验奖励。
       </p>
 
       <div class="form-group">
@@ -52,30 +76,40 @@
         />
       </div>
 
-      <button type="button" class="btn btn-primary mt-16" :disabled="saving" @click="submit">
-        {{ saving ? '保存中…' : '保存并发布' }}
-      </button>
+      <label class="form-check flex items-center gap-8 mb-16">
+        <input v-model="form.isActive" type="checkbox" />
+        <span>在广场展示此活动（启用）</span>
+      </label>
+
+      <div class="form-actions flex flex-wrap gap-12">
+        <button type="button" class="btn btn-primary" :disabled="saving" @click="submit">
+          {{ saving ? '保存中…' : editingId ? '保存修改' : '保存' }}
+        </button>
+        <button v-if="editingId" type="button" class="btn btn-ghost" :disabled="saving" @click="startNew">取消编辑</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue'
-import { useRouter } from 'vue-router'
 import * as api from '../api/index.js'
 
-const router = useRouter()
 const showToast = inject('showToast')
 
 const fileRef = ref(null)
 const uploading = ref(false)
 const saving = ref(false)
+const listLoading = ref(false)
+const campaigns = ref([])
+const editingId = ref(null)
 
 const form = reactive({
   title: '',
   intro: '',
   backgroundUrl: '',
   tag: '',
+  isActive: true,
 })
 
 function triggerPick() {
@@ -90,17 +124,39 @@ const previewBg = computed(() => {
   return u
 })
 
-async function loadCurrent() {
+function resetForm() {
+  form.title = ''
+  form.intro = ''
+  form.backgroundUrl = ''
+  form.tag = ''
+  form.isActive = true
+}
+
+async function loadList() {
+  listLoading.value = true
   try {
-    const r = await api.getActivityCampaign()
-    const c = r.campaign
-    if (c) {
-      form.title = c.title || ''
-      form.intro = c.intro || ''
-      form.backgroundUrl = c.backgroundUrl || ''
-      form.tag = c.tag || ''
-    }
-  } catch { /* ignore */ }
+    const r = await api.listActivityCampaigns()
+    campaigns.value = Array.isArray(r.campaigns) ? r.campaigns : []
+  } catch (e) {
+    showToast(e.message || '加载列表失败')
+    campaigns.value = []
+  } finally {
+    listLoading.value = false
+  }
+}
+
+function startNew() {
+  editingId.value = null
+  resetForm()
+}
+
+function startEdit(c) {
+  editingId.value = c._id
+  form.title = c.title || ''
+  form.intro = c.intro || ''
+  form.backgroundUrl = c.backgroundUrl || ''
+  form.tag = c.tag || ''
+  form.isActive = !!c.isActive
 }
 
 async function onPickImage(e) {
@@ -119,6 +175,18 @@ async function onPickImage(e) {
   }
 }
 
+async function onDelete(c) {
+  if (!window.confirm(`确定删除活动「${c.title}」？此操作不可恢复。`)) return
+  try {
+    await api.deleteActivityCampaign(c._id)
+    showToast('已删除')
+    if (editingId.value === c._id) startNew()
+    await loadList()
+  } catch (e) {
+    showToast(e.message || '删除失败')
+  }
+}
+
 async function submit() {
   if (!form.title) {
     showToast('请填写活动名称')
@@ -130,14 +198,20 @@ async function submit() {
   }
   saving.value = true
   try {
-    await api.saveActivityCampaign({
+    const payload = {
       title: form.title,
       intro: form.intro,
       backgroundUrl: form.backgroundUrl,
       tag: form.tag,
-    })
+      isActive: form.isActive,
+    }
+    if (editingId.value) {
+      payload.campaignId = editingId.value
+    }
+    await api.saveActivityCampaign(payload)
     showToast('已保存')
-    router.push('/feed')
+    await loadList()
+    startNew()
   } catch (e) {
     showToast(e.message || '保存失败')
   } finally {
@@ -146,16 +220,35 @@ async function submit() {
 }
 
 onMounted(() => {
-  loadCurrent()
+  loadList()
 })
 </script>
 
 <style scoped>
 .page-container { max-width: 640px; margin: 0 auto; padding: 16px; }
 .page-header h2 { font-size: 1.25rem; }
+.section-title { font-size: 1rem; font-weight: 600; margin: 0; }
 .form-group { margin-bottom: 16px; }
 .form-label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem; }
 .hint strong { font-weight: 700; color: var(--text-primary); }
+.campaign-list { list-style: none; padding: 0; margin: 0; }
+.campaign-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.campaign-row:last-child { border-bottom: 0; }
+.campaign-title { font-weight: 600; }
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.badge-on { background: rgba(34, 197, 94, 0.15); color: #15803d; }
+.badge-off { background: var(--bg-muted, #f3f4f6); color: var(--text-muted); }
+.btn-danger { color: #b91c1c; }
 .bg-preview {
   max-height: 160px;
   border-radius: var(--radius-sm);
@@ -181,4 +274,6 @@ onMounted(() => {
   border: 0;
 }
 .btn-clear-bg { color: #b91c1c; }
+.form-check { font-size: 0.9rem; cursor: pointer; user-select: none; }
+.form-check input { width: 1rem; height: 1rem; }
 </style>

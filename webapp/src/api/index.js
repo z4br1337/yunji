@@ -182,6 +182,18 @@ export async function saveActivityCampaign(data) {
   return result
 }
 
+export async function listActivityCampaigns() {
+  if (LOCAL_TEST_MODE) return mock.mockListActivityCampaigns()
+  return request('/admin/campaign/list', {})
+}
+
+export async function deleteActivityCampaign(campaignId) {
+  if (LOCAL_TEST_MODE) return mock.mockDeleteActivityCampaign(campaignId)
+  const result = await request('/admin/campaign/delete', { campaignId })
+  clearCache()
+  return result
+}
+
 export async function getPostDetail(postId) {
   if (LOCAL_TEST_MODE) return mock.mockGetPostDetail(postId)
   return request('/post/detail', { postId })

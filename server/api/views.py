@@ -32,6 +32,8 @@ from .models import (
 _STUDENT_ID_RE = re.compile(r'^[A-Za-z0-9_-]{4,32}$')
 
 EXP_PER_POST = 10
+# 发帖话题命中当前「启用中」活动 tag 时，经验为普通发帖的 5 倍（与 EXP_PER_POST 联动）
+EXP_PER_POST_ACTIVITY_MULTIPLIER = 5
 BOUTIQUE_LIKE_THRESHOLD = 30  # 点赞数超过此值（即 >30）展示为精品帖
 FILE_LIKE_OWNER_SCORE = 10  # 文件每获赞一次，分享者积分+10
 EXP_TO_SCORE_RATIO = 5  # 每5经验值=1积分
@@ -614,15 +616,21 @@ def post_create(request):
     )
 
     exp_gain = EXP_PER_POST
+    active_tags = set(
+        ActivityCampaign.objects.filter(is_active=True).exclude(tag='').values_list('tag', flat=True)
+    )
+    if active_tags and set(topics_norm) & active_tags:
+        exp_gain = EXP_PER_POST * EXP_PER_POST_ACTIVITY_MULTIPLIER
     score_gain = exp_gain // EXP_TO_SCORE_RATIO
     User.objects.filter(openid=openid).update(
         exp=F('exp') + exp_gain,
         score=F('score') + score_gain,
         post_count=F('post_count') + 1,
     )
+    log_reason = 'post_activity' if exp_gain > EXP_PER_POST else 'post_published'
     PointsLog.objects.create(
         user_id=openid, delta=exp_gain, log_type='exp',
-        reason='post_published', related_id=str(p.id),
+        reason=log_reason, related_id=str(p.id),
     )
 
     return ok({'postId': str(p.id), 'expGain': exp_gain})
@@ -797,6 +805,8 @@ def _campaign_to_dict(c):
         'intro': c.intro,
         'backgroundUrl': c.background_url or '',
         'tag': c.tag,
+        'isActive': bool(c.is_active),
+        'updatedAt': c.updated_at.isoformat() if c.updated_at else '',
     }
 
 
@@ -812,8 +822,39 @@ def campaign_current(request):
 
 @csrf_exempt
 @require_POST
+def admin_campaign_list(request):
+    """导生：活动列表（含未启用），按更新时间倒序。"""
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    if user.role != 'admin':
+        return err('FORBIDDEN', '需要导生权限')
+    qs = ActivityCampaign.objects.all().order_by('-updated_at')[:100]
+    return ok({'campaigns': [_campaign_to_dict(c) for c in qs]})
+
+
+@csrf_exempt
+@require_POST
+def admin_campaign_delete(request):
+    """导生：删除一条活动记录。"""
+    openid = request.user_token
+    user = get_or_create_user(openid)
+    if user.role != 'admin':
+        return err('FORBIDDEN', '需要导生权限')
+    body = get_body(request)
+    try:
+        cid = int(body.get('campaignId') or body.get('id'))
+    except (TypeError, ValueError):
+        return err('INVALID_PARAMS', '活动 ID 无效')
+    n, _ = ActivityCampaign.objects.filter(id=cid).delete()
+    if not n:
+        return err('NOT_FOUND', '活动不存在')
+    return ok({})
+
+
+@csrf_exempt
+@require_POST
 def admin_campaign_save(request):
-    """导生保存近期活动配置；仅一条处于启用状态。"""
+    """导生新建或更新活动；可选 isActive 控制是否为广场当前展示。"""
     openid = request.user_token
     user = get_or_create_user(openid)
     if user.role != 'admin':
@@ -834,13 +875,44 @@ def admin_campaign_save(request):
         return err('INVALID_CONTENT', '活动简介包含敏感词')
     if not sensitive_check.content_passes(tag):
         return err('INVALID_CONTENT', '活动 tag 包含敏感词')
-    ActivityCampaign.objects.filter(is_active=True).update(is_active=False)
+
+    want_active = body.get('isActive')
+    if want_active is None:
+        want_active = True
+    else:
+        want_active = bool(want_active)
+
+    cid_raw = body.get('campaignId') or body.get('id')
+    if cid_raw is not None and str(cid_raw).strip() != '':
+        try:
+            cid = int(cid_raw)
+        except (TypeError, ValueError):
+            return err('INVALID_PARAMS', '活动 ID 无效')
+        try:
+            c = ActivityCampaign.objects.get(id=cid)
+        except ActivityCampaign.DoesNotExist:
+            return err('NOT_FOUND', '活动不存在')
+        c.title = title
+        c.intro = intro
+        c.background_url = bg
+        c.tag = tag
+        c.updated_by = openid
+        if want_active:
+            ActivityCampaign.objects.exclude(pk=c.pk).update(is_active=False)
+            c.is_active = True
+        else:
+            c.is_active = False
+        c.save()
+        return ok({'campaign': _campaign_to_dict(c)})
+
+    if want_active:
+        ActivityCampaign.objects.filter(is_active=True).update(is_active=False)
     c = ActivityCampaign.objects.create(
         title=title,
         intro=intro,
         background_url=bg,
         tag=tag,
-        is_active=True,
+        is_active=want_active,
         updated_by=openid,
     )
     return ok({'campaign': _campaign_to_dict(c)})
