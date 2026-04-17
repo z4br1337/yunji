@@ -15,7 +15,6 @@
     <div class="tab-panel">
       <PostCreate v-if="activeTab === 'post'" embedded />
       <FileShare v-else-if="activeTab === 'file'" embedded />
-      <Achievements v-else-if="activeTab === 'achievements'" embedded />
     </div>
   </div>
 </template>
@@ -24,12 +23,10 @@
 import { ref } from 'vue'
 import PostCreate from './PostCreate.vue'
 import FileShare from './FileShare.vue'
-import Achievements from './Achievements.vue'
 
 const tabs = [
   { key: 'post', label: '发布帖子', icon: '✏️' },
   { key: 'file', label: '文件分享', icon: '📁' },
-  { key: 'achievements', label: '闪光时刻', icon: '🌟' }
 ]
 const activeTab = ref('post')
 </script>

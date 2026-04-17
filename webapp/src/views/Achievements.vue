@@ -17,13 +17,20 @@
 
     <!-- 广场 / 我的 -->
     <div class="chip-group mb-16">
-      <button class="chip" :class="{ active: feedMode === 'community' }" @click="feedMode = 'community'; loadData()">闪光广场</button>
-      <button class="chip" :class="{ active: feedMode === 'mine' }" @click="feedMode = 'mine'; loadData()">我的</button>
+      <button class="chip" :class="{ active: feedMode === 'community' }" @click="feedMode = 'community'">闪光广场</button>
+      <button class="chip" :class="{ active: feedMode === 'mine' }" @click="feedMode = 'mine'">我的</button>
     </div>
+
+    <FiveVirtueRadar
+      v-if="showRadar"
+      :scores="radarScores"
+      class="radar-block"
+    />
+
     <!-- 分类 -->
     <div class="chip-group mb-16">
-      <button class="chip" :class="{ active: filterCat === '' }" @click="filterCat = ''; loadData()">全部</button>
-      <button v-for="cat in achCategories" :key="cat.key" class="chip" :class="{ active: filterCat === cat.key }" @click="filterCat = cat.key; loadData()">{{ cat.label }}</button>
+      <button class="chip" :class="{ active: filterCat === '' }" @click="filterCat = ''">全部</button>
+      <button v-for="cat in achCategories" :key="cat.key" class="chip" :class="{ active: filterCat === cat.key }" @click="filterCat = cat.key">{{ cat.label }}</button>
     </div>
 
     <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
@@ -55,22 +62,30 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
-
-defineProps({ embedded: { type: Boolean, default: false } })
+import { ref, computed, watch, onMounted, onActivated, inject } from 'vue'
 import { useUserStore } from '../stores/user.js'
 import { ACHIEVEMENT_CATEGORIES, POST_STATUS_LABELS } from '../utils/config.js'
+import { scoresFromApprovedAchievements } from '../utils/achievementRadar.js'
 import * as api from '../api/index.js'
+import FiveVirtueRadar from '../components/FiveVirtueRadar.vue'
 
-const { state } = useUserStore()
+defineProps({ embedded: { type: Boolean, default: false } })
+
+const { state, refreshProfile } = useUserStore()
 const showToast = inject('showToast')
 
 const achCategories = ACHIEVEMENT_CATEGORIES
 const achCounts = computed(() => state.userInfo?.achievementCounts || {})
 const achievements = ref([])
+/** 「我的」下全部分类原始列表，用于雷达图与前端筛选 */
+const mineAchievementsRaw = ref([])
 const filterCat = ref('')
 const feedMode = ref('community')
 const loading = ref(false)
+
+const showRadar = computed(() => feedMode.value === 'mine' && filterCat.value === '')
+
+const radarScores = computed(() => scoresFromApprovedAchievements(mineAchievementsRaw.value))
 
 function statusLabel(s) { return POST_STATUS_LABELS[s] || s }
 function statusClass(s) {
@@ -87,11 +102,22 @@ function categoryLabel(key) { return catMap[key] || key }
 async function loadData() {
   loading.value = true
   try {
-    const params = {}
-    if (filterCat.value) params.category = filterCat.value
-    if (feedMode.value === 'community') params.community = true
-    const result = await api.getAchievements(params)
-    achievements.value = result.achievements || []
+    if (feedMode.value === 'community') {
+      mineAchievementsRaw.value = []
+      const params = { community: true }
+      if (filterCat.value) params.category = filterCat.value
+      const result = await api.getAchievements(params)
+      achievements.value = result.achievements || []
+    } else {
+      const result = await api.getAchievements({})
+      mineAchievementsRaw.value = result.achievements || []
+      let list = mineAchievementsRaw.value
+      if (filterCat.value) list = list.filter((a) => a.category === filterCat.value)
+      achievements.value = list
+      try {
+        await refreshProfile()
+      } catch { /* 静默 */ }
+    }
   } catch (e) {
     showToast(e.message || '加载失败')
   } finally {
@@ -99,7 +125,17 @@ async function loadData() {
   }
 }
 
-onMounted(() => loadData())
+watch([feedMode, filterCat], () => {
+  loadData()
+})
+
+onMounted(() => {
+  loadData()
+})
+
+onActivated(() => {
+  loadData()
+})
 </script>
 
 <style scoped>
@@ -117,6 +153,8 @@ onMounted(() => loadData())
 .ach-card.ach-rejected { border-left: 3px solid var(--danger); }
 .ach-images { display: flex; gap: 8px; flex-wrap: wrap; }
 .ach-img { width: 60px; height: 60px; object-fit: cover; border-radius: var(--radius-sm); }
+
+.radar-block { margin-bottom: 16px; }
 
 @media (max-width: 480px) {
   .virtue-grid { grid-template-columns: repeat(3, 1fr); }

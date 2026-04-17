@@ -19,12 +19,8 @@
         <router-link to="/ai-chat" class="nav-item" active-class="active">
           <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
         </router-link>
-        <router-link to="/chat" class="nav-item" active-class="active">
-          <span class="nav-icon-wrap">
-            <span class="nav-icon">💌</span>
-            <span v-if="interactionUnreadTotal > 0" class="icon-badge">{{ interactionBadgeText }}</span>
-          </span>
-          <span class="nav-label">互动信息</span>
+        <router-link to="/achievements" class="nav-item" active-class="active">
+          <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
         </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">👤</span><span class="nav-label">我的</span>
@@ -65,12 +61,8 @@
       <router-link to="/ai-chat" class="tab-item" active-class="active">
         <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
       </router-link>
-      <router-link to="/chat" class="tab-item" active-class="active">
-        <span class="tab-icon-wrap">
-          <span class="tab-icon">💌</span>
-          <span v-if="interactionUnreadTotal > 0" class="icon-badge tab-badge">{{ interactionBadgeText }}</span>
-        </span>
-        <span class="tab-label">互动</span>
+      <router-link to="/achievements" class="tab-item" active-class="active">
+        <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
       </router-link>
       <router-link to="/settings" class="tab-item" active-class="active">
         <span class="tab-icon">👤</span><span class="tab-label">我的</span>
