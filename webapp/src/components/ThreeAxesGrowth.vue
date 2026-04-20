@@ -160,9 +160,9 @@
     </div>
 
     <ul class="axes-legend text-xs text-muted">
-      <li><span class="lg z">Z</span> 内在成长 · 合成点体现三轴合力</li>
-      <li><span class="lg x">X</span> 学业发展</li>
-      <li><span class="lg y">Y</span> 能力实践</li>
+      <li><span class="lg z">内在</span> 内在成长（Z）· 紫色为合成位置</li>
+      <li><span class="lg x">学业</span> 学业发展（X）</li>
+      <li><span class="lg y">实践</span> 能力实践（Y）· 图上「总分」为三轴得分之和（最高 300）</li>
     </ul>
   </div>
 </template>
@@ -173,7 +173,7 @@ import { GROWTH_DIMENSIONS } from '../utils/config.js'
 
 /**
  * 三轴分值 0–100：academic→X，practice→Y，inner→Z
- * 展示：① 各轴独立色带长度 ② 下方分维进度条 ③ 合成点
+ * 展示：各轴中文简称标注、三轴累计总分、分维进度条与合成点
  */
 const props = defineProps({
   scores: {
@@ -247,12 +247,14 @@ const floorProj = computed(() => ({
 
 const hasData = computed(() => academic.value + practice.value + inner.value > 0)
 
-const labelXText = computed(() => `X ${academic.value}`)
-const labelYText = computed(() => `Y ${practice.value}`)
-const labelZText = computed(() => `Z ${inner.value}`)
+/** 与 GROWTH_DIMENSIONS 对应的中文简称（图上标注用） */
+const labelXText = computed(() => `学业 ${academic.value}`)
+const labelYText = computed(() => `实践 ${practice.value}`)
+const labelZText = computed(() => `内在 ${inner.value}`)
+/** 三轴单项满分各 100，总分最高 300 */
 const labelCombText = computed(() => {
-  const avg = Math.round((academic.value + practice.value + inner.value) / 3)
-  return `合成 ${avg}`
+  const sum = academic.value + practice.value + inner.value
+  return `总分 ${sum}`
 })
 
 const labelPosX = computed(() => {
@@ -516,12 +518,13 @@ function clampedPct(n) {
 }
 .lg {
   display: inline-flex;
-  width: 18px;
+  min-width: 18px;
   height: 18px;
+  padding: 0 4px;
   border-radius: 4px;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: #fff;
 }
