@@ -35,6 +35,11 @@
         </div>
       </div>
 
+      <div v-if="bookData" class="card radar-block radar-visual-card mb-16">
+        <ThreeAxesGrowth :scores="growth3dScores" />
+        <FiveVirtueRadar compact :scores="radarScores" />
+      </div>
+
       <!-- Achievement List -->
       <h3 class="mb-8">闪光时刻</h3>
       <template v-if="bookData.achievements.length">
@@ -65,8 +70,11 @@
 import { ref, computed, onMounted, watch, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import { ACHIEVEMENT_CATEGORIES } from '../utils/config.js'
+import { scoresFromApprovedAchievements, scoresFromApprovedGrowthAchievements } from '../utils/achievementRadar.js'
 import { getLevelInfo } from '../utils/level.js'
 import * as api from '../api/index.js'
+import FiveVirtueRadar from '../components/FiveVirtueRadar.vue'
+import ThreeAxesGrowth from '../components/ThreeAxesGrowth.vue'
 
 const props = defineProps({
   embedded: { type: Boolean, default: false },
@@ -88,6 +96,9 @@ const filteredAchs = computed(() => {
   if (!filterCat.value) return bookData.value.achievements
   return bookData.value.achievements.filter(a => a.category === filterCat.value)
 })
+
+const radarScores = computed(() => scoresFromApprovedAchievements(bookData.value?.achievements || []))
+const growth3dScores = computed(() => scoresFromApprovedGrowthAchievements(bookData.value?.achievements || []))
 
 async function loadData() {
   loading.value = true
@@ -129,4 +140,6 @@ watch(() => props.targetUserId, () => loadData())
 .toggle:checked { background: var(--primary); }
 .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: var(--transition); }
 .toggle:checked::after { left: 22px; }
+.radar-visual-card { padding: 0; overflow: hidden; }
+.radar-visual-card :deep(.radar-wrap--compact) { border-radius: 0; }
 </style>

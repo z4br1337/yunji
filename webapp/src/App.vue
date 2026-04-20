@@ -20,7 +20,7 @@
           <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
         </router-link>
         <router-link to="/growth-book" class="nav-item" active-class="active">
-          <span class="nav-icon">📖</span><span class="nav-label">成长手册</span>
+          <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
         </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">👤</span><span class="nav-label">我的</span>
@@ -62,7 +62,7 @@
         <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
       </router-link>
       <router-link to="/growth-book" class="tab-item" active-class="active">
-        <span class="tab-icon">📖</span><span class="tab-label">成长手册</span>
+        <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
       </router-link>
       <router-link to="/settings" class="tab-item" active-class="active">
         <span class="tab-icon">👤</span><span class="tab-label">我的</span>

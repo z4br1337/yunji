@@ -75,7 +75,11 @@
           </div>
         </div>
 
-        <FiveVirtueRadar v-if="showRadar" :scores="radarScores" class="radar-block" />
+        <!-- 五育雷达 + 三维坐标：数据分别来自五育分类与「三维发展」闪光时刻；后续新增时刻类型时可扩展 achievementRadar 与独立可视化组件 -->
+        <div v-if="showRadar" class="card radar-block radar-visual-card">
+          <ThreeAxesGrowth :scores="growth3dScores" />
+          <FiveVirtueRadar compact :scores="radarScores" />
+        </div>
 
         <div class="chip-group mb-16">
           <button class="chip" :class="{ active: mineFilter === '' }" @click="mineFilter = ''">全部</button>
@@ -104,10 +108,11 @@ import { ref, computed, watch, onActivated, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { ACHIEVEMENT_CATEGORIES } from '../utils/config.js'
-import { scoresFromApprovedAchievements } from '../utils/achievementRadar.js'
+import { scoresFromApprovedAchievements, scoresFromApprovedGrowthAchievements } from '../utils/achievementRadar.js'
 import { getLevelInfo } from '../utils/level.js'
 import * as api from '../api/index.js'
 import FiveVirtueRadar from '../components/FiveVirtueRadar.vue'
+import ThreeAxesGrowth from '../components/ThreeAxesGrowth.vue'
 import GrowthBookEmbed from './GrowthBook.vue'
 import AchievementCards from '../components/AchievementCards.vue'
 
@@ -140,6 +145,8 @@ const bookLoading = ref(false)
 const bookLevel = computed(() => getLevelInfo(bookData.value?.user?.exp))
 const showRadar = computed(() => mainTab.value === 'handbook' && mineFilter.value === '')
 const radarScores = computed(() => scoresFromApprovedAchievements(mineRaw.value))
+/** 仅统计「三维发展」维度（academic / practice / inner）已审核通过项 */
+const growth3dScores = computed(() => scoresFromApprovedGrowthAchievements(mineRaw.value))
 
 const filteredMine = computed(() => {
   let list = mineRaw.value
@@ -267,6 +274,8 @@ onActivated(() => {
 .chip { padding: 6px 14px; border-radius: 100px; font-size: 0.85rem; background: #F0F2F5; border: 1px solid transparent; color: var(--text-secondary); transition: var(--transition); }
 .chip.active { background: var(--primary); color: #fff; }
 .radar-block { margin-bottom: 16px; }
+.radar-visual-card { padding: 0; overflow: hidden; }
+.radar-visual-card :deep(.radar-wrap--compact) { border-radius: 0; }
 .toggle { width: 44px; height: 24px; appearance: none; background: #ccc; border-radius: 12px; position: relative; cursor: pointer; transition: var(--transition); }
 .toggle:checked { background: var(--primary); }
 .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: var(--transition); }

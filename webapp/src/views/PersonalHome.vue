@@ -113,7 +113,7 @@
         </div>
 
         <div class="ph-growth-entry card mt-12">
-          <p class="text-sm text-secondary mb-8">闪光时刻与五育雷达、成长档案已整合至侧栏「成长手册」入口。</p>
+          <p class="text-sm text-secondary mb-8">闪光时刻与五育雷达、成长档案已整合至侧栏「闪光时刻」入口。</p>
           <button
             v-if="isMe"
             type="button"

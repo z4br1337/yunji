@@ -169,7 +169,10 @@ const _achievements = [
   { _id: 'ach_001', userId: 'test_user_001', title: '校运会100米短跑第三名', description: '在2026年春季校运会中获得百米第三名', category: 'physical', dimension: '', subcategory: '', level: 3, points: 0, expAwarded: 1500, images: [], status: 'approved', createdAt: '2026-03-08T10:00:00Z' },
   { _id: 'ach_002', userId: 'test_user_001', title: '参与校园清洁志愿活动', description: '连续3天参与图书馆外的绿化清洁', category: 'labor', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-05T14:00:00Z' },
   { _id: 'ach_pending_001', userId: 'test_user_001', title: '待审核德育活动', description: '示例待审核成果', category: 'moral', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 0, images: [], status: 'pending', createdAt: '2026-03-10T12:00:00Z' },
-  { _id: 'ach_003', userId: 'test_admin_001', title: '组织班级读书会', description: '作为导生组织本班读书分享活动', category: 'intellectual', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-07T10:00:00Z' }
+  { _id: 'ach_003', userId: 'test_admin_001', title: '组织班级读书会', description: '作为导生组织本班读书分享活动', category: 'intellectual', dimension: '', subcategory: '', level: 2, points: 0, expAwarded: 1000, images: [], status: 'approved', createdAt: '2026-03-07T10:00:00Z' },
+  { _id: 'ach_growth_001', userId: 'test_user_001', title: '数学建模省赛', description: '三维发展 · 学业', category: 'academic', dimension: 'academic', subcategory: 'competition', level: 4, points: 0, expAwarded: 0, images: [], status: 'approved', createdAt: '2026-03-09T10:00:00Z' },
+  { _id: 'ach_growth_002', userId: 'test_user_001', title: '社团骨干实践', description: '三维发展 · 能力实践', category: 'practice', dimension: 'practice', subcategory: 'club', level: 3, points: 0, expAwarded: 0, images: [], status: 'approved', createdAt: '2026-03-09T11:00:00Z' },
+  { _id: 'ach_growth_003', userId: 'test_user_001', title: '心理工作坊', description: '三维发展 · 内在成长', category: 'inner', dimension: 'inner', subcategory: '', level: 2, points: 0, expAwarded: 0, images: [], status: 'approved', createdAt: '2026-03-09T12:00:00Z' }
 ]
 
 const _pointsLog = [
