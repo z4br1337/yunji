@@ -9,7 +9,6 @@ urlpatterns = [
     path('user/profile', views.user_profile),
     path('user/public-home', views.user_public_home),
     path('user/change-password', views.user_change_password),
-    path('user/invite', views.use_invite_code),
     path('user/points-log', views.user_points_log),
 
     # 帖子
@@ -76,7 +75,6 @@ urlpatterns = [
     path('admin/emotion/list', views.admin_emotion_list),
     path('admin/emotion/history', views.admin_emotion_history),
     path('admin/review/history', views.admin_review_history),
-    path('admin/invite/generate', views.admin_invite_generate),
     path('admin/super/promote-user', views.admin_super_promote_user),
     path('admin/comment/add', views.admin_comment_add),
     path('admin/achievement/pending', views.admin_achievement_pending),

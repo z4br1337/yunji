@@ -177,11 +177,6 @@ const _pointsLog = [
   { _id: 'pl_002', userId: 'test_user_001', delta: 10, type: 'exp', reason: 'create_account', relatedId: '', createdAt: '2026-03-01T08:00:00Z' }
 ]
 
-const _invites = [
-  { code: 'ADMIN2026', role: 'admin', usedBy: 'test_admin_001', createdAt: '2026-02-01T00:00:00Z' },
-  { code: 'TESTCODE', role: 'admin', usedBy: null, createdAt: '2026-03-01T00:00:00Z' }
-]
-
 const _messages = []
 
 /** mock 导生操作记录 */
@@ -330,17 +325,6 @@ export async function mockUpdateProfile(data) {
   user.profileCompleted = !!(user.nickname && user.nickname.trim() && SCHOOL_CLASSES.includes(user.class))
   user.updatedAt = now()
   return { user: safeUser(user), profileCompleted: user.profileCompleted }
-}
-
-export async function mockUseInviteCode(code) {
-  await delay()
-  const inv = _invites.find(i => i.code === code)
-  if (!inv) throw new Error('邀请码无效')
-  if (inv.usedBy) throw new Error('邀请码已被使用')
-  inv.usedBy = _currentUserId
-  const user = cur()
-  if (user) user.role = 'admin'
-  return { role: 'admin' }
 }
 
 export async function mockGetPointsLog() {
@@ -1231,13 +1215,6 @@ export async function mockAdminScoreUser(userId, delta) {
   const user = _users[userId]
   if (user) addExp(user, delta, 'admin_score', '')
   return { pointsDelta: delta }
-}
-
-export async function mockAdminGenerateInvite() {
-  await delay()
-  const code = 'INV' + Math.random().toString(36).substring(2, 8).toUpperCase()
-  _invites.push({ code, role: 'admin', usedBy: null, createdAt: now() })
-  return { inviteCode: code }
 }
 
 export async function mockAdminSuperPromoteUser(targetUserId) {

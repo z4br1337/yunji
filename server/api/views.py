@@ -24,7 +24,7 @@ from django.utils import timezone
 from .constants import ALLOWED_CLASSES, is_allowed_class, is_super_admin_user
 from . import sensitive_check
 from .models import (
-    User, Post, PostLike, Comment, Achievement, Invite, PointsLog, Message, FileShare,
+    User, Post, PostLike, Comment, Achievement, PointsLog, Message, FileShare,
     FileShareLike, ProfileWallMessage,
     ShopItem, ExchangeRecord, AdminActionLog, ActivityCampaign,
 )
@@ -535,33 +535,6 @@ def bind_student_id(request):
     user.student_id = sid
     user.save(update_fields=['student_id', 'updated_at'])
     return ok({'user': user_to_dict(user, post_count_exclude_emotion=True)})
-
-
-@csrf_exempt
-@require_POST
-def use_invite_code(request):
-    openid = request.user_token
-    body = get_body(request)
-    code = body.get('code', '').strip()
-    if not code:
-        return err('INVALID_PARAMS', '请输入邀请码')
-
-    try:
-        invite = Invite.objects.get(code=code)
-    except Invite.DoesNotExist:
-        return err('INVITE_INVALID', '邀请码无效')
-
-    if invite.used_by:
-        return err('INVITE_USED', '邀请码已被使用')
-
-    invite.used_by = openid
-    invite.save()
-
-    user = get_or_create_user(openid)
-    user.role = 'admin'
-    user.invite_used = code
-    user.save()
-    return ok({'role': 'admin'})
 
 
 @csrf_exempt
@@ -1927,17 +1900,6 @@ def admin_review_history(request):
 
 @csrf_exempt
 @require_POST
-def admin_invite_generate(request):
-    admin, e = _check_admin(request)
-    if e: return e
-    body = get_body(request)
-    code = 'INV' + uuid.uuid4().hex[:6].upper()
-    Invite.objects.create(code=code, role=body.get('role', 'admin'))
-    return ok({'inviteCode': code})
-
-
-@csrf_exempt
-@require_POST
 def admin_super_promote_user(request):
     """仅最高管理员可将任意用户设为导生（不消耗邀请码）"""
     admin, e = _check_admin(request)
@@ -2317,11 +2279,6 @@ def admin_export_data(request):
             for c in Comment.objects.all()
         ],
         'achievements': [ach_to_dict(a) for a in Achievement.objects.all()],
-        'invites': [
-            {'code': i.code, 'role': i.role, 'usedBy': i.used_by or '',
-             'createdAt': i.created_at.isoformat()}
-            for i in Invite.objects.all()
-        ],
         'points_log': [
             {'userId': l.user_id, 'delta': l.delta, 'reason': l.reason,
              'relatedId': l.related_id, 'createdAt': l.created_at.isoformat()}

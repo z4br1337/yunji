@@ -38,16 +38,16 @@
 
     <!-- Menu -->
     <div class="card menu-card">
-      <div class="menu-item menu-item-interaction" @click="$router.push('/chat')">
-        <span class="menu-interaction-icon-wrap">
-          <span class="menu-interaction-icon">💌</span>
-          <span v-if="interactionUnreadTotal > 0" class="menu-interaction-badge">{{ interactionBadgeText }}</span>
+      <div class="menu-item menu-item-feature" @click="$router.push('/chat')">
+        <span class="menu-icon-wrap menu-icon-wrap-relative">
+          <span class="menu-feature-emoji">💌</span>
+          <span v-if="interactionUnreadTotal > 0" class="menu-icon-feature-badge">{{ interactionBadgeText }}</span>
         </span>
-        <div class="menu-interaction-text">
-          <span class="menu-interaction-title">互动信息</span>
-          <span class="menu-interaction-sub">评论、回复与私信汇总</span>
+        <div class="menu-text">
+          <span class="menu-title">互动信息</span>
+          <span class="menu-sub">评论、回复与私信汇总</span>
         </div>
-        <span class="arrow menu-interaction-arrow">›</span>
+        <span class="arrow">›</span>
       </div>
       <div class="menu-item menu-item-feature" @click="$router.push('/settings/preferences')">
         <span class="menu-icon-wrap">🔧</span>
@@ -62,10 +62,6 @@
       </div>
       <div class="menu-item" @click="$router.push('/points-shop')">
         <span class="menu-icon">🛒</span><span>萤火积分兑换商店</span><span class="arrow">›</span>
-      </div>
-
-      <div class="menu-item" @click="$router.push('/settings/invite')">
-        <span class="menu-icon">🎫</span><span>使用邀请码</span><span class="arrow">›</span>
       </div>
 
       <template v-if="isAdmin">
@@ -143,70 +139,28 @@ function handleLogout() {
 .page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
 .page-header { margin-bottom: 16px; }
 .menu-card { overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); }
-.menu-item-interaction {
-  padding: 20px 16px !important;
-  gap: 16px !important;
-  align-items: center !important;
-  background: linear-gradient(135deg, rgba(254, 44, 85, 0.06), rgba(74, 144, 217, 0.08));
-  border: 1px solid rgba(74, 144, 217, 0.22);
-  border-radius: var(--radius-sm);
-  margin-bottom: 10px;
-  box-shadow: 0 4px 14px rgba(74, 144, 217, 0.12);
-}
-.menu-item-interaction:hover {
-  background: linear-gradient(135deg, rgba(254, 44, 85, 0.09), rgba(74, 144, 217, 0.12));
-  border-color: rgba(74, 144, 217, 0.35);
-}
-.menu-interaction-icon-wrap {
+.menu-icon-wrap-relative {
   position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #fff5f7, #e8f4fc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.65rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
-.menu-interaction-badge {
+.menu-feature-emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.menu-icon-feature-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #fe2c55;
   color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
   text-align: center;
   box-sizing: border-box;
-}
-.menu-interaction-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.menu-interaction-title {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-}
-.menu-interaction-sub {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-.menu-interaction-arrow {
-  font-size: 1.45rem !important;
-  font-weight: 300;
-  opacity: 0.75;
 }
 .menu-item-feature {
   background: linear-gradient(135deg, rgba(74, 144, 217, 0.06), rgba(107, 165, 231, 0.04));
@@ -241,29 +195,6 @@ function handleLogout() {
 }
 .level-title {
   font-size: 0.7rem; color: #7EC8E3; opacity: 0.9;
-}
-.menu-icon-wrap-badge {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-}
-.menu-icon-badge {
-  position: absolute;
-  top: -7px;
-  right: -12px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #fe2c55;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  box-sizing: border-box;
 }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; cursor: pointer; transition: var(--transition); }
 .menu-item:hover { background: var(--bg); }

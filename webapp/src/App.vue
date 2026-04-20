@@ -19,8 +19,8 @@
         <router-link to="/ai-chat" class="nav-item" active-class="active">
           <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
         </router-link>
-        <router-link to="/achievements" class="nav-item" active-class="active">
-          <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
+        <router-link to="/growth-book" class="nav-item" active-class="active">
+          <span class="nav-icon">📖</span><span class="nav-label">成长手册</span>
         </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">👤</span><span class="nav-label">我的</span>
@@ -61,8 +61,8 @@
       <router-link to="/ai-chat" class="tab-item" active-class="active">
         <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
       </router-link>
-      <router-link to="/achievements" class="tab-item" active-class="active">
-        <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
+      <router-link to="/growth-book" class="tab-item" active-class="active">
+        <span class="tab-icon">📖</span><span class="tab-label">成长手册</span>
       </router-link>
       <router-link to="/settings" class="tab-item" active-class="active">
         <span class="tab-icon">👤</span><span class="tab-label">我的</span>
@@ -123,7 +123,7 @@ watch(isLoggedIn, async (v) => {
   }
 })
 
-const hideTabBarRoutes = ['/login', '/register', '/bind-student', '/profile-edit', '/settings/preferences', '/settings/invite', '/achievement/create', '/emotion-help']
+const hideTabBarRoutes = ['/login', '/register', '/bind-student', '/profile-edit', '/settings/preferences', '/achievement/create', '/emotion-help']
 const showTabBar = computed(() => {
   return !hideTabBarRoutes.some(r => route.path.startsWith(r))
     && !route.path.startsWith('/chat/')

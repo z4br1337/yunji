@@ -135,13 +135,6 @@ export async function bindStudentId(studentId) {
   return data
 }
 
-export async function useInviteCode(code) {
-  if (LOCAL_TEST_MODE) return mock.mockUseInviteCode(code)
-  const result = await request('/user/invite', { code })
-  clearCache()
-  return result
-}
-
 export async function getPointsLog() {
   if (LOCAL_TEST_MODE) return mock.mockGetPointsLog()
   return request('/user/points-log')
@@ -533,11 +526,6 @@ export async function adminGetUserProfile(userId) {
 export async function adminScoreUser(userId, delta, reason) {
   if (LOCAL_TEST_MODE) return mock.mockAdminScoreUser(userId, delta, reason)
   return request('/admin/user/score', { userId, delta, reason })
-}
-
-export async function adminGenerateInvite() {
-  if (LOCAL_TEST_MODE) return mock.mockAdminGenerateInvite()
-  return request('/admin/invite/generate')
 }
 
 export async function adminSuperPromoteUser(targetUserId) {

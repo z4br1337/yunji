@@ -42,7 +42,6 @@
       <div class="ph-tabs" role="tablist">
         <button type="button" class="ph-tab" :class="{ active: tab === 'overview' }" @click="tab = 'overview'">概览</button>
         <button type="button" class="ph-tab" :class="{ active: tab === 'posts' }" @click="tab = 'posts'">动态</button>
-        <button type="button" class="ph-tab" :class="{ active: tab === 'growth' }" @click="tab = 'growth'">成长手册</button>
       </div>
 
       <div v-show="tab === 'overview'" class="ph-panel">
@@ -113,7 +112,21 @@
           <p v-if="!wallLoading && !wallMessages.length" class="text-muted text-sm text-center py-16">暂无留言</p>
         </div>
 
-        <p class="text-xs text-muted ph-tip">在「动态」查看帖子，在「成长手册」查看闪光时刻（公开时）</p>
+        <div class="ph-growth-entry card mt-12">
+          <p class="text-sm text-secondary mb-8">闪光时刻与五育雷达、成长档案已整合至侧栏「成长手册」入口。</p>
+          <button
+            v-if="isMe"
+            type="button"
+            class="btn btn-primary btn-sm"
+            @click="$router.push('/growth-book')"
+          >打开成长手册</button>
+          <button
+            v-else-if="profileUser._id"
+            type="button"
+            class="btn btn-primary btn-sm"
+            @click="$router.push({ path: '/growth-book', query: { userId: profileUser._id } })"
+          >查看 TA 的成长手册</button>
+        </div>
       </div>
 
       <div v-show="tab === 'posts'" class="ph-panel">
@@ -130,9 +143,6 @@
         <div v-else class="empty-state text-muted text-sm">暂无已发布帖子</div>
       </div>
 
-      <div v-show="tab === 'growth'" class="ph-panel ph-growth-embed">
-        <GrowthBook embedded :target-user-id="targetUserId" />
-      </div>
     </template>
 
     <div v-else class="empty-state text-muted">无法加载用户资料</div>
@@ -146,8 +156,6 @@ import { useUserStore } from '../stores/user.js'
 import { getLevelInfo, getUserBadges } from '../utils/level.js'
 import * as api from '../api/index.js'
 import PostCard from '../components/PostCard.vue'
-import GrowthBook from './GrowthBook.vue'
-
 const route = useRoute()
 const router = useRouter()
 const { state, refreshProfile } = useUserStore()
@@ -369,12 +377,10 @@ watch(() => state.userInfo?.postCount, () => {
 }
 .ph-panel { min-height: 120px; }
 .ph-tip { margin-top: 8px; line-height: 1.5; }
-.ph-growth-embed :deep(.page-container) {
-  padding-left: 0;
-  padding-right: 0;
-}
-.ph-growth-embed :deep(.page-header) {
-  display: none;
+.ph-growth-entry {
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
 }
 .profile-stats { flex-wrap: wrap; gap: 12px; }
 .stat-item { min-width: 72px; }

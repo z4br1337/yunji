@@ -171,19 +171,6 @@
       <div v-else class="empty-state"><div class="icon">🛒</div><div class="text">暂无商品</div></div>
     </div>
 
-    <!-- Invite -->
-    <div v-if="activeTab === 'invite'" class="tab-panel">
-      <div class="card">
-        <h4 class="mb-8">生成邀请码</h4>
-        <button class="btn btn-primary" :disabled="generating" @click="generateInvite">
-          {{ generating ? '生成中...' : '生成新邀请码' }}
-        </button>
-        <div v-if="generatedCode" class="invite-result mt-16 card" style="background:#E8F5E9">
-          <p class="font-bold">{{ generatedCode }}</p>
-          <p class="text-sm text-muted">请复制给需要的用户</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -213,8 +200,7 @@ const tabs = [
   { key: 'allPosts', label: '全部帖子' },
   { key: 'fileShare', label: '文件管理' },
   { key: 'shop', label: '积分商店' },
-  { key: 'users', label: '用户' },
-  { key: 'invite', label: '邀请码' }
+  { key: 'users', label: '用户' }
 ]
 const activeTab = ref('achievements')
 const loadingTab = ref(false)
@@ -228,9 +214,6 @@ const fileSubTab = ref('pending')
 const shopItems = ref([])
 const users = ref([])
 const userKeyword = ref('')
-const generating = ref(false)
-const generatedCode = ref('')
-
 const usersGroupedByClass = computed(() => {
   const groups = {}
   for (const u of users.value) {
@@ -375,16 +358,6 @@ async function updateStock(item) {
     showToast('已保存')
     item.stock = item.editStock
   } catch (e) { showToast(e.message || '操作失败') }
-}
-
-async function generateInvite() {
-  generating.value = true
-  try {
-    const r = await api.adminGenerateInvite()
-    generatedCode.value = r.inviteCode
-    showToast('邀请码已生成')
-  } catch (e) { showToast(e.message || '生成失败') }
-  finally { generating.value = false }
 }
 
 onMounted(() => loadTabData())
