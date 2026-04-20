@@ -1,7 +1,7 @@
 <template>
   <div v-if="viewingOther" class="page-container">
     <div class="page-header flex justify-between items-center mb-12">
-      <h2>成长手册</h2>
+      <h2>闪光时刻</h2>
       <button type="button" class="btn btn-ghost btn-sm" @click="$router.back()">返回</button>
     </div>
     <GrowthBookEmbed embedded :target-user-id="otherUserId" />
@@ -9,7 +9,7 @@
 
   <div v-else class="page-container gb-page">
     <div class="page-header flex justify-between items-center mb-12">
-      <h2>成长手册</h2>
+      <h2>闪光时刻</h2>
       <button type="button" class="btn btn-primary btn-sm" @click="$router.push('/achievement/create')">
         + 提交闪光时刻
       </button>

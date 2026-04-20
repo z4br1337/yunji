@@ -1,63 +1,171 @@
 <template>
   <div class="axes-wrap">
-    <p class="axes-caption text-sm text-muted mb-8">三维发展：学业 · 能力实践 · 内在成长（审核通过项按等级累计，单轴满分 100）</p>
+    <p class="axes-caption text-sm text-muted mb-8">
+      三维发展：学业 · 能力实践 · 内在成长（审核通过项按等级累计，单轴满分 100）
+    </p>
     <h3 class="axes-title">三维坐标</h3>
+
     <div class="axes-svg-box">
-      <svg class="axes-svg" viewBox="0 0 200 168" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <!-- 浅底 -->
-        <rect x="8" y="8" width="184" height="152" rx="8" fill="#fdf2f4" opacity="0.95" />
-        <!-- 底面网格示意 -->
-        <path
-          d="M 100 125 L 162 128 M 100 125 L 38 128 M 38 128 L 100 131 L 162 128"
-          fill="none"
-          stroke="#e8e0e3"
-          stroke-width="0.8"
-          stroke-dasharray="3 3"
+      <svg class="axes-svg" viewBox="0 0 220 210" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="axes-floor-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fce8ee" />
+            <stop offset="55%" stop-color="#fdf2f6" />
+            <stop offset="100%" stop-color="#e8eef5" />
+          </linearGradient>
+          <linearGradient id="axes-wall-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#e2e8f0" stop-opacity="0.35" />
+            <stop offset="100%" stop-color="#f1f5f9" stop-opacity="0.15" />
+          </linearGradient>
+          <filter id="axes-data-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="axes-marker-shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.35" />
+          </filter>
+        </defs>
+
+        <!-- 立体线框：底面 + 后侧竖棱（营造景深） -->
+        <polygon :points="floorFace" fill="url(#axes-floor-grad)" stroke="#d4c4cc" stroke-width="1.1" opacity="0.98" />
+        <polygon :points="leftWallFace" fill="url(#axes-wall-grad)" stroke="#cbd5e1" stroke-width="0.9" opacity="0.85" />
+        <path :d="backEdges" fill="none" stroke="#94a3b8" stroke-width="1" stroke-linecap="round" opacity="0.65" />
+
+        <!-- 底面网格 -->
+        <g v-for="(seg, gi) in floorGrid" :key="'fg' + gi">
+          <line
+            :x1="seg.x1"
+            :y1="seg.y1"
+            :x2="seg.x2"
+            :y2="seg.y2"
+            stroke="#dcd6dc"
+            stroke-width="0.65"
+            stroke-dasharray="3 4"
+            opacity="0.75"
+          />
+        </g>
+
+        <!-- 坐标轴骨架（浅色全轴） -->
+        <line :x1="O.x" :y1="O.y" :x2="axisFull.X.x" :y2="axisFull.X.y" stroke="#f5c6c6" stroke-width="2" stroke-linecap="round" />
+        <line :x1="O.x" :y1="O.y" :x2="axisFull.Y.x" :y2="axisFull.Y.y" stroke="#c5ddf5" stroke-width="2" stroke-linecap="round" />
+        <line :x1="O.x" :y1="O.y" :x2="axisFull.Z.x" :y2="axisFull.Z.y" stroke="#b8e6c8" stroke-width="2" stroke-linecap="round" />
+
+        <!-- 分维度数据：沿各轴单独绘制得分段（与雷达「每维一条边」同理） -->
+        <g filter="url(#axes-data-glow)">
+          <line
+            :x1="O.x"
+            :y1="O.y"
+            :x2="segX.x"
+            :y2="segX.y"
+            stroke="#E74C3C"
+            stroke-width="5.5"
+            stroke-linecap="round"
+            class="data-seg data-seg--x"
+          />
+          <line
+            :x1="O.x"
+            :y1="O.y"
+            :x2="segY.x"
+            :y2="segY.y"
+            stroke="#3498DB"
+            stroke-width="5.5"
+            stroke-linecap="round"
+            class="data-seg data-seg--y"
+          />
+          <line
+            :x1="O.x"
+            :y1="O.y"
+            :x2="segZ.x"
+            :y2="segZ.y"
+            stroke="#27AE60"
+            stroke-width="5.5"
+            stroke-linecap="round"
+            class="data-seg data-seg--z"
+          />
+        </g>
+
+        <!-- 轴端箭头（仅锥尖，避免遮挡彩色得分段） -->
+        <g class="axis-arrows">
+          <polygon :points="arrowHeadX" fill="#C0392B" />
+          <polygon :points="arrowHeadY" fill="#2874A6" />
+          <polygon :points="arrowHeadZ" fill="#1E8449" />
+        </g>
+
+        <!-- 分轴端点标记（高分时略放大） -->
+        <g filter="url(#axes-marker-shadow)">
+          <circle :cx="segX.x" :cy="segX.y" :r="markerR(academic)" fill="#fff" stroke="#E74C3C" :stroke-width="markerStroke(academic)" />
+          <circle :cx="segY.x" :cy="segY.y" :r="markerR(practice)" fill="#fff" stroke="#3498DB" :stroke-width="markerStroke(practice)" />
+          <circle :cx="segZ.x" :cy="segZ.y" :r="markerR(inner)" fill="#fff" stroke="#27AE60" :stroke-width="markerStroke(inner)" />
+        </g>
+
+        <!-- 合成点：向量合成位置（细虚线连到地面） -->
+        <circle
+          v-if="hasData"
+          :cx="combined.x"
+          :cy="combined.y"
+          r="7"
+          fill="rgba(142, 68, 173, 0.92)"
+          stroke="#fff"
+          stroke-width="2.5"
+          class="combined-dot"
         />
-        <!-- Z 轴 绿 -->
-        <line x1="100" y1="125" x2="100" y2="52" stroke="#27AE60" stroke-width="2.2" stroke-linecap="round" />
-        <polygon points="100,48 97,56 103,56" fill="#27AE60" />
-        <text x="108" y="58" class="axis-tag z-tag">Z</text>
-        <!-- X 轴 红 -->
-        <line x1="100" y1="125" x2="166" y2="131" stroke="#E74C3C" stroke-width="2.2" stroke-linecap="round" />
-        <polygon points="170,132 162,128 164,135" fill="#E74C3C" />
-        <text x="168" y="142" class="axis-tag x-tag">X</text>
-        <!-- Y 轴 蓝 -->
-        <line x1="100" y1="125" x2="34" y2="131" stroke="#3498DB" stroke-width="2.2" stroke-linecap="round" />
-        <polygon points="30,132 38,128 36,135" fill="#3498DB" />
-        <text x="22" y="142" class="axis-tag y-tag">Y</text>
-        <!-- 原点 -->
-        <circle cx="100" cy="125" r="3" fill="#555" />
-        <!-- 数据点 -->
-        <circle v-if="hasData" :cx="point.x" :cy="point.y" r="5" fill="rgba(74, 144, 217, 0.85)" stroke="#fff" stroke-width="1.5" />
-        <!-- 从数据点到地面的虚线 -->
         <line
           v-if="hasData"
-          :x1="point.x"
-          :y1="point.y"
-          :x2="floorX"
-          :y2="floorY"
-          stroke="#94a3b8"
-          stroke-width="1"
-          stroke-dasharray="4 3"
-          opacity="0.7"
+          :x1="combined.x"
+          :y1="combined.y"
+          :x2="floorProj.x"
+          :y2="floorProj.y"
+          stroke="#64748b"
+          stroke-width="1.2"
+          stroke-dasharray="5 4"
+          opacity="0.85"
         />
+
+        <text :x="axisFull.X.x + 6" :y="axisFull.X.y + 4" class="axis-tag x-tag">X</text>
+        <text :x="axisFull.Y.x - 14" :y="axisFull.Y.y + 6" class="axis-tag y-tag">Y</text>
+        <text :x="axisFull.Z.x + 8" :y="axisFull.Z.y - 2" class="axis-tag z-tag">Z</text>
+        <circle :cx="O.x" :cy="O.y" r="3.5" fill="#334155" />
       </svg>
     </div>
+
+    <!-- 与雷达图类似：每维独立分值条 + 数字，便于对比各维变化 -->
+    <div class="dim-meters" role="group" aria-label="三维发展各维度得分">
+      <div
+        v-for="row in dimensionRows"
+        :key="row.key"
+        class="dim-meter"
+      >
+        <span class="dim-meter-icon" aria-hidden="true">{{ row.icon }}</span>
+        <span class="dim-meter-label">{{ row.label }}</span>
+        <div class="dim-meter-track" :title="`${row.label} ${row.score} 分`">
+          <div
+            class="dim-meter-fill"
+            :class="'dim-meter-fill--' + row.key"
+            :style="{ width: clampedPct(row.score) + '%' }"
+          />
+        </div>
+        <span class="dim-meter-val" :class="{ 'dim-meter-val--hot': row.score >= 60 }">{{ row.score }}</span>
+      </div>
+    </div>
+
     <ul class="axes-legend text-xs text-muted">
-      <li><span class="lg z">Z</span> 内在成长（inner）</li>
-      <li><span class="lg x">X</span> 学业发展（academic）</li>
-      <li><span class="lg y">Y</span> 能力实践（practice）</li>
+      <li><span class="lg z">Z</span> 内在成长 · 合成点体现三轴合力</li>
+      <li><span class="lg x">X</span> 学业发展</li>
+      <li><span class="lg y">Y</span> 能力实践</li>
     </ul>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { GROWTH_DIMENSIONS } from '../utils/config.js'
 
 /**
- * 三轴分值 0–100，键与 GROWTH_DIMENSIONS 一致：academic, practice, inner
- * 映射到 XYZ：X=academic, Y=practice, Z=inner（与参考图 RGB 轴对应）
+ * 三轴分值 0–100：academic→X，practice→Y，inner→Z
+ * 展示：① 各轴独立色带长度 ② 下方分维进度条 ③ 合成点
  */
 const props = defineProps({
   scores: {
@@ -66,40 +174,151 @@ const props = defineProps({
   },
 })
 
-const ox = 100
-const oy = 125
-const L = 58
+const O = { x: 102, y: 132 }
 
-// 单位方向（屏幕坐标，y 向下为正）
-const uz = { x: 0, y: -1 }
+/** 轴方向（与斜二测/原稿一致，单位向量） */
 const ux = { x: 0.867, y: 0.103 }
 const uy = { x: -0.867, y: 0.103 }
+const uz = { x: 0, y: -1 }
+function norm(v) {
+  const len = Math.hypot(v.x, v.y) || 1
+  return { x: v.x / len, y: v.y / len }
+}
+const uxn = norm(ux)
+const uyn = norm(uy)
+const uzn = norm(uz)
 
-const point = computed(() => {
-  const rx = Math.min(1, Math.max(0, Number(props.scores.academic) / 100))
-  const ry = Math.min(1, Math.max(0, Number(props.scores.practice) / 100))
-  const rz = Math.min(1, Math.max(0, Number(props.scores.inner) / 100))
-  const x = ox + L * (rx * ux.x + ry * uy.x + rz * uz.x)
-  const y = oy + L * (rx * ux.y + ry * uy.y + rz * uz.y)
-  return { x, y }
+const L = 58
+
+const axisFull = computed(() => ({
+  X: { x: O.x + L * uxn.x, y: O.y + L * uxn.y },
+  Y: { x: O.x + L * uyn.x, y: O.y + L * uyn.y },
+  Z: { x: O.x + L * uzn.x, y: O.y + L * uzn.y },
+}))
+
+function tipAlong(dir, frac) {
+  const t = Math.min(1, Math.max(0, frac))
+  return { x: O.x + L * t * dir.x, y: O.y + L * t * dir.y }
+}
+
+const academic = computed(() => Math.min(100, Math.max(0, Number(props.scores?.academic) || 0)))
+const practice = computed(() => Math.min(100, Math.max(0, Number(props.scores?.practice) || 0)))
+const inner = computed(() => Math.min(100, Math.max(0, Number(props.scores?.inner) || 0)))
+
+const segX = computed(() => tipAlong(uxn, academic.value / 100))
+const segY = computed(() => tipAlong(uyn, practice.value / 100))
+const segZ = computed(() => tipAlong(uzn, inner.value / 100))
+
+const combined = computed(() => {
+  const rx = academic.value / 100
+  const ry = practice.value / 100
+  const rz = inner.value / 100
+  return {
+    x: O.x + L * (rx * uxn.x + ry * uyn.x + rz * uzn.x),
+    y: O.y + L * (rx * uxn.y + ry * uyn.y + rz * uzn.y),
+  }
 })
 
-/** 投影到 XY 平面（近似地面） */
-const floorX = computed(() => {
-  const rx = Math.min(1, Math.max(0, Number(props.scores.academic) / 100))
-  const ry = Math.min(1, Math.max(0, Number(props.scores.practice) / 100))
-  return ox + L * (rx * ux.x + ry * uy.x)
-})
-const floorY = computed(() => {
-  const rx = Math.min(1, Math.max(0, Number(props.scores.academic) / 100))
-  const ry = Math.min(1, Math.max(0, Number(props.scores.practice) / 100))
-  return oy + L * (rx * ux.y + ry * uy.y)
+const floorProj = computed(() => ({
+  x: O.x + L * ((academic.value / 100) * uxn.x + (practice.value / 100) * uyn.x),
+  y: O.y + L * ((academic.value / 100) * uxn.y + (practice.value / 100) * uyn.y),
+}))
+
+const hasData = computed(() => academic.value + practice.value + inner.value > 0)
+
+/** 底面：沿 X、Y 张成的平行四边形 */
+const floorFace = computed(() => {
+  const p0 = `${O.x},${O.y}`
+  const p1 = `${axisFull.value.X.x},${axisFull.value.X.y}`
+  const p2 = `${O.x + L * uxn.x + L * uyn.x},${O.y + L * uxn.y + L * uyn.y}`
+  const p3 = `${axisFull.value.Y.x},${axisFull.value.Y.y}`
+  return `${p0} ${p1} ${p2} ${p3}`
 })
 
-const hasData = computed(() => {
-  const s = props.scores || {}
-  return (Number(s.academic) || 0) + (Number(s.practice) || 0) + (Number(s.inner) || 0) > 0
+/** 左后竖面（沿 Y + Z），增强立体感 */
+const leftWallFace = computed(() => {
+  const bx = O.x + L * uyn.x
+  const by = O.y + L * uyn.y
+  const p0 = `${O.x},${O.y}`
+  const p1 = `${bx},${by}`
+  const p2 = `${bx},${by + L * uzn.y}`
+  const p3 = `${O.x},${O.y + L * uzn.y}`
+  return `${p0} ${p1} ${p2} ${p3}`
 })
+
+const backEdges = computed(() => {
+  const bx = O.x + L * uxn.x + L * uyn.x
+  const by = O.y + L * uxn.y + L * uyn.y
+  const top = `${bx},${by + L * uzn.y}`
+  return `M ${bx} ${by} L ${top}`
+})
+
+/** 底面浅网格 */
+const floorGrid = computed(() => {
+  const segs = []
+  const n = 4
+  for (let i = 1; i < n; i++) {
+    const t = i / n
+    const sx = O.x + t * L * uxn.x
+    const sy = O.y + t * L * uxn.y
+    const ex = sx + L * uyn.x
+    const ey = sy + L * uyn.y
+    segs.push({ x1: sx, y1: sy, x2: ex, y2: ey })
+  }
+  for (let j = 1; j < n; j++) {
+    const t = j / n
+    const sx = O.x + t * L * uyn.x
+    const sy = O.y + t * L * uyn.y
+    const ex = sx + L * uxn.x
+    const ey = sy + L * uxn.y
+    segs.push({ x1: sx, y1: sy, x2: ex, y2: ey })
+  }
+  return segs
+})
+
+function arrowHead(tip, dir) {
+  const back = 10
+  const spread = 4.5
+  const dx = -dir.x * back
+  const dy = -dir.y * back
+  const px = -dir.y * spread
+  const py = dir.x * spread
+  const tx = tip.x
+  const ty = tip.y
+  return `${tx},${ty} ${tx + dx + px},${ty + dy + py} ${tx + dx - px},${ty + dy - py}`
+}
+
+const arrowHeadX = computed(() => arrowHead(axisFull.value.X, uxn))
+const arrowHeadY = computed(() => arrowHead(axisFull.value.Y, uyn))
+const arrowHeadZ = computed(() => arrowHead(axisFull.value.Z, uzn))
+
+function markerR(score) {
+  const s = Math.min(100, Math.max(0, score))
+  return s >= 80 ? 7.5 : s >= 40 ? 6.5 : 5.5
+}
+
+function markerStroke(score) {
+  const s = Math.min(100, Math.max(0, score))
+  return s >= 80 ? 3 : 2.2
+}
+
+const dimensionRows = computed(() =>
+  GROWTH_DIMENSIONS.map((d) => ({
+    key: d.key,
+    label: d.label,
+    icon: d.icon,
+    score:
+      d.key === 'academic'
+        ? academic.value
+        : d.key === 'practice'
+          ? practice.value
+          : inner.value,
+  })),
+)
+
+function clampedPct(n) {
+  return Math.min(100, Math.max(0, Number(n) || 0))
+}
 </script>
 
 <style scoped>
@@ -108,7 +327,10 @@ const hasData = computed(() => {
   margin-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
-.axes-caption { margin: 0; line-height: 1.45; }
+.axes-caption {
+  margin: 0;
+  line-height: 1.45;
+}
 .axes-title {
   margin: 0 0 10px;
   font-size: 1rem;
@@ -116,35 +338,109 @@ const hasData = computed(() => {
   text-align: center;
   color: var(--text-primary);
 }
+
+.dim-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  padding: 12px 10px;
+  border-radius: var(--radius-sm, 8px);
+  background: linear-gradient(180deg, var(--bg-card, #fff) 0%, rgba(248, 250, 252, 0.9) 100%);
+  border: 1px solid var(--border);
+}
+.dim-meter {
+  display: grid;
+  grid-template-columns: 22px 4.5rem 1fr 2.25rem;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+.dim-meter-icon {
+  text-align: center;
+  font-size: 1rem;
+}
+.dim-meter-label {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.dim-meter-track {
+  height: 12px;
+  border-radius: 6px;
+  background: #e8ecf1;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.dim-meter-fill {
+  height: 100%;
+  border-radius: 6px;
+  min-width: 0;
+  transition: width 0.45s cubic-bezier(0.33, 1, 0.68, 1);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+}
+.dim-meter-fill--academic {
+  background: linear-gradient(90deg, #f1948a, #e74c3c);
+}
+.dim-meter-fill--practice {
+  background: linear-gradient(90deg, #5dade2, #3498db);
+}
+.dim-meter-fill--inner {
+  background: linear-gradient(90deg, #58d68d, #27ae60);
+}
+.dim-meter-val {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+.dim-meter-val--hot {
+  color: var(--primary, #4a90d9);
+}
+
 .axes-svg-box {
   max-width: 100%;
   margin: 0 auto;
 }
 .axes-svg {
   width: 100%;
-  max-height: 220px;
+  max-height: 260px;
   height: auto;
   display: block;
 }
 .axis-tag {
   font-size: 11px;
   font-weight: 800;
-  fill: var(--text-secondary);
 }
-.z-tag { fill: #1e8449; }
-.x-tag { fill: #c0392b; }
-.y-tag { fill: #2874a6; }
+.z-tag {
+  fill: #1e8449;
+}
+.x-tag {
+  fill: #922b21;
+}
+.y-tag {
+  fill: #1b4f72;
+}
+.combined-dot {
+  filter: drop-shadow(0 2px 4px rgba(142, 68, 173, 0.45));
+}
+
 .axes-legend {
   margin: 10px 0 0;
   padding: 0 8px;
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 8px 14px;
   justify-content: center;
-  line-height: 1.4;
+  line-height: 1.45;
 }
-.axes-legend li { display: flex; align-items: center; gap: 6px; }
+.axes-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .lg {
   display: inline-flex;
   width: 18px;
@@ -156,7 +452,20 @@ const hasData = computed(() => {
   font-weight: 800;
   color: #fff;
 }
-.lg.z { background: #27AE60; }
-.lg.x { background: #E74C3C; }
-.lg.y { background: #3498DB; }
+.lg.z {
+  background: #27ae60;
+}
+.lg.x {
+  background: #e74c3c;
+}
+.lg.y {
+  background: #3498db;
+}
+
+@media (max-width: 400px) {
+  .dim-meter {
+    grid-template-columns: 20px 4rem 1fr 2rem;
+    font-size: 0.75rem;
+  }
+}
 </style>
