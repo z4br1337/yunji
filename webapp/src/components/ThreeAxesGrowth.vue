@@ -62,7 +62,6 @@ import { computed } from 'vue'
 const props = defineProps({
   scores: {
     type: Object,
-    required: true,
     default: () => ({ academic: 0, practice: 0, inner: 0 }),
   },
 })
