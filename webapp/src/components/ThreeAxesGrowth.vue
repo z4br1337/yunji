@@ -6,7 +6,7 @@
     <h3 class="axes-title">三维坐标</h3>
 
     <div class="axes-svg-box">
-      <svg class="axes-svg" viewBox="0 0 220 210" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <svg class="axes-svg" viewBox="0 0 320 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
           <linearGradient id="axes-floor-grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#fce8ee" />
@@ -124,6 +124,14 @@
           opacity="0.85"
         />
 
+        <!-- 各数据点得分标注（偏移避免重叠） -->
+        <g class="point-score-labels" pointer-events="none">
+          <text :x="labelPosX.x" :y="labelPosX.y" class="point-label point-label--x">{{ labelXText }}</text>
+          <text :x="labelPosY.x" :y="labelPosY.y" class="point-label point-label--y">{{ labelYText }}</text>
+          <text :x="labelPosZ.x" :y="labelPosZ.y" class="point-label point-label--z">{{ labelZText }}</text>
+          <text v-if="hasData" :x="labelPosComb.x" :y="labelPosComb.y" class="point-label point-label--comb">{{ labelCombText }}</text>
+        </g>
+
         <text :x="axisFull.X.x + 6" :y="axisFull.X.y + 4" class="axis-tag x-tag">X</text>
         <text :x="axisFull.Y.x - 14" :y="axisFull.Y.y + 6" class="axis-tag y-tag">Y</text>
         <text :x="axisFull.Z.x + 8" :y="axisFull.Z.y - 2" class="axis-tag z-tag">Z</text>
@@ -174,7 +182,8 @@ const props = defineProps({
   },
 })
 
-const O = { x: 102, y: 132 }
+/** 扩大轴长与画布，使低分时段点间距在视觉上更明显、不易重叠 */
+const O = { x: 160, y: 188 }
 
 /** 轴方向（与斜二测/原稿一致，单位向量） */
 const ux = { x: 0.867, y: 0.103 }
@@ -188,7 +197,8 @@ const uxn = norm(ux)
 const uyn = norm(uy)
 const uzn = norm(uz)
 
-const L = 58
+/** 单轴最大像素长度（原 58 → 100，同比放大坐标系） */
+const L = 100
 
 const axisFull = computed(() => ({
   X: { x: O.x + L * uxn.x, y: O.y + L * uxn.y },
@@ -199,6 +209,17 @@ const axisFull = computed(() => ({
 function tipAlong(dir, frac) {
   const t = Math.min(1, Math.max(0, frac))
   return { x: O.x + L * t * dir.x, y: O.y + L * t * dir.y }
+}
+
+/** 标注锚点：0 分时沿轴略外移，避免与原点、合成点完全重叠 */
+function tipForLabel(dir, score) {
+  const t =
+    score <= 0 ? 0.08 : Math.min(1, Math.max(0, score) / 100)
+  return { x: O.x + L * t * dir.x, y: O.y + L * t * dir.y }
+}
+
+function perpOffset(dir, dist, sign) {
+  return { x: -dir.y * dist * sign, y: dir.x * dist * sign }
 }
 
 const academic = computed(() => Math.min(100, Math.max(0, Number(props.scores?.academic) || 0)))
@@ -225,6 +246,33 @@ const floorProj = computed(() => ({
 }))
 
 const hasData = computed(() => academic.value + practice.value + inner.value > 0)
+
+const labelXText = computed(() => `X ${academic.value}`)
+const labelYText = computed(() => `Y ${practice.value}`)
+const labelZText = computed(() => `Z ${inner.value}`)
+const labelCombText = computed(() => {
+  const avg = Math.round((academic.value + practice.value + inner.value) / 3)
+  return `合成 ${avg}`
+})
+
+const labelPosX = computed(() => {
+  const base = tipForLabel(uxn, academic.value)
+  const p = perpOffset(uxn, 26, 1)
+  return { x: base.x + p.x, y: base.y + p.y }
+})
+const labelPosY = computed(() => {
+  const base = tipForLabel(uyn, practice.value)
+  const p = perpOffset(uyn, 26, -1)
+  return { x: base.x + p.x, y: base.y + p.y }
+})
+const labelPosZ = computed(() => {
+  const base = tipForLabel(uzn, inner.value)
+  return { x: base.x + 22, y: base.y + 6 }
+})
+const labelPosComb = computed(() => ({
+  x: combined.value.x + 10,
+  y: combined.value.y - 20,
+}))
 
 /** 底面：沿 X、Y 张成的平行四边形 */
 const floorFace = computed(() => {
@@ -402,12 +450,37 @@ function clampedPct(n) {
 .axes-svg-box {
   max-width: 100%;
   margin: 0 auto;
+  min-height: 240px;
 }
 .axes-svg {
   width: 100%;
-  max-height: 260px;
+  min-height: 260px;
+  max-height: 380px;
   height: auto;
   display: block;
+}
+.point-label {
+  font-size: 13px;
+  font-weight: 800;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  paint-order: stroke fill;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.point-label--x {
+  fill: #a93226;
+}
+.point-label--y {
+  fill: #1f618d;
+}
+.point-label--z {
+  fill: #1e8449;
+}
+.point-label--comb {
+  fill: #6c3483;
+  font-size: 12px;
+  font-weight: 800;
 }
 .axis-tag {
   font-size: 11px;
