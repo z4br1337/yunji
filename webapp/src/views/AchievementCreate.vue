@@ -13,14 +13,50 @@
       </div>
 
       <!-- Virtue section -->
-      <div v-if="activeSection === 'virtue'" class="form-group">
-        <label class="form-label">分类</label>
-        <div class="chip-group">
-          <button v-for="cat in achCategories" :key="cat.key" type="button" class="chip" :class="{ active: category === cat.key }" @click="category = cat.key">
-            {{ cat.icon }} {{ cat.label }}
-          </button>
+      <template v-if="activeSection === 'virtue'">
+        <div class="form-group">
+          <label class="form-label">分类</label>
+          <div class="chip-group">
+            <button
+              v-for="cat in achCategories"
+              :key="cat.key"
+              type="button"
+              class="chip"
+              :class="{ active: category === cat.key }"
+              @click="category = cat.key; virtuePresetChoice = null"
+            >
+              {{ cat.icon }} {{ cat.label }}
+            </button>
+          </div>
         </div>
-      </div>
+        <div v-if="virtuePresetRows.length" class="form-group">
+          <label class="form-label">活动说明</label>
+          <p class="text-sm text-muted mb-8">请选择与您情况相符的一项；选「其他」时需自填标题并自选蜕变等级。</p>
+          <div class="growth-preset-list">
+            <button
+              v-for="(row, idx) in virtuePresetRows"
+              :key="idx"
+              type="button"
+              class="growth-preset-item"
+              :class="{ active: virtuePresetChoice === idx }"
+              @click="selectVirtuePreset(idx)"
+            >
+              <span class="growth-preset-badge">项{{ idx + 1 }}</span>
+              <span class="growth-preset-level">等级{{ row.level }}</span>
+              <span class="growth-preset-text">{{ row.text }}</span>
+            </button>
+            <button
+              type="button"
+              class="growth-preset-item growth-preset-item--other"
+              :class="{ active: virtuePresetChoice === OTHER_KEY }"
+              @click="selectVirtueOther"
+            >
+              <span class="growth-preset-badge">其他</span>
+              <span class="growth-preset-text">以上均不符合，自填标题</span>
+            </button>
+          </div>
+        </div>
+      </template>
 
       <!-- Growth section -->
       <template v-if="activeSection === 'growth'">
@@ -56,7 +92,7 @@
         </div>
         <div v-if="dimension && subcategory && presetLines.length" class="form-group">
           <label class="form-label">具体说明</label>
-          <p class="text-sm text-muted mb-8">请选择与您情况相符的一项；选「其他」时需自填标题。</p>
+          <p class="text-sm text-muted mb-8">请选择与您情况相符的一项；选「其他」时需自填标题并自选蜕变等级。</p>
           <div class="growth-preset-list">
             <button
               v-for="(line, idx) in presetLines"
@@ -67,6 +103,7 @@
               @click="selectPresetTier(idx)"
             >
               <span class="growth-preset-badge">档{{ idx + 1 }}</span>
+              <span class="growth-preset-level">等级{{ growthTierToLevel(idx) }}</span>
               <span class="growth-preset-text">{{ line }}</span>
             </button>
             <button
@@ -83,7 +120,7 @@
       </template>
 
       <div v-if="showTitleInput" class="form-group">
-        <label class="form-label">{{ titleInputLabel }}</label>
+        <label class="form-label">标题（其他）</label>
         <input
           class="form-input"
           v-model="title"
@@ -96,10 +133,9 @@
         <textarea class="form-textarea" v-model="description" placeholder="详细描述你的闪光时刻..." rows="4" maxlength="500"></textarea>
       </div>
 
-      <!-- Level -->
-      <div class="form-group">
+      <!-- Level：仅在选择「其他」时显示 -->
+      <div v-if="showLevelGroup" class="form-group">
         <label class="form-label">蜕变等级</label>
-        <p v-if="activeSection === 'growth' && typeof growthPresetChoice === 'number'" class="text-xs text-muted mb-8">已根据所选档位推荐等级，可按需调整。</p>
         <div class="chip-group">
           <button v-for="l in 5" :key="l" type="button" class="chip" :class="{ active: level === l }" @click="level = l">
             等级 {{ l }}
@@ -150,6 +186,7 @@ import {
   growthTierToLevel,
   buildGrowthSubmitText,
 } from '../utils/growthPresets.js'
+import { getVirtuePresets, buildVirtueSubmitText } from '../utils/virtuePresets.js'
 import * as api from '../api/index.js'
 
 const router = useRouter()
@@ -163,6 +200,8 @@ const reviewGuide = REVIEW_LEVEL_GUIDE
 
 const activeSection = ref('virtue')
 const category = ref('moral')
+/** @type {import('vue').Ref<number|string|null>} */
+const virtuePresetChoice = ref(null)
 const dimension = ref('')
 const subcategory = ref('')
 /** @type {import('vue').Ref<number|string|null>} */
@@ -180,22 +219,43 @@ const currentDimSubs = computed(() => {
 
 const presetLines = computed(() => getGrowthPresetLines(dimension.value, subcategory.value))
 
+const virtuePresetRows = computed(() => getVirtuePresets(category.value))
+
 const showTitleInput = computed(
-  () => activeSection.value === 'virtue' || (activeSection.value === 'growth' && growthPresetChoice.value === OTHER_KEY),
+  () =>
+    (activeSection.value === 'virtue' && virtuePresetChoice.value === OTHER_KEY) ||
+    (activeSection.value === 'growth' && growthPresetChoice.value === OTHER_KEY),
 )
 
-const titleInputLabel = computed(() => (activeSection.value === 'growth' ? '标题（其他）' : '标题'))
+const showLevelGroup = computed(
+  () =>
+    (activeSection.value === 'virtue' && virtuePresetChoice.value === OTHER_KEY) ||
+    (activeSection.value === 'growth' && growthPresetChoice.value === OTHER_KEY),
+)
 
 function setSection(s) {
   activeSection.value = s
   if (s === 'virtue') {
+    title.value = ''
     growthPresetChoice.value = null
     dimension.value = ''
     subcategory.value = ''
   } else {
     title.value = ''
     growthPresetChoice.value = null
+    virtuePresetChoice.value = null
   }
+}
+
+function selectVirtuePreset(idx) {
+  virtuePresetChoice.value = idx
+  const rows = virtuePresetRows.value
+  const row = rows[idx]
+  if (row) level.value = row.level
+}
+
+function selectVirtueOther() {
+  virtuePresetChoice.value = OTHER_KEY
 }
 
 function selectPresetTier(idx) {
@@ -223,13 +283,32 @@ async function handleSubmit() {
 
   let outTitle = ''
   let outDesc = description.value.trim()
+  let outLevel = level.value
 
   if (activeSection.value === 'virtue') {
-    if (!title.value.trim()) {
-      showToast('请输入标题')
+    if (virtuePresetChoice.value === null || virtuePresetChoice.value === undefined) {
+      showToast('请选择活动说明')
       return
     }
-    outTitle = title.value.trim()
+    if (virtuePresetChoice.value === OTHER_KEY) {
+      if (!title.value.trim()) {
+        showToast('请填写标题')
+        return
+      }
+      outTitle = title.value.trim()
+      outLevel = level.value
+    } else {
+      const rows = virtuePresetRows.value
+      const row = rows[virtuePresetChoice.value]
+      if (!row) {
+        showToast('选项无效，请重新选择')
+        return
+      }
+      const built = buildVirtueSubmitText(row.text, outDesc)
+      outTitle = built.title
+      outDesc = built.description
+      outLevel = row.level
+    }
   } else {
     if (!dimension.value || !subcategory.value) {
       showToast('请选择维度与子分类')
@@ -245,6 +324,7 @@ async function handleSubmit() {
         return
       }
       outTitle = title.value.trim()
+      outLevel = level.value
     } else {
       const lines = presetLines.value
       const line = lines[growthPresetChoice.value]
@@ -255,6 +335,7 @@ async function handleSubmit() {
       const built = buildGrowthSubmitText(line, outDesc)
       outTitle = built.title
       outDesc = built.description
+      outLevel = growthTierToLevel(growthPresetChoice.value)
     }
   }
 
@@ -271,7 +352,7 @@ async function handleSubmit() {
       category: activeSection.value === 'virtue' ? category.value : dimension.value,
       dimension: activeSection.value === 'growth' ? dimension.value : '',
       subcategory: subcategory.value,
-      level: level.value,
+      level: outLevel,
       images: uploadedImages,
     })
     showToast('提交成功，等待导生审核')
@@ -312,7 +393,8 @@ async function handleSubmit() {
 .growth-preset-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   text-align: left;
   width: 100%;
   padding: 12px 14px;
@@ -349,6 +431,15 @@ async function handleSubmit() {
   font-weight: 700;
   color: var(--text-secondary);
 }
+.growth-preset-level {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(74, 144, 217, 0.12);
+}
 .growth-preset-item.active .growth-preset-badge {
   background: var(--primary);
   color: #fff;
@@ -362,7 +453,12 @@ async function handleSubmit() {
   color: #fff;
 }
 .growth-preset-text {
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
+}
+@media (min-width: 480px) {
+  .growth-preset-text {
+    flex: 1 1 auto;
+  }
 }
 </style>
