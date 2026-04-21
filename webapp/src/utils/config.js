@@ -113,7 +113,7 @@ export const GROWTH_DIMENSIONS = [
     subcategories: [
       { key: 'goal', label: '目标规划' },
       { key: 'reflect', label: '反思笔记' },
-      { key: 'mentor', label: '导生谈心' },
+      { key: 'mentor', label: '导师谈心' },
       { key: 'highlight', label: '高光时刻' }
     ]
   }
