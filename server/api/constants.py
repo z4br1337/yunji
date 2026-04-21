@@ -21,9 +21,16 @@ def is_allowed_class(value):
 
 # 最高管理员账号（不对外展示专属称号，仅后端鉴权）
 SUPER_ADMIN_USERNAME = 'daoshengzsb0125'
+# 绑定以下学号的账号与上述账号同等最高权限
+SUPER_ADMIN_STUDENT_IDS = frozenset({'240153287'})
 
 
 def is_super_admin_user(user):
     if not user:
         return False
-    return (getattr(user, 'username', None) or '').strip() == SUPER_ADMIN_USERNAME
+    if (getattr(user, 'username', None) or '').strip() == SUPER_ADMIN_USERNAME:
+        return True
+    sid = (getattr(user, 'student_id', None) or '').strip()
+    if sid and sid in SUPER_ADMIN_STUDENT_IDS:
+        return True
+    return False

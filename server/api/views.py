@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import timedelta
 from collections import Counter
 import time
 import hashlib
@@ -230,7 +231,28 @@ def user_to_dict(u, post_count_exclude_emotion=False):
         'isSuperAdmin': is_super_admin_user(u),
         'createdAt': u.created_at.isoformat() if u.created_at else '',
         'updatedAt': u.updated_at.isoformat() if u.updated_at else '',
+        'mutedUntil': u.muted_until.isoformat() if u.muted_until else '',
+        'bannedUntil': u.banned_until.isoformat() if u.banned_until else '',
+        'accountDeleted': bool(u.account_deleted),
     }
+
+
+def _account_login_err(user):
+    """登录时：已注销或封禁中不可登录。"""
+    now = timezone.now()
+    if user.account_deleted:
+        return err('ACCOUNT_GONE', '账号已注销')
+    if user.banned_until and now < user.banned_until:
+        return err('ACCOUNT_BANNED', '账号已被封禁，暂无法登录')
+    return None
+
+
+def _mute_err(user):
+    """禁言：不可发帖、评论、私信、成果、文件分享等。"""
+    now = timezone.now()
+    if user.muted_until and now < user.muted_until:
+        return err('ACCOUNT_MUTED', '您已被禁言，暂无法发布内容或互动')
+    return None
 
 
 def post_to_dict(p, reveal_author=False, viewer_id=None):
@@ -398,6 +420,9 @@ def user_login(request):
                 },
             })
         user = matching[0]
+        el = _account_login_err(user)
+        if el:
+            return el
         if is_super_admin_user(user) and user.role != 'admin':
             user.role = 'admin'
             user.save(update_fields=['role'])
@@ -558,6 +583,9 @@ def post_create(request):
     user = get_or_create_user(openid)
     if not user.profile_completed:
         return err('PROFILE_INCOMPLETE', '请先完善个人资料')
+    em = _mute_err(user)
+    if em:
+        return em
 
     body = get_body(request)
     content = (body.get('content') or '').strip()
@@ -973,6 +1001,9 @@ def post_like(request):
 def comment_add(request):
     openid = request.user_token
     user = get_or_create_user(openid)
+    em = _mute_err(user)
+    if em:
+        return em
     body = get_body(request)
     try:
         p = Post.objects.get(id=int(body.get('postId')))
@@ -1075,6 +1106,9 @@ def achievement_create(request):
     user = get_or_create_user(openid)
     if not user.profile_completed:
         return err('PROFILE_INCOMPLETE', '请先完善个人资料')
+    em = _mute_err(user)
+    if em:
+        return em
 
     body = get_body(request)
     images = body.get('images', [])
@@ -1252,6 +1286,9 @@ def wall_delete(request):
 def message_send(request):
     openid = request.user_token
     user = get_or_create_user(openid)
+    em = _mute_err(user)
+    if em:
+        return em
     body = get_body(request)
     msg = Message.objects.create(
         from_id=openid, from_name=user.nickname,
@@ -1476,6 +1513,9 @@ def file_share_create(request):
     user = get_or_create_user(openid)
     if not user.profile_completed:
         return err('PROFILE_INCOMPLETE', '请先完善个人资料')
+    em = _mute_err(user)
+    if em:
+        return em
     body = get_body(request)
     title = (body.get('title') or '').strip()
     file_url = body.get('fileUrl') or ''
@@ -1802,6 +1842,76 @@ def admin_user_list(request):
             | Q(username__icontains=kw)
         )
     return ok({'users': [user_to_dict(u) for u in qs[:200]]})
+
+
+def _moderate_duration_delta(code):
+    if code == '1d':
+        return timedelta(days=1)
+    if code == '7d':
+        return timedelta(days=7)
+    if code == '30d':
+        return timedelta(days=30)
+    if code == 'forever':
+        return timedelta(days=36525)
+    return timedelta(days=1)
+
+
+@csrf_exempt
+@require_POST
+def admin_user_moderate(request):
+    """导生对账号禁言 / 封禁 / 标记删除（软注销）。"""
+    admin, e = _check_admin(request)
+    if e:
+        return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    body = get_body(request)
+    tid = (body.get('targetUserId') or body.get('userId') or '').strip()
+    action = (body.get('action') or '').strip()
+    duration = (body.get('duration') or '1d').strip()
+    if not tid or action not in ('mute', 'ban', 'delete'):
+        return err('INVALID_PARAMS', '参数无效')
+    try:
+        target = User.objects.get(openid=tid)
+    except User.DoesNotExist:
+        return err('NOT_FOUND', '用户不存在')
+    if is_super_admin_user(target):
+        return err('FORBIDDEN', '不可处理最高管理员账号')
+    if target.openid == admin.openid:
+        return err('FORBIDDEN', '不可处理自己的账号')
+    if not is_super_admin_user(admin) and not _user_in_admin_class(admin, tid):
+        return err('FORBIDDEN', '仅可操作本班用户')
+
+    now = timezone.now()
+    delta = _moderate_duration_delta(duration)
+
+    if action == 'mute':
+        target.muted_until = now + delta
+        target.save(update_fields=['muted_until', 'updated_at'])
+        _log_admin_action(admin, 'user_mute', 'user', tid, {
+            'duration': duration,
+            'nickname': target.nickname,
+            'authorClass': (target.user_class or '').strip(),
+        })
+    elif action == 'ban':
+        target.banned_until = now + delta
+        target.save(update_fields=['banned_until', 'updated_at'])
+        _log_admin_action(admin, 'user_ban', 'user', tid, {
+            'duration': duration,
+            'nickname': target.nickname,
+            'authorClass': (target.user_class or '').strip(),
+        })
+    else:
+        target.account_deleted = True
+        target.muted_until = None
+        target.banned_until = None
+        target.save(update_fields=['account_deleted', 'muted_until', 'banned_until', 'updated_at'])
+        _log_admin_action(admin, 'user_delete', 'user', tid, {
+            'nickname': target.nickname,
+            'authorClass': (target.user_class or '').strip(),
+        })
+    return ok({'user': user_to_dict(target)})
 
 
 @csrf_exempt

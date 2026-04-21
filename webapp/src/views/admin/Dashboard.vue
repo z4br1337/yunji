@@ -92,30 +92,98 @@
 
     <!-- Users -->
     <div v-if="activeTab === 'users'" class="tab-panel">
-      <div class="user-search mb-16">
-        <input class="form-input" v-model="userKeyword" placeholder="搜索昵称、学号、班级、用户名…" @input="debouncedLoadUsers" style="max-width: 320px" />
+      <div class="file-mgmt-tabs mb-16">
+        <button type="button" class="tab-btn" :class="{ active: userSubTab === 'list' }" @click="userSubTab = 'list'; loadTabData()">用户名单</button>
+        <button type="button" class="tab-btn" :class="{ active: userSubTab === 'moderate' }" @click="userSubTab = 'moderate'; loadTabData()">账号处理</button>
       </div>
-      <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
-      <template v-else-if="usersGroupedByClass.length">
-        <div v-for="g in usersGroupedByClass" :key="g.class" class="user-group mb-16">
-          <h4 class="group-title mb-8">{{ g.class || '未填写班级' }}</h4>
-          <div v-for="u in g.users" :key="u._id" class="card mb-8 user-card" @click="$router.push(`/admin/user/${u._id}`)">
-            <div class="flex items-center gap-12">
-              <div class="avatar-hit" role="button" tabindex="0" title="发私信" @click.stop="openChatWithUser(u)" @keyup.enter.stop="openChatWithUser(u)">
-                <img v-if="u.avatarUrl" class="avatar-img" :src="u.avatarUrl" alt="" />
-                <div v-else class="avatar">{{ (u.nickname || '?')[0] }}</div>
-              </div>
-              <div>
-                <div class="font-bold">{{ u.nickname }}</div>
-                <div class="text-xs text-muted">
-                  学号：{{ u.studentId || '未绑定' }} · {{ u.role === 'admin' ? '导生' : '用户' }} · Exp: {{ u.exp || 0 }}
+
+      <template v-if="userSubTab === 'list'">
+        <div class="user-search mb-16">
+          <input class="form-input" v-model="userKeyword" placeholder="搜索昵称、学号、班级、用户名…" @input="debouncedReloadUsersTab" style="max-width: 320px" />
+        </div>
+        <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
+        <template v-else-if="usersGroupedByClass.length">
+          <div v-for="g in usersGroupedByClass" :key="g.class" class="user-group mb-16">
+            <h4 class="group-title mb-8">{{ g.class || '未填写班级' }}</h4>
+            <div v-for="u in g.users" :key="u._id" class="card mb-8 user-card" @click="$router.push(`/admin/user/${u._id}`)">
+              <div class="flex items-center gap-12">
+                <div class="avatar-hit" role="button" tabindex="0" title="发私信" @click.stop="openChatWithUser(u)" @keyup.enter.stop="openChatWithUser(u)">
+                  <img v-if="u.avatarUrl" class="avatar-img" :src="u.avatarUrl" alt="" />
+                  <div v-else class="avatar">{{ (u.nickname || '?')[0] }}</div>
+                </div>
+                <div>
+                  <div class="font-bold">{{ u.nickname }}</div>
+                  <div class="text-xs text-muted">
+                    学号：{{ u.studentId || '未绑定' }} · {{ u.role === 'admin' ? '导生' : '用户' }} · Exp: {{ u.exp || 0 }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </template>
+        <div v-else class="empty-state"><div class="icon">👥</div><div class="text">暂无用户</div></div>
       </template>
-      <div v-else class="empty-state"><div class="icon">👥</div><div class="text">暂无用户</div></div>
+
+      <template v-else>
+        <p class="text-sm text-muted mb-8">搜索并选择账号后，可执行禁言、封禁或软删除（注销）。不可处理最高管理员或本人。</p>
+        <div class="user-search mb-16 flex flex-wrap gap-8 items-end">
+          <input class="form-input" v-model="moderateKeyword" placeholder="搜索昵称、学号、班级、用户名…" @input="debouncedReloadUsersTab" style="max-width: 320px" />
+        </div>
+        <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
+        <template v-else>
+          <div class="card mb-16 moderate-form">
+            <div class="flex flex-wrap gap-12 items-end mb-12">
+              <label class="moderate-field">
+                <span class="text-xs text-muted block mb-4">选择账号</span>
+                <select v-model="selectedUserId" class="form-input" style="min-width: 220px; max-width: 100%">
+                  <option value="">请选择</option>
+                  <option v-for="u in moderateUsers" :key="u._id" :value="u._id" :disabled="u.isSuperAdmin">
+                    {{ u.nickname }} · {{ u.studentId || u.username || u._id }}{{ u.isSuperAdmin ? '（超管）' : '' }}
+                  </option>
+                </select>
+              </label>
+              <label class="moderate-field">
+                <span class="text-xs text-muted block mb-4">操作</span>
+                <select v-model="moderateAction" class="form-input">
+                  <option value="mute">禁言</option>
+                  <option value="ban">封禁</option>
+                  <option value="delete">删除账号</option>
+                </select>
+              </label>
+              <label class="moderate-field">
+                <span class="text-xs text-muted block mb-4">期限</span>
+                <select v-model="moderateDuration" class="form-input" :disabled="moderateAction === 'delete'">
+                  <option value="1d">1 天</option>
+                  <option value="7d">7 天</option>
+                  <option value="30d">30 天</option>
+                  <option value="forever">永久</option>
+                </select>
+              </label>
+              <button type="button" class="btn btn-danger btn-sm" :disabled="!selectedUserId" @click="submitModerate">执行</button>
+            </div>
+            <p v-if="moderateAction === 'delete'" class="text-xs text-muted">删除为软注销，该账号将无法登录；期限选项不适用。</p>
+          </div>
+          <div v-if="moderateUsers.length" class="moderate-pick-list">
+            <p class="text-xs text-muted mb-8">点击一行可快速选中</p>
+            <div
+              v-for="u in moderateUsers"
+              :key="u._id"
+              class="card mb-8 user-card moderate-pick"
+              :class="{ 'moderate-pick-active': selectedUserId === u._id, 'moderate-pick-disabled': u.isSuperAdmin }"
+              @click="u.isSuperAdmin ? null : (selectedUserId = u._id)"
+            >
+              <div class="flex justify-between items-center">
+                <div>
+                  <span class="font-bold">{{ u.nickname }}</span>
+                  <span class="text-xs text-muted ml-8">{{ u.studentId || '未绑定学号' }} · {{ u.class || '未填班级' }}</span>
+                </div>
+                <span v-if="u.isSuperAdmin" class="badge badge-warning">超管</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-state"><div class="icon">🔍</div><div class="text">无匹配用户，请调整搜索</div></div>
+        </template>
+      </template>
     </div>
 
     <!-- File Management -->
@@ -214,6 +282,12 @@ const fileSubTab = ref('pending')
 const shopItems = ref([])
 const users = ref([])
 const userKeyword = ref('')
+const userSubTab = ref('list')
+const moderateKeyword = ref('')
+const moderateUsers = ref([])
+const selectedUserId = ref('')
+const moderateAction = ref('mute')
+const moderateDuration = ref('1d')
 const usersGroupedByClass = computed(() => {
   const groups = {}
   for (const u of users.value) {
@@ -225,9 +299,37 @@ const usersGroupedByClass = computed(() => {
 })
 
 let userSearchTimer = null
-function debouncedLoadUsers() {
+function debouncedReloadUsersTab() {
   clearTimeout(userSearchTimer)
-  userSearchTimer = setTimeout(() => loadTabData(), 300)
+  userSearchTimer = setTimeout(() => {
+    if (activeTab.value === 'users') loadTabData()
+  }, 300)
+}
+
+function durationLabel(d) {
+  const m = { '1d': '1 天', '7d': '7 天', '30d': '30 天', forever: '永久' }
+  return m[d] || d
+}
+
+async function submitModerate() {
+  if (!selectedUserId.value) {
+    showToast('请选择账号')
+    return
+  }
+  const act = moderateAction.value
+  const dur = moderateDuration.value
+  const tip = act === 'delete'
+    ? '确定软删除该账号？该用户将无法再登录。'
+    : `确定对该账号执行${act === 'mute' ? '禁言' : '封禁'}（${durationLabel(dur)}）？`
+  if (!window.confirm(tip)) return
+  try {
+    await api.adminUserModerate(selectedUserId.value, act, dur)
+    showToast('已处理')
+    selectedUserId.value = ''
+    await loadTabData()
+  } catch (e) {
+    showToast(e.message || '操作失败')
+  }
 }
 
 async function switchTab(key) {
@@ -264,8 +366,16 @@ async function loadTabData() {
         break
       }
       case 'users': {
-        const r = await api.adminGetUserList(userKeyword.value.trim())
-        users.value = r.users || []
+        const kw = userSubTab.value === 'list'
+          ? userKeyword.value.trim()
+          : moderateKeyword.value.trim()
+        const r = await api.adminGetUserList(kw)
+        const list = r.users || []
+        if (userSubTab.value === 'list') {
+          users.value = list
+        } else {
+          moderateUsers.value = list
+        }
         break
       }
     }

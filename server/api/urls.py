@@ -70,6 +70,7 @@ urlpatterns = [
     path('admin/user/score', views.admin_user_score),
     path('admin/user/profile', views.admin_user_profile),
     path('admin/user/list', views.admin_user_list),
+    path('admin/user/moderate', views.admin_user_moderate),
     path('admin/user/posts', views.admin_user_posts),
     path('admin/user/contact', views.admin_user_contact),
     path('admin/emotion/list', views.admin_emotion_list),

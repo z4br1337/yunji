@@ -188,9 +188,28 @@ let _adminLogs = []
 function cur() { return _users[_currentUserId] || null }
 
 const MOCK_SUPER_ADMIN_USERNAME = 'daoshengzsb0125'
+const MOCK_SUPER_ADMIN_STUDENT_IDS = new Set(['240153287'])
 
 function isMockSuperAdmin(u) {
-  return !!(u && u.username === MOCK_SUPER_ADMIN_USERNAME)
+  if (!u) return false
+  if (u.username === MOCK_SUPER_ADMIN_USERNAME) return true
+  if (MOCK_SUPER_ADMIN_STUDENT_IDS.has(String(u.studentId || '').trim())) return true
+  return false
+}
+
+/** 封禁/注销不可使用业务；禁言不可发帖评论私信等 */
+function _assertMockUserActive(u) {
+  if (!u) throw new Error('请先登录')
+  if (u.accountDeleted) throw new Error('账号已注销')
+  const t = Date.now()
+  if (u.bannedUntil && new Date(u.bannedUntil).getTime() > t) throw new Error('账号已被封禁')
+}
+
+function _assertMockNotMuted(u) {
+  if (!u) return
+  if (u.mutedUntil && new Date(u.mutedUntil).getTime() > Date.now()) {
+    throw new Error('您已被禁言，暂无法发布内容或互动')
+  }
 }
 
 /** 导生是否可操作该作者所在班级范围（最高管理员视为全站） */
@@ -234,7 +253,13 @@ function addExp(user, amount, reason, relatedId) {
 function safeUser(u) {
   if (!u) return null
   const { password: _, ...rest } = u
-  return { ...rest, isSuperAdmin: u.username === MOCK_SUPER_ADMIN_USERNAME }
+  return {
+    ...rest,
+    isSuperAdmin: isMockSuperAdmin(u),
+    mutedUntil: u.mutedUntil || '',
+    bannedUntil: u.bannedUntil || '',
+    accountDeleted: !!u.accountDeleted,
+  }
 }
 
 // ========== Auth ==========
@@ -252,6 +277,7 @@ export async function mockRegister(nickname, username, password) {
     class: '', profileCompleted: false, role: 'user',
     exp: 10, score: 10, postCount: 0,
     achievementCounts: {}, growthBookPublic: false, inviteUsed: null,
+    accountDeleted: false, mutedUntil: '', bannedUntil: '',
     createdAt: now(), updatedAt: now()
   }
   _users[id] = user
@@ -289,7 +315,12 @@ export async function mockLogin(identifier, password) {
     }
   }
   const user = matching[0]
-  if (user.username === MOCK_SUPER_ADMIN_USERNAME && user.role !== 'admin') {
+  if (user.accountDeleted) throw new Error('账号已注销')
+  const nowTs = Date.now()
+  if (user.bannedUntil && new Date(user.bannedUntil).getTime() > nowTs) {
+    throw new Error('账号已被封禁，暂无法登录')
+  }
+  if (isMockSuperAdmin(user) && user.role !== 'admin') {
     user.role = 'admin'
   }
   _currentUserId = user._id
@@ -445,6 +476,8 @@ export async function mockCreatePost(data) {
     throw new Error('内容包含敏感词，无法发布')
   }
   const user = cur()
+  _assertMockUserActive(user)
+  _assertMockNotMuted(user)
   const topics = _normalizeTopicsMock(data.topics)
   for (const t of topics) {
     if (!sensitiveCheck(t).pass) throw new Error('话题包含敏感词')
@@ -517,6 +550,8 @@ export async function mockAddComment(postId, content, opts = {}) {
     throw new Error('评论包含敏感词，无法发送')
   }
   const user = cur()
+  _assertMockUserActive(user)
+  _assertMockNotMuted(user)
   const post = _posts.find(p => p._id === postId)
   if (user && user.role === 'admin' && post && post.category === 'emotion') {
     if (!_mockAdminActsOnAuthor(post.authorId)) {
@@ -591,6 +626,9 @@ export async function mockGetAchievements(params = {}) {
 
 export async function mockCreateAchievement(data) {
   await delay()
+  const user = cur()
+  _assertMockUserActive(user)
+  _assertMockNotMuted(user)
   const ach = { _id: genId(), userId: _currentUserId, title: data.title, description: data.description || '', category: data.category, dimension: data.dimension || '', subcategory: data.subcategory || '', level: data.level || 1, points: 0, expAwarded: 0, images: data.images || [], status: 'pending', createdAt: now() }
   _achievements.unshift(ach)
   return { achievementId: ach._id, status: 'pending' }
@@ -629,6 +667,8 @@ export async function mockSetGrowthBookPublic(isPublic) {
 export async function mockSendMessage(toId, content) {
   await delay()
   const user = cur()
+  _assertMockUserActive(user)
+  _assertMockNotMuted(user)
   const msg = { _id: genId(), fromId: _currentUserId, fromName: user ? user.nickname : '未知', toId, content, read: false, createdAt: now() }
   _messages.push(msg)
   return { messageId: msg._id }
@@ -1181,6 +1221,36 @@ export async function mockAdminRejectAchievement(id) {
     authorClass: user ? user.class : _authorClass(ach.userId),
   })
   return {}
+}
+
+export async function mockAdminUserModerate(targetUserId, action, duration) {
+  await delay()
+  const admin = cur()
+  if (!admin || admin.role !== 'admin') throw new Error('需要管理员权限')
+  const target = _users[targetUserId]
+  if (!target) throw new Error('用户不存在')
+  if (isMockSuperAdmin(target)) throw new Error('不可处理最高管理员账号')
+  if (target._id === admin._id) throw new Error('不可处理自己的账号')
+  if (!isMockSuperAdmin(admin) && !_mockAdminActsOnAuthor(targetUserId)) {
+    throw new Error('仅可操作本班用户')
+  }
+  const d = duration || '1d'
+  const ms = d === '1d' ? 86400000 : d === '7d' ? 7 * 86400000 : d === '30d' ? 30 * 86400000 : d === 'forever' ? 36525 * 86400000 : 86400000
+  const until = new Date(Date.now() + ms).toISOString()
+  if (action === 'mute') {
+    target.mutedUntil = until
+  } else if (action === 'ban') {
+    target.bannedUntil = until
+  } else if (action === 'delete') {
+    target.accountDeleted = true
+    target.mutedUntil = ''
+    target.bannedUntil = ''
+  } else {
+    throw new Error('无效操作')
+  }
+  target.updatedAt = now()
+  _pushAdminLog(`user_${action}`, 'user', targetUserId, { duration: d, nickname: target.nickname })
+  return { user: safeUser(target) }
 }
 
 export async function mockAdminGetUserList(keyword) {

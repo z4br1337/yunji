@@ -27,6 +27,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'api.middleware.AuthMiddleware',
+    'api.middleware.AccountBannedMiddleware',
     'api.middleware.StudentIdRequiredMiddleware',
 ]
 

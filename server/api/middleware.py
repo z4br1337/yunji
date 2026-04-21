@@ -3,6 +3,7 @@
 """
 import traceback
 from django.http import JsonResponse
+from django.utils import timezone
 
 from .models import User
 from .constants import is_super_admin_user
@@ -13,6 +14,48 @@ _STUDENT_EXEMPT_SUBPATHS = frozenset({
     'user/register',
     'user/bind-student-id',
 })
+
+# 账号已封禁/已注销时仍可调用的接口（与登录相关）
+_ACCOUNT_STATUS_EXEMPT_SUBPATHS = frozenset({
+    'user/login',
+    'user/register',
+    'user/bind-student-id',
+})
+
+
+class AccountBannedMiddleware:
+    """已封禁或已注销账号禁止使用业务接口（登录页可感知错误）。"""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path or ''
+        if path.startswith('/api/'):
+            sub = path[len('/api/'):]
+            if sub in _ACCOUNT_STATUS_EXEMPT_SUBPATHS:
+                return self.get_response(request)
+            token = getattr(request, 'user_token', '') or ''
+            if token:
+                try:
+                    user = User.objects.get(openid=token)
+                except User.DoesNotExist:
+                    return self.get_response(request)
+                now = timezone.now()
+                if getattr(user, 'account_deleted', False):
+                    return JsonResponse({
+                        'code': 'ACCOUNT_GONE',
+                        'message': '账号已注销',
+                        'data': {},
+                    }, status=403)
+                bu = getattr(user, 'banned_until', None)
+                if bu and now < bu:
+                    return JsonResponse({
+                        'code': 'ACCOUNT_BANNED',
+                        'message': '账号已被封禁，暂无法使用',
+                        'data': {},
+                    }, status=403)
+        return self.get_response(request)
 
 
 class StudentIdRequiredMiddleware:
