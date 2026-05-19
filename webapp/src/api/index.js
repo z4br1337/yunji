@@ -436,6 +436,11 @@ export async function adminUpdateShopStock(itemKey, stock) {
   return result
 }
 
+export async function adminGetShopExchangeRecords(limit = 100) {
+  if (LOCAL_TEST_MODE) return mock.mockAdminGetShopExchangeRecords(limit)
+  return request('/admin/shop/exchange-records', { limit })
+}
+
 async function optimizeImageBeforeUpload(file) {
   // 非图片或小图直接上传，避免额外 CPU 开销
   if (!file || !file.type?.startsWith('image/') || file.size < 300 * 1024) return file

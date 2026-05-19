@@ -2372,6 +2372,51 @@ def admin_shop_update_stock(request):
     return ok()
 
 
+def _exchange_record_to_dict(record, user=None):
+    d = {
+        '_id': str(record.id),
+        'userId': record.user_id,
+        'itemKey': record.item_key,
+        'itemTitle': record.item_title,
+        'price': record.price,
+        'createdAt': record.created_at.isoformat() if record.created_at else '',
+        'nickname': '',
+        'studentId': '',
+    }
+    if user:
+        d['nickname'] = user.nickname or ''
+        d['studentId'] = (user.student_id or '').strip()
+    return d
+
+
+@csrf_exempt
+@require_POST
+def admin_shop_exchange_records(request):
+    """导生查看积分商店兑换记录（含用户昵称、学号）。"""
+    admin, e = _check_admin(request)
+    if e:
+        return e
+    e2 = _admin_class_err(admin)
+    if e2:
+        return e2
+    body = get_body(request)
+    limit = min(max(int(body.get('limit', 100)), 1), 200)
+    qs = ExchangeRecord.objects.all().order_by('-created_at')
+    if not is_super_admin_user(admin):
+        ac = _admin_class_value(admin)
+        class_user_ids = User.objects.filter(user_class=ac).values_list('openid', flat=True)
+        qs = qs.filter(user_id__in=class_user_ids)
+    records = list(qs[:limit])
+    user_ids = {r.user_id for r in records}
+    users_map = {u.openid: u for u in User.objects.filter(openid__in=user_ids)}
+    return ok({
+        'records': [
+            _exchange_record_to_dict(r, users_map.get(r.user_id))
+            for r in records
+        ],
+    })
+
+
 @csrf_exempt
 @require_POST
 def admin_export_data(request):

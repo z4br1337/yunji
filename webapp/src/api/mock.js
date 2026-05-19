@@ -1342,3 +1342,35 @@ export async function mockAdminGetReviewHistory() {
   const logs = _adminLogs.filter(l => (l.detail && l.detail.authorClass) === ac)
   return { logs }
 }
+
+const _exchangeRecords = []
+
+export function mockPushExchangeRecord(userId, itemKey, itemTitle, price) {
+  const u = _users[userId]
+  _exchangeRecords.unshift({
+    _id: genId(),
+    userId,
+    itemKey,
+    itemTitle,
+    price: price || 0,
+    createdAt: now(),
+    nickname: u?.nickname || '',
+    studentId: (u?.studentId || '').trim(),
+  })
+}
+
+export async function mockAdminGetShopExchangeRecords(limit = 100) {
+  await delay()
+  const admin = cur()
+  if (!admin || admin.role !== 'admin') throw new Error('需要管理员权限')
+  let list = [..._exchangeRecords]
+  if (!isMockSuperAdmin(admin)) {
+    const ac = (admin.class || '').trim()
+    list = list.filter((r) => {
+      const u = _users[r.userId]
+      return u && (u.class || '').trim() === ac
+    })
+  }
+  const n = Math.min(Math.max(Number(limit) || 100, 1), 200)
+  return { records: list.slice(0, n) }
+}

@@ -220,8 +220,14 @@
       </template>
     </div>
 
-    <!-- Shop Stock -->
+    <!-- Shop -->
     <div v-if="activeTab === 'shop'" class="tab-panel">
+      <div class="file-mgmt-tabs mb-16">
+        <button type="button" class="tab-btn" :class="{ active: shopSubTab === 'stock' }" @click="shopSubTab = 'stock'; loadTabData()">库存管理</button>
+        <button type="button" class="tab-btn" :class="{ active: shopSubTab === 'records' }" @click="shopSubTab = 'records'; loadTabData()">兑换记录</button>
+      </div>
+
+      <template v-if="shopSubTab === 'stock'">
       <p class="text-sm text-muted mb-8">修改积分商店商品剩余数量。</p>
       <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
       <template v-else-if="shopItems.length">
@@ -237,6 +243,28 @@
         </div>
       </template>
       <div v-else class="empty-state"><div class="icon">🛒</div><div class="text">暂无商品</div></div>
+      </template>
+
+      <template v-else>
+        <p class="text-sm text-muted mb-8">查看用户兑换周边记录（昵称、学号、时间与商品）。</p>
+        <div v-if="loadingTab" class="loading-spinner"><div class="spinner"></div></div>
+        <template v-else-if="shopExchangeRecords.length">
+          <div v-for="r in shopExchangeRecords" :key="r._id" class="card mb-8 shop-record-card">
+            <div class="flex justify-between items-start flex-wrap gap-8">
+              <div>
+                <div class="font-bold">{{ r.nickname || '未知用户' }}</div>
+                <div class="text-xs text-muted">学号：{{ r.studentId || '未绑定' }}</div>
+              </div>
+              <span class="text-xs text-muted">{{ formatExchangeTime(r.createdAt) }}</span>
+            </div>
+            <p class="text-sm mt-8">
+              兑换 <span class="font-bold">{{ r.itemTitle }}</span>
+              <span class="text-muted">（-{{ r.price }} 积分）</span>
+            </p>
+          </div>
+        </template>
+        <div v-else class="empty-state"><div class="icon">📋</div><div class="text">暂无兑换记录</div></div>
+      </template>
     </div>
 
   </div>
@@ -262,6 +290,14 @@ ACHIEVEMENT_CATEGORIES.forEach(c => { achCatMap[c.key] = c.label })
 function achCatLabel(key) { return achCatMap[key] || key }
 function statusLabel(s) { return POST_STATUS_LABELS[s] || s }
 
+function formatExchangeTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 const tabs = [
   { key: 'achievements', label: '成果审核' },
   { key: 'flagged', label: '违规帖子' },
@@ -279,7 +315,9 @@ const allPosts = ref([])
 const pendingFiles = ref([])
 const approvedFiles = ref([])
 const fileSubTab = ref('pending')
+const shopSubTab = ref('stock')
 const shopItems = ref([])
+const shopExchangeRecords = ref([])
 const users = ref([])
 const userKeyword = ref('')
 const userSubTab = ref('list')
@@ -361,8 +399,13 @@ async function loadTabData() {
         break
       }
       case 'shop': {
-        const r = await api.adminGetShopItems()
-        shopItems.value = (r.items || []).map(i => ({ ...i, editStock: i.stock }))
+        if (shopSubTab.value === 'stock') {
+          const r = await api.adminGetShopItems()
+          shopItems.value = (r.items || []).map(i => ({ ...i, editStock: i.stock }))
+        } else {
+          const r = await api.adminGetShopExchangeRecords()
+          shopExchangeRecords.value = r.records || []
+        }
         break
       }
       case 'users': {

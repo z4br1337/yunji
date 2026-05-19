@@ -96,6 +96,7 @@ urlpatterns = [
     path('shop/my-exchanges', views.shop_my_exchanges),
     path('admin/shop/items', views.admin_shop_items),
     path('admin/shop/update-stock', views.admin_shop_update_stock),
+    path('admin/shop/exchange-records', views.admin_shop_exchange_records),
 
     # 数据导出（管理员专用）
     path('admin/export-data', views.admin_export_data),
