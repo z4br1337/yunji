@@ -116,7 +116,6 @@ async function sendMsg() {
 
 function clearHistory() {
   messages.value = [{ role: 'assistant', content: '对话已清空，有什么新问题吗？' }]
-  lastResponseId.value = ''
 }
 
 onMounted(() => scrollToBottom())

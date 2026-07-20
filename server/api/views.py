@@ -2112,7 +2112,7 @@ def ai_chat(request):
         return ok({'reply': text, 'raw': raw})
     except Exception as ex:
         logger.exception('AI chat failed')
-        return err('SERVER_ERROR', str(ex))
+        return err('SERVER_ERROR', f'AI 服务未安装或调用失败: {ex}')
 
 
 @csrf_exempt
