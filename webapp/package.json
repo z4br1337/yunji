@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "openai": "^6.48.0",
     "vue": "^3.4",
     "vue-router": "^4.3"
   },

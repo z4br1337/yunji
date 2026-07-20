@@ -159,9 +159,8 @@ export const POINTS_REASON_LABELS = {
 }
 
 export const AI_CONFIG = {
-  API_KEY: 'sk-ws-H.EHHHMLL.uHWz.MEUCIQDYAoNg0xX68UhoUJ5c01eD1PUOywj2kVqN--Lp_DqkWgIgJiw7hwQTqTwQPda9KjNIKFbSEdeaEMk9B2dWIA_2HgQ',
-  API_URL: 'https://ark.cn-beijing.volces.com/api/v3/responses',
-  MODEL: 'doubao-seed-2-0-pro-260215',
+  API_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  MODEL: 'qwen3.5-flash',
   SYSTEM_PROMPT: '你是"云迹"校园社交平台的 AI 助手，名叫"云小迹"。你友善、耐心、积极向上，擅长解答学习、校园生活、情感等方面的问题。请用简洁、亲切的语气回答用户的问题。如果涉及心理健康等敏感话题，请建议用户寻求专业帮助。',
   MAX_HISTORY: 20,
   MAX_INPUT_LENGTH: 1000
