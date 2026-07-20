@@ -1309,9 +1309,16 @@ export async function mockAdminTransferUserClass(targetUserId, nextClass) {
   if (!u) throw new Error('用户不存在')
   const cls = String(nextClass || '').trim()
   if (!SCHOOL_CLASSES.includes(cls)) throw new Error('班级不存在')
+  const prevClass = u.class || ''
   u.class = cls
   u.profileCompleted = !!(u.nickname && u.nickname.trim() && SCHOOL_CLASSES.includes(u.class))
   u.updatedAt = now()
+  _pushAdminLog('user_transfer_class', 'user', targetUserId, {
+    nickname: u.nickname,
+    fromClass: prevClass,
+    toClass: cls,
+    role: u.role,
+  })
   return { user: safeUser(u) }
 }
 
