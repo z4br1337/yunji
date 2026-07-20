@@ -1,34 +1,44 @@
 /* ========== CSS Variables ========== */
 :root {
-  --primary: #4A90D9;
-  --primary-light: #6BA5E7;
-  --primary-dark: #3572B0;
-  --success: #2ECC71;
-  --warning: #F39C12;
-  --danger: #E74C3C;
-  --info: #3498DB;
-  --bg: #F5F7FA;
-  --bg-card: #FFFFFF;
-  --bg-sidebar: #1E293B;
-  --text-primary: #2C3E50;
-  --text-secondary: #7F8C8D;
-  --text-muted: #BDC3C7;
-  --border: #E8ECF0;
-  --shadow: 0 2px 12px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
-  --radius: 12px;
+  --primary: #ff8200;
+  --primary-light: #ff9f33;
+  --primary-dark: #e86f00;
+  --success: #24c27c;
+  --warning: #f5a524;
+  --danger: #ff4d4f;
+  --info: #2f80ed;
+  --bg: #f5f7fa;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-muted: #f2f4f7;
+  --text-primary: #222222;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border: #ebedf0;
+  --shadow: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+  --radius: 14px;
   --radius-sm: 8px;
-  --radius-lg: 16px;
+  --radius-lg: 18px;
   --tabbar-h: 56px;
   --header-h: 56px;
-  --sidebar-w: 240px;
-  --transition: all 0.25s ease;
+  --sidebar-w: 280px;
+  --transition: all 0.2s ease;
 }
 
 /* ========== Reset ========== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; color: var(--text-primary); background: var(--bg); line-height: 1.6; overflow-x: hidden; }
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(255,130,0,0.08), transparent 36%);
+  pointer-events: none;
+  z-index: -1;
+}
 a { color: var(--primary); text-decoration: none; }
 button { cursor: pointer; border: none; outline: none; font-family: inherit; }
 img { max-width: 100%; display: block; }

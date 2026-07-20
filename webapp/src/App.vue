@@ -1,75 +1,73 @@
 <template>
   <div class="app-root" :class="{ 'is-mobile': isMobile, 'is-desktop': !isMobile, 'is-windows': isWindows, 'is-android': isAndroid, 'is-ios': isIOS }">
-    <!-- Desktop: sidebar layout -->
     <aside v-if="!isMobile && isLoggedIn" class="sidebar">
       <div class="sidebar-brand">
-        <span class="brand-icon">✨</span>
-        <span class="brand-text">云迹</span>
+        <div class="brand-mark">云</div>
+        <div>
+          <div class="brand-text">云迹</div>
+          <div class="brand-subtext">哲法er交流学习平台</div>
+        </div>
       </div>
+
+      <div class="sidebar-search">
+        <button class="sidebar-search-btn" type="button" @click="$router.push('/search')">
+          <span>搜索你感兴趣的内容</span>
+        </button>
+      </div>
+
       <nav class="sidebar-nav">
         <router-link to="/feed" class="nav-item" active-class="active">
-          <span class="nav-icon">🏠</span><span class="nav-label">广场</span>
+          <span class="nav-icon">首页</span><span class="nav-label">广场</span>
         </router-link>
         <router-link to="/publish" class="nav-item" active-class="active">
-          <span class="nav-icon">✏️</span><span class="nav-label">发布内容</span>
+          <span class="nav-icon">发布</span><span class="nav-label">发布内容</span>
         </router-link>
         <router-link to="/points-shop" class="nav-item" active-class="active">
-          <span class="nav-icon">🛒</span><span class="nav-label">萤火商店</span>
+          <span class="nav-icon">商店</span><span class="nav-label">萤火商店</span>
         </router-link>
         <router-link to="/ai-chat" class="nav-item" active-class="active">
-          <span class="nav-icon">🤖</span><span class="nav-label">AI问答</span>
+          <span class="nav-icon">问答</span><span class="nav-label">AI问答</span>
         </router-link>
         <router-link to="/growth-book" class="nav-item" active-class="active">
-          <span class="nav-icon">🌟</span><span class="nav-label">闪光时刻</span>
+          <span class="nav-icon">成长</span><span class="nav-label">闪光时刻</span>
         </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
-          <span class="nav-icon">👤</span><span class="nav-label">我的</span>
+          <span class="nav-icon">我的</span><span class="nav-label">个人中心</span>
         </router-link>
         <router-link v-if="isAdmin" to="/admin" class="nav-item" active-class="active">
-          <span class="nav-icon">⚙️</span><span class="nav-label">管理后台</span>
+          <span class="nav-icon">管理</span><span class="nav-label">管理后台</span>
         </router-link>
       </nav>
-      <div class="sidebar-footer">
-        <div class="user-brief" v-if="userInfo">
+
+      <div class="sidebar-footer" v-if="userInfo">
+        <div class="user-brief">
           <div class="avatar avatar-sm">
-          <img v-if="userInfo.avatarUrl" :src="userInfo.avatarUrl" alt="" />
-          <span v-else>{{ (userInfo.nickname || '?')[0] }}</span>
-        </div>
-          <span class="user-name">{{ userInfo.nickname }}</span>
+            <img v-if="userInfo.avatarUrl" :src="userInfo.avatarUrl" alt="" />
+            <span v-else>{{ (userInfo.nickname || '?')[0] }}</span>
+          </div>
+          <div>
+            <div class="user-name">{{ userInfo.nickname }}</div>
+            <div class="user-meta">{{ userInfo.class || '未填写班级' }}</div>
+          </div>
         </div>
       </div>
     </aside>
 
-    <!-- Main content area -->
     <main class="main-content" :class="{ 'with-sidebar': !isMobile && isLoggedIn }">
       <router-view v-slot="{ Component }">
         <component :is="Component" :key="$route.fullPath" />
       </router-view>
     </main>
 
-    <!-- Mobile: bottom tab bar -->
     <nav v-if="isMobile && isLoggedIn && showTabBar" class="tabbar">
-      <router-link to="/feed" class="tab-item" active-class="active">
-        <span class="tab-icon">🏠</span><span class="tab-label">广场</span>
-      </router-link>
-      <router-link to="/publish" class="tab-item" active-class="active">
-        <span class="tab-icon">✏️</span><span class="tab-label">发布内容</span>
-      </router-link>
-      <router-link to="/points-shop" class="tab-item" active-class="active">
-        <span class="tab-icon">🛒</span><span class="tab-label">萤火商店</span>
-      </router-link>
-      <router-link to="/ai-chat" class="tab-item" active-class="active">
-        <span class="tab-icon">🤖</span><span class="tab-label">AI问答</span>
-      </router-link>
-      <router-link to="/growth-book" class="tab-item" active-class="active">
-        <span class="tab-icon">🌟</span><span class="tab-label">闪光时刻</span>
-      </router-link>
-      <router-link to="/settings" class="tab-item" active-class="active">
-        <span class="tab-icon">👤</span><span class="tab-label">我的</span>
-      </router-link>
+      <router-link to="/feed" class="tab-item" active-class="active"><span class="tab-icon">首页</span><span class="tab-label">广场</span></router-link>
+      <router-link to="/publish" class="tab-item" active-class="active"><span class="tab-icon">发布</span><span class="tab-label">发布内容</span></router-link>
+      <router-link to="/points-shop" class="tab-item" active-class="active"><span class="tab-icon">商店</span><span class="tab-label">萤火商店</span></router-link>
+      <router-link to="/ai-chat" class="tab-item" active-class="active"><span class="tab-icon">问答</span><span class="tab-label">AI问答</span></router-link>
+      <router-link to="/growth-book" class="tab-item" active-class="active"><span class="tab-icon">成长</span><span class="tab-label">闪光时刻</span></router-link>
+      <router-link to="/settings" class="tab-item" active-class="active"><span class="tab-icon">我的</span><span class="tab-label">个人中心</span></router-link>
     </nav>
 
-    <!-- Toast -->
     <div class="toast-container" v-if="toasts.length">
       <div class="toast" v-for="t in toasts" :key="t.id">{{ t.msg }}</div>
     </div>
@@ -178,92 +176,103 @@ function onVisibilityChange() {
 </script>
 
 <style scoped>
-/* ========== Sidebar (desktop) ========== */
 .sidebar {
-  position: fixed; left: 0; top: 0; bottom: 0;
-  width: var(--sidebar-w); background: var(--bg-sidebar);
-  display: flex; flex-direction: column; z-index: 100;
-  box-shadow: 2px 0 16px rgba(0,0,0,0.1);
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-w);
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
 }
-.is-windows .sidebar { box-shadow: 1px 0 8px rgba(0,0,0,0.06); }
 .sidebar-brand {
-  padding: 24px 20px; display: flex; align-items: center; gap: 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
 }
-.brand-icon { font-size: 1.6rem; }
-.brand-text { color: #fff; font-size: 1.3rem; font-weight: 700; letter-spacing: 2px; }
-.sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
-.nav-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 24px; color: rgba(255,255,255,0.65);
-  font-size: 0.95rem; transition: var(--transition); text-decoration: none;
-  border-left: 3px solid transparent;
-}
-.nav-item:hover { color: #fff; background: rgba(255,255,255,0.06); }
-.nav-item.active { color: #fff; background: rgba(74,144,217,0.2); border-left-color: var(--primary); }
-.nav-icon-wrap {
-  position: relative;
-  display: inline-flex;
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-}
-.nav-icon { font-size: 1.15rem; width: 24px; text-align: center; }
-.icon-badge {
-  position: absolute;
-  top: -6px;
-  right: -10px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #fe2c55;
+  background: var(--primary);
   color: #fff;
-  font-size: 10px;
   font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  box-sizing: border-box;
 }
-.tab-badge {
-  top: -4px;
-  right: -6px;
+.brand-text { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+.brand-subtext { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.sidebar-search { padding: 16px 16px 8px; }
+.sidebar-search-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0 16px;
 }
-.sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); }
-.user-brief { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.8); font-size: 0.85rem; }
-
-/* ========== Main content ========== */
+.sidebar-nav {
+  flex: 1;
+  padding: 8px 12px;
+  overflow-y: auto;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin: 4px 0;
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+.nav-item:hover { background: var(--bg-muted); }
+.nav-item.active { background: rgba(255,130,0,0.12); color: var(--primary); font-weight: 600; }
+.nav-icon { width: 40px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--bg-muted); font-size: 0.8rem; color: var(--text-secondary); }
+.nav-item.active .nav-icon { background: rgba(255,130,0,0.16); color: var(--primary); }
+.nav-label { font-size: 0.95rem; }
+.sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+.user-brief { display: flex; align-items: center; gap: 10px; }
+.user-name { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); }
+.user-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
 .main-content { min-height: 100vh; transition: var(--transition); }
 .main-content.with-sidebar { margin-left: var(--sidebar-w); }
-
-/* ========== Tabbar (mobile) ========== */
 .tabbar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  height: var(--tabbar-h); background: #fff;
-  display: flex; align-items: center; justify-content: space-around;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.06); z-index: 100;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--tabbar-h);
+  background: rgba(255,255,255,0.98);
   border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
 }
 .tab-item {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  font-size: 0.62rem; color: var(--text-muted); text-decoration: none;
-  transition: var(--transition); padding: 4px 0;
-  min-width: 0; flex: 1;
-}
-.tab-item.active { color: var(--primary); }
-.tab-icon-wrap {
-  position: relative;
-  display: inline-flex;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
 }
-.tab-icon { font-size: 1.2rem; }
-.tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ========== Mobile padding ========== */
+.tab-item.active { color: var(--primary); font-weight: 600; }
+.tab-icon { font-size: 0.78rem; line-height: 1; }
+.tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .is-mobile .main-content { padding-bottom: calc(var(--tabbar-h) + 8px); }
-
-/* ========== Transition ========== */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

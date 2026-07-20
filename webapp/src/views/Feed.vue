@@ -1,34 +1,30 @@
 <template>
   <div class="feed-page">
-    <div class="feed-header">
-      <h2 class="page-title">广场</h2>
+    <div class="hero-card card">
+      <div class="hero-top">
+        <div>
+          <h2 class="page-title">广场</h2>
+          <p class="hero-subtitle">关注校园动态、话题与同学们的真实分享</p>
+        </div>
+        <button type="button" class="hero-action" @click="goSearch">搜索</button>
+      </div>
+      <button type="button" class="search-entry" @click="goSearch">
+        <span class="search-entry-icon" aria-hidden="true">搜索</span>
+        <span class="search-entry-text">{{ searchPlaceholder }}</span>
+      </button>
+      <p v-if="filterHint" class="filter-hint text-sm text-muted">{{ filterHint }}</p>
     </div>
 
-    <button type="button" class="search-entry" @click="goSearch">
-      <span class="search-entry-icon" aria-hidden="true">🔍</span>
-      <span class="search-entry-text">{{ searchPlaceholder }}</span>
-    </button>
-    <p v-if="filterHint" class="filter-hint text-sm text-muted">{{ filterHint }}</p>
-
-    <!-- Category Tabs -->
     <div class="category-bar">
-      <button v-for="cat in categories" :key="cat.key"
-        class="cat-btn" :class="{ active: currentCategory === cat.key }"
-        @click="switchCategory(cat.key)">
+      <button v-for="cat in categories" :key="cat.key" class="cat-btn" :class="{ active: currentCategory === cat.key }" @click="switchCategory(cat.key)">
         {{ cat.label }}
       </button>
     </div>
 
-    <!-- Post List -->
     <div class="post-list">
       <div v-if="refreshing" class="refresh-strip" aria-hidden="true" title="正在更新"></div>
-      <button
-        v-if="activityBanner"
-        type="button"
-        class="activity-feed-entry"
-        @click="goActivity"
-      >
-        <span class="activity-feed-icon" aria-hidden="true">📅</span>
+      <button v-if="activityBanner" type="button" class="activity-feed-entry" @click="goActivity">
+        <span class="activity-feed-icon" aria-hidden="true">活动</span>
         <span class="activity-feed-text">
           <span class="activity-feed-label">近期活动</span>
           <span class="activity-feed-title">{{ activityBanner.title }}</span>
@@ -37,15 +33,12 @@
       </button>
       <div v-if="loading" class="loading-spinner"><div class="spinner"></div></div>
       <template v-else-if="posts.length">
-        <PostCard v-for="post in posts" :key="post._id" :post="post" :is-admin="isAdmin"
-          @click="goDetail(post._id)" @avatar-click="onAvatarClick" />
-        <div v-if="hasMore" class="load-more">
-          <button class="btn btn-ghost btn-sm" @click="loadMore">加载更多</button>
-        </div>
+        <PostCard v-for="post in posts" :key="post._id" :post="post" :is-admin="isAdmin" @click="goDetail(post._id)" @avatar-click="onAvatarClick" />
+        <div v-if="hasMore" class="load-more"><button class="btn btn-ghost btn-sm" @click="loadMore">加载更多</button></div>
       </template>
       <div v-else class="empty-state">
-        <div class="icon">📭</div>
-        <div class="text">暂无帖子，快去发布第一条吧！</div>
+        <div class="icon">暂无内容</div>
+        <div class="text">先发布第一条帖子吧</div>
       </div>
     </div>
   </div>
@@ -242,81 +235,65 @@ watch(
 </script>
 
 <style scoped>
-.feed-page { max-width: 680px; margin: 0 auto; padding: 16px; }
-.feed-header { margin-bottom: 12px; }
-.page-title { font-size: 1.4rem; }
+.feed-page { max-width: 720px; margin: 0 auto; padding: 16px; }
+.hero-card { margin-bottom: 14px; }
+.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.page-title { font-size: 1.4rem; font-weight: 700; }
+.hero-subtitle { font-size: 0.84rem; color: var(--text-muted); margin-top: 4px; }
+.hero-action {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(255,130,0,0.12);
+  color: var(--primary);
+  font-weight: 600;
+}
 .search-entry {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-radius: 22px;
+  border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--bg-card);
-  box-shadow: var(--shadow);
+  background: var(--bg-muted);
   cursor: pointer;
   text-align: left;
   font-size: 0.95rem;
   color: var(--text-muted);
   transition: var(--transition);
-  margin-bottom: 8px;
 }
-.search-entry:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-.search-entry-icon { font-size: 1.1rem; opacity: 0.85; }
+.search-entry:hover { border-color: var(--primary); background: #fff; }
+.search-entry-icon { font-size: 0.8rem; padding-right: 4px; color: var(--text-muted); }
 .search-entry-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.filter-hint { margin-bottom: 12px; line-height: 1.4; }
-.category-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
+.filter-hint { margin-top: 8px; line-height: 1.4; }
+.category-bar { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; -webkit-overflow-scrolling: touch; }
 .category-bar::-webkit-scrollbar { display: none; }
 .cat-btn {
-  flex-shrink: 0; padding: 6px 16px; border-radius: 100px;
-  font-size: 0.85rem; background: var(--bg-card); border: 1px solid var(--border);
+  flex-shrink: 0; padding: 7px 14px; border-radius: 999px;
+  font-size: 0.84rem; background: #fff; border: 1px solid var(--border);
   color: var(--text-secondary); transition: var(--transition); white-space: nowrap;
 }
 .cat-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.cat-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
-.post-list { margin-top: 8px; position: relative; }
+.post-list { margin-top: 4px; position: relative; }
 .activity-feed-entry {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(74, 144, 217, 0.12) 0%, var(--bg-card) 55%);
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: var(--transition);
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; margin-bottom: 12px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: #fff; cursor: pointer;
+  text-align: left; font-family: inherit; transition: var(--transition);
 }
-.activity-feed-entry:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-lg);
-}
-.activity-feed-icon { font-size: 1.35rem; flex-shrink: 0; }
+.activity-feed-entry:hover { border-color: var(--primary); background: rgba(255,130,0,0.04); }
+.activity-feed-icon { font-size: 0.78rem; color: var(--primary); font-weight: 700; flex-shrink: 0; }
 .activity-feed-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.activity-feed-label { font-size: 0.75rem; font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
+.activity-feed-label { font-size: 0.72rem; color: var(--text-muted); }
 .activity-feed-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-feed-arrow { font-size: 1.2rem; color: var(--text-muted); flex-shrink: 0; }
 .refresh-strip {
   position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  animation: feed-refresh-pulse 1s ease-in-out infinite;
+  background: var(--primary); opacity: 0.8; animation: feed-refresh-pulse 1s ease-in-out infinite;
   z-index: 1; pointer-events: none;
 }
-@keyframes feed-refresh-pulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
+@keyframes feed-refresh-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 .load-more { text-align: center; padding: 16px; }
-
-@media (min-width: 768px) {
-  .feed-page { padding: 24px 32px; }
-}
+@media (min-width: 768px) { .feed-page { padding: 24px 32px; } }
 </style>

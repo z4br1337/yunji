@@ -130,118 +130,69 @@ function thumbSrc(url) {
 <style scoped>
 .post-card {
   position: relative;
-  background: var(--bg-card);
+  background: #fff;
   border-radius: var(--radius);
   padding: 16px;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: var(--transition);
   margin-bottom: 12px;
 }
-.post-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.post-card:hover { border-color: rgba(255,130,0,0.35); background: rgba(255,130,0,0.02); }
 .post-boutique {
-  background: linear-gradient(165deg, #3d7dcc 0%, #5a9fe6 38%, #e8f2fc 72%, #ffffff 100%);
-  border-left: 3px solid #2563b8;
-  box-shadow: 0 4px 20px rgba(37, 99, 184, 0.12);
+  background: #fffdf8;
+  border-left: 3px solid var(--primary);
 }
 .post-boutique .post-author,
 .post-boutique .post-content,
 .post-boutique .post-time { color: var(--text-primary); }
-.post-boutique .topic-hash {
-  background: rgba(255, 255, 255, 0.55);
-  color: #1e4d8c;
-}
-.post-boutique .topic-hash:hover { background: rgba(255, 255, 255, 0.85); }
-.post-highlight { border-left: 3px solid var(--warning); background: #FFFDF5; }
-.post-flagged { border-left: 3px solid var(--danger); background: #FFF5F5; }
-.post-corner-badges {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  pointer-events: none;
-}
+.post-boutique .topic-hash { background: rgba(255,130,0,0.08); color: var(--primary); }
+.post-highlight { border-left: 3px solid var(--warning); background: #fffaf0; }
+.post-flagged { border-left: 3px solid var(--danger); background: #fff7f7; }
+.post-corner-badges { position: absolute; top: 10px; right: 12px; z-index: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: none; }
 .corner-badge {
   font-size: 0.65rem;
   padding: 2px 7px;
-  border-radius: 4px;
-  background: #FFF3CD;
-  color: #856404;
+  border-radius: 999px;
+  background: rgba(255,130,0,0.1);
+  color: var(--primary);
   font-weight: 600;
   white-space: nowrap;
 }
-.corner-badge-featured { background: #FFF3CD; color: #856404; }
-.corner-badge-boutique {
-  background: rgba(255, 255, 255, 0.92);
-  color: #1e4d8c;
-  border: 1px solid rgba(30, 77, 140, 0.35);
-}
+.corner-badge-boutique { background: rgba(255,130,0,0.12); }
 .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-right: 72px; }
 .post-meta { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
-.post-author { font-weight: 600; font-size: 0.9rem; }
-.flag-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; background: #F8D7DA; color: #721C24; }
+.post-author { font-weight: 600; font-size: 0.92rem; }
+.flag-badge { font-size: 0.7rem; padding: 1px 6px; border-radius: 999px; background: rgba(255,77,79,0.12); color: var(--danger); }
 .post-time { white-space: nowrap; flex-shrink: 0; }
 .post-body { margin-bottom: 10px; }
-.post-topics {
-  margin-bottom: 8px;
-  line-height: 1.7;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-}
+.post-topics { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px 8px; }
 .topic-hash {
-  border: none;
-  background: rgba(74, 144, 217, 0.12);
+  border: 1px solid rgba(255,130,0,0.16);
+  background: rgba(255,130,0,0.06);
   padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 1.05rem;
-  font-weight: 700;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
   color: var(--primary);
   cursor: pointer;
   font-family: inherit;
-  line-height: 1.35;
 }
-.topic-hash:hover { text-decoration: underline; background: rgba(74, 144, 217, 0.2); }
-.post-content { font-size: 0.9rem; line-height: 1.6; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.topic-hash:hover { background: rgba(255,130,0,0.12); }
+.post-content { font-size: 0.9rem; line-height: 1.65; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .flagged-content { font-size: 0.9rem; line-height: 1.6; }
-.post-media-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 10px;
-  max-width: 100%;
-}
-.post-media-grid.count-1 {
-  grid-template-columns: 1fr;
-  max-width: 240px;
-}
-.post-media-grid.count-2 {
-  grid-template-columns: repeat(2, 1fr);
-  max-width: 360px;
-}
-.post-media-cell {
-  aspect-ratio: 1;
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--border);
-}
-.post-media-cell img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+.post-media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; max-width: 100%; }
+.post-media-grid.count-1 { grid-template-columns: 1fr; max-width: 240px; }
+.post-media-grid.count-2 { grid-template-columns: repeat(2, 1fr); max-width: 360px; }
+.post-media-cell { aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--border); }
+.post-media-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .post-footer { display: flex; align-items: center; gap: 8px; }
-.category-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; background: rgba(74,144,217,0.1); color: var(--primary); }
-.status-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 100px; }
-.status-pending { background: #FFF3CD; color: #856404; }
-.status-archived { background: #F0F0F0; color: #666; }
-.status-flagged { background: #F8D7DA; color: #721C24; }
-.status-review { background: #D1ECF1; color: #0C5460; }
+.category-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: rgba(255,130,0,0.08); color: var(--primary); }
+.status-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; }
+.status-pending { background: rgba(245,165,36,0.12); color: var(--warning); }
+.status-archived { background: #f1f3f5; color: #666; }
+.status-flagged { background: rgba(255,77,79,0.12); color: var(--danger); }
+.status-review { background: rgba(47,128,237,0.12); color: var(--info); }
 .clickable { cursor: pointer; }
-.clickable:hover { opacity: 0.8; }
+.clickable:hover { opacity: 0.85; }
 </style>

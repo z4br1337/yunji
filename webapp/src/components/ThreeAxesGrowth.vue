@@ -518,7 +518,7 @@ function clampedPct(n) {
 }
 .lg {
   display: inline-flex;
-  min-width: 18px;
+    min-width: 18px;
   height: 18px;
   padding: 0 4px;
   border-radius: 4px;

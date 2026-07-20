@@ -6,7 +6,7 @@
 
     <div class="login-card">
       <div class="login-logo">
-        <img src="/yunji-logo.png" alt="云迹" class="logo-img" />
+        <img src="/yunji-logo.jpg" alt="云迹" class="logo-img" />
       </div>
       <h1 class="login-title">注册云迹</h1>
       <p class="login-subtitle">创建你的账号</p>
