@@ -2034,6 +2034,40 @@ def admin_super_promote_user(request):
 
 @csrf_exempt
 @require_POST
+def admin_transfer_user_class(request):
+    """最高管理员可将用户转移到指定班级；若其为导生则保持导生身份。"""
+    admin, e = _check_admin(request)
+    if e:
+        return e
+    if not is_super_admin_user(admin):
+        return err('FORBIDDEN', '仅最高管理员可转移班级')
+    body = get_body(request)
+    tid = (body.get('targetUserId') or body.get('userId') or '').strip()
+    next_class = (body.get('nextClass') or body.get('class') or '').strip()
+    if not tid or not next_class:
+        return err('INVALID_PARAMS', '缺少用户ID或班级')
+    if not is_allowed_class(next_class):
+        return err('INVALID_PARAMS', '班级不存在')
+    try:
+        u = User.objects.get(openid=tid)
+    except User.DoesNotExist:
+        return err('NOT_FOUND', '用户不存在')
+    prev_class = (u.user_class or '').strip()
+    u.user_class = next_class
+    u.profile_completed = bool((u.nickname or '').strip() and is_allowed_class(u.user_class))
+    u.save(update_fields=['user_class', 'profile_completed', 'updated_at'])
+    _log_admin_action(admin, 'user_transfer_class', 'user', tid, {
+        'nickname': u.nickname,
+        'fromClass': prev_class,
+        'toClass': next_class,
+        'authorClass': next_class,
+        'role': u.role,
+    })
+    return ok({'user': user_to_dict(u, post_count_exclude_emotion=True)})
+
+
+@csrf_exempt
+@require_POST
 def admin_comment_add(request):
     admin, e = _check_admin(request)
     if e: return e
