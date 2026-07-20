@@ -52,6 +52,15 @@ export function useUserStore() {
     } catch { /* ignore */ }
   }
 
+  async function syncSessionFromServer() {
+    if (!localStorage.getItem('token')) return null
+    try {
+      return await refreshProfile()
+    } catch {
+      return null
+    }
+  }
+
   function logout() {
     clearUserLocalPostCaches()
     api.clearCache()
@@ -72,6 +81,6 @@ export function useUserStore() {
 
   return {
     state: readonly(state),
-    login, refreshProfile, restoreSession, logout, updateLocal
+    login, refreshProfile, restoreSession, syncSessionFromServer, logout, updateLocal
   }
 }

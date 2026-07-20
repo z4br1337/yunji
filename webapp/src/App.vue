@@ -82,7 +82,7 @@ import { useUserStore } from './stores/user.js'
 import * as api from './api/index.js'
 
 const { isMobile, isWindows, isAndroid, isIOS } = useDevice()
-const { state, restoreSession, refreshProfile } = useUserStore()
+const { state, restoreSession, refreshProfile, syncSessionFromServer } = useUserStore()
 const route = useRoute()
 
 const isLoggedIn = computed(() => state.isLoggedIn)
@@ -146,7 +146,7 @@ onMounted(async () => {
   restoreSession()
   if (state.isLoggedIn && localStorage.getItem('token')) {
     try {
-      await refreshProfile()
+      await syncSessionFromServer()
     } catch { /* 网络异常时保留本地缓存 */ }
     try {
       await refreshInteractionUnread()
@@ -166,7 +166,7 @@ function onVisibilityChange() {
   clearTimeout(visibilityDebounce)
   visibilityDebounce = setTimeout(async () => {
     try {
-      await refreshProfile()
+      await syncSessionFromServer()
     } catch { /* 静默失败，保留本地缓存 */ }
     try {
       await refreshInteractionUnread()
