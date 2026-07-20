@@ -2082,7 +2082,14 @@ def ai_chat(request):
     body = get_body(request)
     if dashscope is None:
         return err('SERVER_ERROR', 'AI 服务未安装')
-    api_key = os.getenv('DASHSCOPE_API_KEY', '').strip()
+    api_key = (
+        os.getenv('DASHSCOPE_API_KEY', '')
+        or os.getenv('AI_API_KEY', '')
+        or os.getenv('AI_KEY', '')
+        or os.getenv('VITE_DASHSCOPE_API_KEY', '')
+        or os.getenv('VITE_AI_API_KEY', '')
+        or ''
+    ).strip()
     if not api_key:
         return err('SERVER_ERROR', 'AI 服务未配置')
     messages = body.get('messages') or []
