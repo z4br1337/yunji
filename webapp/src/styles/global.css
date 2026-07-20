@@ -1,23 +1,23 @@
 /* ========== CSS Variables ========== */
 :root {
-  --primary: #ff8200;
-  --primary-light: #ff9f33;
-  --primary-dark: #e86f00;
-  --success: #24c27c;
-  --warning: #f5a524;
-  --danger: #ff4d4f;
-  --info: #2f80ed;
-  --bg: #f5f7fa;
-  --bg-card: #ffffff;
-  --bg-sidebar: #ffffff;
-  --bg-surface: #ffffff;
-  --bg-muted: #f2f4f7;
-  --text-primary: #222222;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --border: #ebedf0;
-  --shadow: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+  --primary: #4A90D9;
+  --primary-light: #6BA5E7;
+  --primary-dark: #3572B0;
+  --success: #2ECC71;
+  --warning: #F39C12;
+  --danger: #E74C3C;
+  --info: #3498DB;
+  --bg: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #1E293B;
+  --bg-surface: #FFFFFF;
+  --bg-muted: #F0F4F8;
+  --text-primary: #2C3E50;
+  --text-secondary: #7F8C8D;
+  --text-muted: #BDC3C7;
+  --border: #E8ECF0;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
   --radius: 14px;
   --radius-sm: 8px;
   --radius-lg: 18px;
@@ -35,7 +35,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at top, rgba(255,130,0,0.08), transparent 36%);
+  background: radial-gradient(circle at top, rgba(74,144,217,0.08), transparent 36%);
   pointer-events: none;
   z-index: -1;
 }

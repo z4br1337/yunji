@@ -6,8 +6,11 @@
     </div>
     <div class="card">
       <!-- Category -->
-      <div class="form-group">
-        <label class="form-label">分类</label>
+      <div class="form-group publish-section">
+        <div class="section-head">
+          <label class="form-label">分类</label>
+          <p class="section-tip">先选一个内容方向，方便同学们更快看到你的分享</p>
+        </div>
         <div class="chip-group">
           <button v-for="cat in categories" :key="cat.key"
             class="chip" :class="{ active: category === cat.key }"
@@ -18,8 +21,11 @@
       </div>
 
       <!-- Content -->
-      <div class="form-group">
-        <label class="form-label">内容</label>
+      <div class="form-group publish-section">
+        <div class="section-head">
+          <label class="form-label">内容</label>
+          <p class="section-tip">把想法写下来，支持图片、话题和匿名发布</p>
+        </div>
         <textarea class="form-textarea" v-model="content" placeholder="分享你的想法..." maxlength="2000" rows="6"></textarea>
         <span class="text-xs text-muted">{{ content.length }}/2000</span>
         <div v-if="sensitivePanelVisible" class="sensitive-panel" role="status" aria-live="polite">
@@ -38,8 +44,11 @@
       </div>
 
       <!-- Images -->
-      <div class="form-group">
-        <label class="form-label">图片（可选，最多9张）</label>
+      <div class="form-group publish-section">
+        <div class="section-head">
+          <label class="form-label">图片（可选，最多9张）</label>
+          <p class="section-tip">支持上传图片，丰富你的内容表现</p>
+        </div>
         <div class="image-upload-grid">
           <div v-for="(img, i) in images" :key="i" class="img-preview">
             <img :src="img.url" />
@@ -60,7 +69,11 @@
       </div>
 
       <!-- Anonymous -->
-      <div class="form-group">
+      <div class="form-group publish-section">
+        <div class="section-head">
+          <label class="form-label">发布设置</label>
+          <p class="section-tip">按需要开启匿名，保护你的表达空间</p>
+        </div>
         <label class="switch-row">
           <span>匿名发布</span>
           <input type="checkbox" v-model="isAnonymous" class="toggle" />
@@ -227,13 +240,16 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.page-container { max-width: 600px; margin: 0 auto; padding: 16px; }
+.page-container { max-width: 640px; margin: 0 auto; padding: 16px; }
 .page-header { margin-bottom: 16px; }
 .page-header h2 { font-size: 1.3rem; }
+.publish-section { background: #fff; border: 1px solid var(--border); border-radius: 20px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); margin-bottom: 14px; }
+.section-head { margin-bottom: 12px; }
+.section-tip { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
 .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  padding: 6px 14px; border-radius: 100px; font-size: 0.85rem;
-  background: #F0F2F5; border: 1px solid transparent; color: var(--text-secondary);
+  padding: 7px 14px; border-radius: 999px; font-size: 0.85rem;
+  background: #f4f6f8; border: 1px solid transparent; color: var(--text-secondary);
   transition: var(--transition);
 }
 .chip.active { background: var(--primary); color: #fff; }
@@ -244,11 +260,11 @@ async function handleSubmit() {
 .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: var(--transition); }
 .toggle:checked::after { left: 22px; }
 .image-upload-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.img-preview { position: relative; width: 80px; height: 80px; border-radius: var(--radius-sm); overflow: hidden; }
+.img-preview { position: relative; width: 92px; height: 92px; border-radius: 14px; overflow: hidden; }
 .img-preview img { width: 100%; height: 100%; object-fit: cover; }
-.img-remove { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+.img-remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
 .img-add {
-  width: 80px; height: 80px; border: 2px dashed var(--border); border-radius: var(--radius-sm);
+  width: 92px; height: 92px; border: 2px dashed var(--border); border-radius: 14px;
   display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
   color: var(--text-muted); cursor: pointer; transition: var(--transition);
 }
