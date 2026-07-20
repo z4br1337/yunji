@@ -1301,6 +1301,19 @@ export async function mockAdminSuperPromoteUser(targetUserId) {
   return { user: safeUser(u) }
 }
 
+export async function mockAdminTransferUserClass(targetUserId, nextClass) {
+  await delay()
+  const admin = cur()
+  if (!admin || !isMockSuperAdmin(admin)) throw new Error('仅最高管理员可转移班级')
+  const u = _users[targetUserId]
+  if (!u) throw new Error('用户不存在')
+  const cls = String(nextClass || '').trim()
+  if (!SCHOOL_CLASSES.includes(cls)) throw new Error('班级不存在')
+  u.class = cls
+  u.updatedAt = now()
+  return { user: safeUser(u) }
+}
+
 export async function mockAdminGetEmotionPosts() {
   await delay()
   const admin = cur()

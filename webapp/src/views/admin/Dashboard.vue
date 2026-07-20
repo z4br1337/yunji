@@ -148,9 +148,11 @@
                   <option value="mute">禁言</option>
                   <option value="ban">封禁</option>
                   <option value="delete">删除账号</option>
+                  <option value="promote_admin">指定为导生(admin)</option>
+                  <option value="transfer_class">转移班级</option>
                 </select>
               </label>
-              <label class="moderate-field">
+              <label v-if="moderateAction !== 'promote_admin' && moderateAction !== 'transfer_class'" class="moderate-field">
                 <span class="text-xs text-muted block mb-4">期限</span>
                 <select v-model="moderateDuration" class="form-input" :disabled="moderateAction === 'delete'">
                   <option value="1d">1 天</option>
@@ -159,9 +161,18 @@
                   <option value="forever">永久</option>
                 </select>
               </label>
+              <label v-if="moderateAction === 'transfer_class'" class="moderate-field">
+                <span class="text-xs text-muted block mb-4">目标班级</span>
+                <select v-model="moderateTransferClass" class="form-input">
+                  <option value="">请选择班级</option>
+                  <option v-for="c in classOptions" :key="c" :value="c">{{ c }}</option>
+                </select>
+              </label>
               <button type="button" class="btn btn-danger btn-sm" :disabled="!selectedUserId" @click="submitModerate">执行</button>
             </div>
             <p v-if="moderateAction === 'delete'" class="text-xs text-muted">删除为软注销，该账号将无法登录；期限选项不适用。</p>
+            <p v-else-if="moderateAction === 'promote_admin'" class="text-xs text-muted">仅最高管理员可执行，目标账号将变为导生(admin)。</p>
+            <p v-else-if="moderateAction === 'transfer_class'" class="text-xs text-muted">仅最高管理员可执行，可将用户转移到指定班级。</p>
           </div>
           <div v-if="moderateUsers.length" class="moderate-pick-list">
             <p class="text-xs text-muted mb-8">点击一行可快速选中</p>
@@ -273,7 +284,7 @@
 <script setup>
 import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
-import { REVIEW_LEVEL_GUIDE, ACHIEVEMENT_CATEGORIES, POST_STATUS_LABELS } from '../../utils/config.js'
+import { REVIEW_LEVEL_GUIDE, ACHIEVEMENT_CATEGORIES, POST_STATUS_LABELS, SCHOOL_CLASSES } from '../../utils/config.js'
 import * as api from '../../api/index.js'
 
 const showToast = inject('showToast')
@@ -326,6 +337,9 @@ const moderateUsers = ref([])
 const selectedUserId = ref('')
 const moderateAction = ref('mute')
 const moderateDuration = ref('1d')
+const moderateRoleTarget = ref('admin')
+const moderateTransferClass = ref('')
+const classOptions = SCHOOL_CLASSES
 const usersGroupedByClass = computed(() => {
   const groups = {}
   for (const u of users.value) {
@@ -356,14 +370,29 @@ async function submitModerate() {
   }
   const act = moderateAction.value
   const dur = moderateDuration.value
+  if (act === 'transfer_class' && !moderateTransferClass.value) {
+    showToast('请选择目标班级')
+    return
+  }
   const tip = act === 'delete'
     ? '确定软删除该账号？该用户将无法再登录。'
-    : `确定对该账号执行${act === 'mute' ? '禁言' : '封禁'}（${durationLabel(dur)}）？`
+    : act === 'promote_admin'
+      ? '确定将该账号指定为导生(admin)？'
+      : act === 'transfer_class'
+        ? '确定将该账号转移到指定班级？'
+        : `确定对该账号执行${act === 'mute' ? '禁言' : '封禁'}（${durationLabel(dur)}）？`
   if (!window.confirm(tip)) return
   try {
-    await api.adminUserModerate(selectedUserId.value, act, dur)
+    if (act === 'promote_admin') {
+      await api.adminSuperPromoteUser(selectedUserId.value)
+    } else if (act === 'transfer_class') {
+      await api.adminTransferUserClass(selectedUserId.value, moderateTransferClass.value)
+    } else {
+      await api.adminUserModerate(selectedUserId.value, act, dur)
+    }
     showToast('已处理')
     selectedUserId.value = ''
+    moderateTransferClass.value = ''
     await loadTabData()
   } catch (e) {
     showToast(e.message || '操作失败')
