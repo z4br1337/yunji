@@ -383,12 +383,19 @@ async function submitModerate() {
         : `确定对该账号执行${act === 'mute' ? '禁言' : '封禁'}（${durationLabel(dur)}）？`
   if (!window.confirm(tip)) return
   try {
+    let result
     if (act === 'promote_admin') {
-      await api.adminSuperPromoteUser(selectedUserId.value)
+      result = await api.adminSuperPromoteUser(selectedUserId.value)
     } else if (act === 'transfer_class') {
-      await api.adminTransferUserClass(selectedUserId.value, moderateTransferClass.value)
+      result = await api.adminTransferUserClass(selectedUserId.value, moderateTransferClass.value)
     } else {
-      await api.adminUserModerate(selectedUserId.value, act, dur)
+      result = await api.adminUserModerate(selectedUserId.value, act, dur)
+    }
+    if (result?.user) {
+      const idx = moderateUsers.value.findIndex(u => u._id === result.user._id)
+      if (idx >= 0) moderateUsers.value.splice(idx, 1, result.user)
+      const listIdx = users.value.findIndex(u => u._id === result.user._id)
+      if (listIdx >= 0) users.value.splice(listIdx, 1, result.user)
     }
     showToast('已处理')
     selectedUserId.value = ''

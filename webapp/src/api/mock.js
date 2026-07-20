@@ -1249,7 +1249,7 @@ export async function mockAdminUserModerate(targetUserId, action, duration) {
     throw new Error('无效操作')
   }
   target.updatedAt = now()
-  _pushAdminLog(`user_${action}`, 'user', targetUserId, { duration: d, nickname: target.nickname })
+  _pushAdminLog(`user_${action}`, 'user', targetUserId, { duration: d, nickname: target.nickname, className: target.class })
   return { user: safeUser(target) }
 }
 
@@ -1310,6 +1310,7 @@ export async function mockAdminTransferUserClass(targetUserId, nextClass) {
   const cls = String(nextClass || '').trim()
   if (!SCHOOL_CLASSES.includes(cls)) throw new Error('班级不存在')
   u.class = cls
+  u.profileCompleted = !!(u.nickname && u.nickname.trim() && SCHOOL_CLASSES.includes(u.class))
   u.updatedAt = now()
   return { user: safeUser(u) }
 }

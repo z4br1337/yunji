@@ -558,7 +558,10 @@ export async function adminSuperPromoteUser(targetUserId) {
 
 export async function adminTransferUserClass(targetUserId, nextClass) {
   if (LOCAL_TEST_MODE) return mock.mockAdminTransferUserClass(targetUserId, nextClass)
-  return request('/admin/user/transfer-class', { targetUserId, nextClass })
+  return request('/admin/user/transfer-class', { targetUserId, nextClass }).then((data) => {
+    clearCache()
+    return data
+  })
 }
 
 export async function adminGetEmotionPosts() {
