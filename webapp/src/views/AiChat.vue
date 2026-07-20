@@ -29,11 +29,9 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from 'vue'
-import OpenAI from 'openai'
 import { AI_CONFIG } from '../utils/config.js'
 
 const API_KEY = import.meta.env.VITE_DASHSCOPE_API_KEY || ''
-const client = API_KEY ? new OpenAI({ apiKey: API_KEY, baseURL: AI_CONFIG.API_URL }) : null
 
 const messages = ref([
   { role: 'assistant', content: '你好！我是云小迹，云迹平台的AI助手。有什么可以帮你的吗？' }
@@ -41,6 +39,7 @@ const messages = ref([
 const inputText = ref('')
 const thinking = ref(false)
 const msgContainer = ref(null)
+const lastResponseId = ref('')
 
 function scrollToBottom() {
   nextTick(() => {
@@ -52,10 +51,34 @@ function formatMsg(text) {
   return (text || '').replace(/\n/g, '<br>')
 }
 
+function buildConversation() {
+  const conversation = [{ role: 'system', content: AI_CONFIG.SYSTEM_PROMPT }]
+  for (const msg of messages.value.slice(-AI_CONFIG.MAX_HISTORY)) {
+    if (msg.role === 'user' || msg.role === 'assistant') {
+      conversation.push({ role: msg.role, content: msg.content })
+    }
+  }
+  return conversation
+}
+
+function extractReply(data) {
+  if (data?.output) {
+    for (const item of data.output) {
+      if (item?.type === 'message' && Array.isArray(item.content)) {
+        for (const c of item.content) {
+          if (c?.type === 'output_text' && c.text) return c.text
+        }
+      }
+    }
+  }
+  if (data?.choices?.[0]) return data.choices[0].message?.content || ''
+  return data?.output_text || data?.message || data?.error?.message || ''
+}
+
 async function sendMsg() {
   const text = inputText.value.trim()
   if (!text || thinking.value) return
-  if (!client) {
+  if (!API_KEY) {
     messages.value.push({ role: 'assistant', content: '未配置 AI_KEY，请先在环境变量中设置 VITE_DASHSCOPE_API_KEY。' })
     return
   }
@@ -66,23 +89,39 @@ async function sendMsg() {
   scrollToBottom()
 
   try {
-    const chatMessages = [
-      { role: 'system', content: AI_CONFIG.SYSTEM_PROMPT },
-      ...messages.value
-        .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(-AI_CONFIG.MAX_HISTORY)
-        .map(m => ({ role: m.role, content: m.content }))
-    ]
-    const res = await client.chat.completions.create({
+    const body = {
       model: AI_CONFIG.MODEL,
-      messages: chatMessages,
-      stream: false,
-      enable_thinking: true,
+      input: text,
+      instructions: AI_CONFIG.SYSTEM_PROMPT,
+    }
+    if (lastResponseId.value) body.previous_response_id = lastResponseId.value
+
+    const res = await fetch(AI_CONFIG.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify(body),
     })
-    const reply = res?.choices?.[0]?.message?.content || '抱歉，我暂时无法回答这个问题。'
-    messages.value.push({ role: 'assistant', content: reply })
+
+    const textBody = await res.text()
+    let data = {}
+    try {
+      data = textBody ? JSON.parse(textBody) : {}
+    } catch {
+      data = { message: textBody }
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.message || `请求失败 (${res.status})`)
+    }
+
+    if (data?.id) lastResponseId.value = data.id
+    const reply = extractReply(data)
+    messages.value.push({ role: 'assistant', content: reply || '抱歉，我暂时无法回答这个问题。' })
   } catch (e) {
-    messages.value.push({ role: 'assistant', content: '网络错误，请稍后重试。' })
+    messages.value.push({ role: 'assistant', content: e?.message ? `请求失败：${e.message}` : '网络错误，请稍后重试。' })
   } finally {
     thinking.value = false
     scrollToBottom()
@@ -91,6 +130,7 @@ async function sendMsg() {
 
 function clearHistory() {
   messages.value = [{ role: 'assistant', content: '对话已清空，有什么新问题吗？' }]
+  lastResponseId.value = ''
 }
 
 onMounted(() => scrollToBottom())
