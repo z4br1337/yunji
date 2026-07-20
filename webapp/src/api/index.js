@@ -44,10 +44,22 @@ async function request(path, data = {}, method = 'POST', options = {}) {
     clearTimeout(timeoutId)
   }
   const contentType = res.headers.get('content-type') || ''
-  if (!contentType.includes('application/json')) {
-    throw new Error(`服务器响应异常 (${res.status})`)
+  let json
+  if (contentType.includes('application/json')) {
+    json = await res.json()
+  } else {
+    const text = await res.text()
+    if (!text.trim()) {
+      if (res.ok) return {}
+      throw new Error(`服务器响应异常 (${res.status})`)
+    }
+    try {
+      json = JSON.parse(text)
+    } catch {
+      if (res.ok) return { ok: true, raw: text }
+      throw new Error(`服务器响应异常 (${res.status})`)
+    }
   }
-  const json = await res.json()
   if (json.code !== 0) throw new Error(json.message || '请求失败')
   if (cacheable) {
     requestCache.set(cacheKey, {
