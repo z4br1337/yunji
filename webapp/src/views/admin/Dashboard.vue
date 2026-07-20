@@ -396,11 +396,14 @@ async function submitModerate() {
       if (idx >= 0) moderateUsers.value.splice(idx, 1, result.user)
       const listIdx = users.value.findIndex(u => u._id === result.user._id)
       if (listIdx >= 0) users.value.splice(listIdx, 1, result.user)
+      if (selectedUserId.value === result.user._id) {
+        moderateTransferClass.value = result.user.class || ''
+      }
     }
-    showToast('已处理')
     selectedUserId.value = ''
     moderateTransferClass.value = ''
     await loadTabData()
+    showToast(act === 'transfer_class' ? '班级已转移并已同步最新数据' : '已处理')
   } catch (e) {
     showToast(e.message || '操作失败')
   }

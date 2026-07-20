@@ -2029,7 +2029,12 @@ def admin_super_promote_user(request):
         return ok({'alreadyAdmin': True, 'user': user_to_dict(u, post_count_exclude_emotion=True)})
     u.role = 'admin'
     u.save(update_fields=['role', 'updated_at'])
-    return ok({'user': user_to_dict(u, post_count_exclude_emotion=True)})
+    return ok({
+        'user': user_to_dict(u, post_count_exclude_emotion=True),
+        'previousClass': prev_class,
+        'nextClass': next_class,
+        'targetUserId': tid,
+    })
 
 
 @csrf_exempt
