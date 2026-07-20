@@ -48,6 +48,7 @@ urlpatterns = [
     path('interaction/mark-seen', views.interaction_mark_seen),
     path('interaction/replies-to-me', views.interaction_replies_to_me),
     path('interaction/comments-on-my-posts', views.interaction_comments_on_my_posts),
+    path('ai/chat', views.ai_chat),
 
     # 图片上传
     path('upload/image', views.upload_image),

@@ -30,6 +30,11 @@ from .models import (
     ShopItem, ExchangeRecord, AdminActionLog, ActivityCampaign,
 )
 
+try:
+    import dashscope
+except Exception:  # pragma: no cover
+    dashscope = None
+
 _STUDENT_ID_RE = re.compile(r'^[A-Za-z0-9_-]{4,32}$')
 
 EXP_PER_POST = 10
@@ -2069,6 +2074,45 @@ def admin_transfer_user_class(request):
         'role': u.role,
     })
     return ok({'user': user_to_dict(u, post_count_exclude_emotion=True)})
+
+
+@csrf_exempt
+@require_POST
+def ai_chat(request):
+    body = get_body(request)
+    if dashscope is None:
+        return err('SERVER_ERROR', 'AI 服务未安装')
+    api_key = os.getenv('DASHSCOPE_API_KEY', '').strip()
+    if not api_key:
+        return err('SERVER_ERROR', 'AI 服务未配置')
+    messages = body.get('messages') or []
+    model = (body.get('model') or 'qwen3.5-flash').strip()
+    if not isinstance(messages, list) or not messages:
+        return err('INVALID_PARAMS', '缺少对话内容')
+    try:
+        dashscope.base_http_api_url = 'https://dashscope.aliyuncs.com/api/v1'
+        resp = dashscope.MultiModalConversation.call(
+            api_key=api_key,
+            model=model,
+            messages=messages,
+        )
+        text = ''
+        choices = getattr(getattr(resp, 'output', None), 'choices', None) or []
+        if choices:
+            message = getattr(choices[0], 'message', None)
+            content = getattr(message, 'content', None) if message else None
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get('text'):
+                        text = item['text']
+                        break
+            elif isinstance(content, str):
+                text = content
+        raw = resp.model_dump() if hasattr(resp, 'model_dump') else {}
+        return ok({'reply': text, 'raw': raw})
+    except Exception as ex:
+        logger.exception('AI chat failed')
+        return err('SERVER_ERROR', str(ex))
 
 
 @csrf_exempt

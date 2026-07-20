@@ -31,15 +31,12 @@
 import { ref, nextTick, onMounted } from 'vue'
 import { AI_CONFIG } from '../utils/config.js'
 
-const API_KEY = import.meta.env.VITE_DASHSCOPE_API_KEY || ''
-
 const messages = ref([
   { role: 'assistant', content: '你好！我是云小迹，云迹平台的AI助手。有什么可以帮你的吗？' }
 ])
 const inputText = ref('')
 const thinking = ref(false)
 const msgContainer = ref(null)
-const lastResponseId = ref('')
 
 function scrollToBottom() {
   nextTick(() => {
@@ -62,6 +59,7 @@ function buildConversation() {
 }
 
 function extractReply(data) {
+  if (data?.reply) return data.reply
   if (data?.output) {
     for (const item of data.output) {
       if (item?.type === 'message' && Array.isArray(item.content)) {
@@ -78,10 +76,6 @@ function extractReply(data) {
 async function sendMsg() {
   const text = inputText.value.trim()
   if (!text || thinking.value) return
-  if (!API_KEY) {
-    messages.value.push({ role: 'assistant', content: '未配置 AI_KEY，请先在环境变量中设置 VITE_DASHSCOPE_API_KEY。' })
-    return
-  }
 
   messages.value.push({ role: 'user', content: text })
   inputText.value = ''
@@ -89,20 +83,13 @@ async function sendMsg() {
   scrollToBottom()
 
   try {
-    const body = {
-      model: AI_CONFIG.MODEL,
-      input: text,
-      instructions: AI_CONFIG.SYSTEM_PROMPT,
-    }
-    if (lastResponseId.value) body.previous_response_id = lastResponseId.value
-
     const res = await fetch(AI_CONFIG.API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: buildConversation(),
+        model: AI_CONFIG.MODEL,
+      }),
     })
 
     const textBody = await res.text()
@@ -117,7 +104,6 @@ async function sendMsg() {
       throw new Error(data?.message || `请求失败 (${res.status})`)
     }
 
-    if (data?.id) lastResponseId.value = data.id
     const reply = extractReply(data)
     messages.value.push({ role: 'assistant', content: reply || '抱歉，我暂时无法回答这个问题。' })
   } catch (e) {
