@@ -58,6 +58,14 @@ function buildConversation() {
   return conversation
 }
 
+function buildKnowledgePrompt() {
+  return [
+    '知识库优先原则：先调用知识库，若知识库中没有相关内容，再补充互联网搜索结果。',
+    '回答范围：云迹平台、上海师范大学、上海师范大学哲学与法政学院。',
+    '回答要求：所有回答仅供参考。',
+  ].join(' ')
+}
+
 function extractReply(data) {
   if (typeof data?.reply === 'string' && data.reply.trim()) return data.reply.trim()
   if (typeof data?.data?.reply === 'string' && data.data.reply.trim()) return data.data.reply.trim()
@@ -99,6 +107,7 @@ async function sendMsg() {
       body: JSON.stringify({
         messages: buildConversation(),
         model: AI_CONFIG.MODEL,
+        knowledgePrompt: buildKnowledgePrompt(),
       }),
     })
 
