@@ -12,6 +12,7 @@ from collections import Counter
 import time
 import hashlib
 import re
+from typing import Any
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -2078,6 +2079,27 @@ def admin_transfer_user_class(request):
 
 @csrf_exempt
 @require_POST
+def _extract_ai_reply(resp: Any) -> str:
+    text = ''
+    output = getattr(resp, 'output', None)
+    choices = getattr(output, 'choices', None) or []
+    if choices:
+        message = getattr(choices[0], 'message', None)
+        content = getattr(message, 'content', None) if message else None
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict) and item.get('text'):
+                    text = item['text']
+                    break
+        elif isinstance(content, str):
+            text = content
+    if not text:
+        text = getattr(output, 'text', '') or ''
+    return (text or '').strip()
+
+
+@csrf_exempt
+@require_POST
 def ai_chat(request):
     body = get_body(request)
     if dashscope is None:
@@ -2098,23 +2120,31 @@ def ai_chat(request):
         return err('INVALID_PARAMS', '缺少对话内容')
     try:
         dashscope.base_http_api_url = 'https://dashscope.aliyuncs.com/api/v1'
+        payload_messages = []
+        for item in messages:
+            if not isinstance(item, dict):
+                continue
+            role = (item.get('role') or '').strip()
+            content = item.get('content')
+            if role not in ('system', 'user', 'assistant'):
+                continue
+            if isinstance(content, str):
+                text = content.strip()
+            elif isinstance(content, list):
+                text = ' '.join((str(x).strip() for x in content if str(x).strip()))
+            else:
+                text = str(content or '').strip()
+            if not text:
+                continue
+            payload_messages.append({'role': role, 'content': text})
+        if not payload_messages:
+            return err('INVALID_PARAMS', '缺少有效对话内容')
         resp = dashscope.MultiModalConversation.call(
             api_key=api_key,
             model=model,
-            messages=messages,
+            messages=payload_messages,
         )
-        text = ''
-        choices = getattr(getattr(resp, 'output', None), 'choices', None) or []
-        if choices:
-            message = getattr(choices[0], 'message', None)
-            content = getattr(message, 'content', None) if message else None
-            if isinstance(content, list):
-                for item in content:
-                    if isinstance(item, dict) and item.get('text'):
-                        text = item['text']
-                        break
-            elif isinstance(content, str):
-                text = content
+        text = _extract_ai_reply(resp)
         raw = resp.model_dump() if hasattr(resp, 'model_dump') else {}
         return ok({'reply': text, 'raw': raw})
     except Exception as ex:
