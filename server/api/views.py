@@ -2080,10 +2080,19 @@ def admin_transfer_user_class(request):
 def _extract_ai_reply(resp: Any) -> str:
     text = ''
     output = getattr(resp, 'output', None)
-    choices = getattr(output, 'choices', None) or []
+    if isinstance(output, dict):
+        choices = output.get('choices') or []
+        output_text = output.get('text', '') or ''
+    else:
+        choices = getattr(output, 'choices', None) or []
+        output_text = getattr(output, 'text', '') or ''
     if choices:
-        message = getattr(choices[0], 'message', None)
-        content = getattr(message, 'content', None) if message else None
+        message = choices[0].get('message') if isinstance(choices[0], dict) else getattr(choices[0], 'message', None)
+        content = None
+        if isinstance(message, dict):
+            content = message.get('content')
+        elif message is not None:
+            content = getattr(message, 'content', None)
         if isinstance(content, list):
             for item in content:
                 if isinstance(item, dict) and item.get('text'):
@@ -2092,9 +2101,12 @@ def _extract_ai_reply(resp: Any) -> str:
         elif isinstance(content, str):
             text = content
     if not text:
-        text = getattr(output, 'text', '') or ''
-    if not text and isinstance(resp, dict):
-        text = resp.get('output', {}).get('text', '') or ''
+        text = output_text
+    if not text:
+        if isinstance(resp, dict):
+            output_map = resp.get('output') or {}
+            if isinstance(output_map, dict):
+                text = output_map.get('text', '') or ''
     return (text or '').strip()
 
 
