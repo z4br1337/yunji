@@ -14,6 +14,8 @@ import hashlib
 import re
 from typing import Any
 
+import requests
+
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -2078,36 +2080,63 @@ def admin_transfer_user_class(request):
 
 
 def _extract_ai_reply(resp: Any) -> str:
-    text = ''
-    output = getattr(resp, 'output', None)
+    def _walk_text(value):
+        if value is None:
+            return ''
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, list):
+            for item in value:
+                found = _walk_text(item)
+                if found:
+                    return found
+            return ''
+        if isinstance(value, dict):
+            for key in ('text', 'output_text', 'content', 'message'):
+                found = _walk_text(value.get(key))
+                if found:
+                    return found
+            return ''
+        for key in ('text', 'output_text', 'content', 'message'):
+            if hasattr(value, key):
+                found = _walk_text(getattr(value, key))
+                if found:
+                    return found
+        return ''
+
+    if isinstance(resp, dict):
+        for key in ('reply', 'output_text', 'text'):
+            found = _walk_text(resp.get(key))
+            if found:
+                return found
+        output = resp.get('output')
+    else:
+        for key in ('reply', 'output_text', 'text'):
+            if hasattr(resp, key):
+                found = _walk_text(getattr(resp, key))
+                if found:
+                    return found
+        output = getattr(resp, 'output', None)
+
+    found = _walk_text(output)
+    if found:
+        return found
+
+    choices = []
     if isinstance(output, dict):
         choices = output.get('choices') or []
-        output_text = output.get('text', '') or ''
     else:
         choices = getattr(output, 'choices', None) or []
-        output_text = getattr(output, 'text', '') or ''
-    if choices:
-        message = choices[0].get('message') if isinstance(choices[0], dict) else getattr(choices[0], 'message', None)
-        content = None
-        if isinstance(message, dict):
-            content = message.get('content')
-        elif message is not None:
-            content = getattr(message, 'content', None)
-        if isinstance(content, list):
-            for item in content:
-                if isinstance(item, dict) and item.get('text'):
-                    text = item['text']
-                    break
-        elif isinstance(content, str):
-            text = content
-    if not text:
-        text = output_text
-    if not text:
-        if isinstance(resp, dict):
-            output_map = resp.get('output') or {}
-            if isinstance(output_map, dict):
-                text = output_map.get('text', '') or ''
-    return (text or '').strip()
+
+    for choice in choices:
+        if isinstance(choice, dict):
+            found = _walk_text(choice.get('message'))
+        else:
+            found = _walk_text(getattr(choice, 'message', None))
+        if found:
+            return found
+
+    return ''
 
 
 @csrf_exempt
@@ -2151,15 +2180,52 @@ def ai_chat(request):
             payload_messages.append({'role': role, 'content': text})
         if not payload_messages:
             return err('INVALID_PARAMS', '缺少有效对话内容')
-        resp = dashscope.Generation.call(
-            api_key=api_key,
-            model=model,
-            messages=payload_messages,
-            result_format='message',
+        endpoint = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
+        resp = requests.post(
+            endpoint,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': model,
+                'messages': payload_messages,
+                'temperature': 0.7,
+            },
+            timeout=60,
         )
-        text = _extract_ai_reply(resp)
-        raw = resp.model_dump() if hasattr(resp, 'model_dump') else {}
-        return ok({'reply': text, 'raw': raw})
+        resp.raise_for_status()
+        data = resp.json()
+        text = ''
+        if isinstance(data, dict):
+            choices = data.get('choices') or []
+            output = data.get('output') or {}
+            if not choices and isinstance(output, dict):
+                choices = output.get('choices') or []
+            if choices:
+                choice0 = choices[0] if isinstance(choices[0], dict) else {}
+                message = choice0.get('message') if isinstance(choice0, dict) else None
+                if isinstance(message, dict):
+                    content = message.get('content')
+                    if isinstance(content, str):
+                        text = content.strip()
+                    elif isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get('text'):
+                                text = str(item['text']).strip()
+                                break
+                elif hasattr(message, 'content'):
+                    text = str(getattr(message, 'content') or '').strip()
+            if not text and isinstance(output, dict):
+                text = str(output.get('text') or output.get('output_text') or '').strip()
+            if not text:
+                text = str(data.get('output_text') or '').strip()
+            if not text:
+                text = str(data.get('reply') or '').strip()
+            if not text and isinstance(data.get('message'), str):
+                text = data['message'].strip()
+        logger.info('AI chat response parsed: reply_len=%s keys=%s', len(text), list(data.keys()) if isinstance(data, dict) else [])
+        return ok({'reply': text, 'raw': data})
     except Exception as ex:
         logger.exception('AI chat failed')
         return err('SERVER_ERROR', f'AI 服务未安装或调用失败: {ex}')
