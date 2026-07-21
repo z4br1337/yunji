@@ -59,13 +59,23 @@ function buildConversation() {
 }
 
 function extractReply(data) {
-  if (data?.reply) return data.reply
+  if (typeof data?.reply === 'string' && data.reply.trim()) return data.reply.trim()
+  if (typeof data?.data?.reply === 'string' && data.data.reply.trim()) return data.data.reply.trim()
   if (data?.output) {
     for (const item of data.output) {
       if (item?.type === 'message' && Array.isArray(item.content)) {
         for (const c of item.content) {
           if (c?.type === 'output_text' && c.text) return c.text
         }
+      }
+    }
+  }
+  if (data?.data?.raw?.output?.choices?.[0]?.message?.content) {
+    const content = data.data.raw.output.choices[0].message.content
+    if (typeof content === 'string') return content
+    if (Array.isArray(content)) {
+      for (const item of content) {
+        if (item?.text) return item.text
       }
     }
   }
