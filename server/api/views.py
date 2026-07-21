@@ -2077,8 +2077,6 @@ def admin_transfer_user_class(request):
     return ok({'user': user_to_dict(u, post_count_exclude_emotion=True)})
 
 
-@csrf_exempt
-@require_POST
 def _extract_ai_reply(resp: Any) -> str:
     text = ''
     output = getattr(resp, 'output', None)
@@ -2095,6 +2093,8 @@ def _extract_ai_reply(resp: Any) -> str:
             text = content
     if not text:
         text = getattr(output, 'text', '') or ''
+    if not text and isinstance(resp, dict):
+        text = resp.get('output', {}).get('text', '') or ''
     return (text or '').strip()
 
 
@@ -2139,10 +2139,11 @@ def ai_chat(request):
             payload_messages.append({'role': role, 'content': text})
         if not payload_messages:
             return err('INVALID_PARAMS', '缺少有效对话内容')
-        resp = dashscope.MultiModalConversation.call(
+        resp = dashscope.Generation.call(
             api_key=api_key,
             model=model,
             messages=payload_messages,
+            result_format='message',
         )
         text = _extract_ai_reply(resp)
         raw = resp.model_dump() if hasattr(resp, 'model_dump') else {}
