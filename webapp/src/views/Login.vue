@@ -17,12 +17,41 @@
         <div class="hero-glow hero-glow-3"></div>
         <img src="/yunji-logo.png" alt="" class="hero-avatar" />
       </div>
-      <div class="login-card" :class="{ 'login-card-simple': needSimpleMode }">
-        <div class="brand-head">
-          <img src="/title.png" alt="云迹" class="login-title-image" />
-          <p class="login-subtitle">哲法er交流学习平台</p>
+      <div class="login-card-stack">
+        <div class="info-card-skeleton" :class="{ 'info-card-ready': infoCardReady }" aria-hidden="true">
+          <div class="skeleton-line skeleton-line-title"></div>
+          <div class="skeleton-line skeleton-line-subtitle"></div>
+          <div class="skeleton-metrics">
+            <span class="skeleton-chip"></span>
+            <span class="skeleton-chip"></span>
+            <span class="skeleton-chip"></span>
+          </div>
         </div>
-
+        <div class="info-card" :class="{ 'info-card-simple': needSimpleMode, 'info-card-animated': infoCardAnimated }">
+          <div class="info-card-top">
+            <div>
+              <p class="info-card-eyebrow">快速入口</p>
+              <h3>{{ infoCard.title }}</h3>
+            </div>
+            <span class="info-card-badge">{{ infoCard.badge }}</span>
+          </div>
+          <p class="info-card-desc">{{ infoCard.desc }}</p>
+          <div class="info-card-metrics">
+            <div v-for="item in infoCard.metrics" :key="item.label" class="metric-chip">
+              <span class="metric-value">{{ item.value }}</span>
+              <span class="metric-label">{{ item.label }}</span>
+            </div>
+          </div>
+          <div class="info-card-footer">
+            <span>{{ infoCard.footerLeft }}</span>
+            <span>{{ infoCard.footerRight }}</span>
+          </div>
+        </div>
+        <div class="login-card" :class="{ 'login-card-simple': needSimpleMode }">
+          <div class="brand-head">
+            <img src="/title.png" alt="云迹" class="login-title-image" />
+            <p class="login-subtitle">哲法er交流学习平台</p>
+          </div>
         <div class="form-group compact">
           <label class="form-label">用户名或学号</label>
           <input ref="usernameInput" class="form-input" v-model="username" placeholder="使用用户名或学号登录" @keyup.enter="onLoginClick" />
@@ -44,6 +73,7 @@
         <p class="switch-text">
           没有账号？<router-link to="/register" class="link">立即注册</router-link>
         </p>
+        </div>
       </div>
     </div>
 
@@ -105,6 +135,9 @@ import { ref, inject, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 
+const LOGIN_CARD_CACHE_KEY = 'login_info_card_snapshot_v1'
+const LOGIN_CARD_CACHE_TTL = 1000 * 60 * 60 * 12
+
 const router = useRouter()
 const { login } = useUserStore()
 const showToast = inject('showToast')
@@ -154,8 +187,58 @@ const showNotice = ref(false)
 const hasAgreed = ref(false)
 const hasScrolledToBottom = ref(false)
 const noticeBody = ref(null)
+const infoCardReady = ref(false)
+const infoCardAnimated = ref(false)
+const infoCard = ref({
+  title: '校园动态 · 登录即看',
+  badge: '实时更新',
+  desc: '云迹为你聚合校园资讯、学习交流、成果展示与互动内容，登录后即可继续浏览。',
+  metrics: [
+    { value: '1s', label: '快速进入' },
+    { value: '24h', label: '持续更新' },
+    { value: '∞', label: '信息流动' },
+  ],
+  footerLeft: '支持帖子、活动、消息',
+  footerRight: '登录后体验完整功能',
+})
+
+function setInfoCardAnimation() {
+  infoCardAnimated.value = false
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      infoCardAnimated.value = true
+    })
+  })
+}
+
+function saveInfoCardSnapshot() {
+  const payload = {
+    data: infoCard.value,
+    expireAt: Date.now() + LOGIN_CARD_CACHE_TTL,
+  }
+  localStorage.setItem(LOGIN_CARD_CACHE_KEY, JSON.stringify(payload))
+}
+
+function restoreInfoCardSnapshot() {
+  try {
+    const raw = localStorage.getItem(LOGIN_CARD_CACHE_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    if (!parsed?.data || !parsed?.expireAt || parsed.expireAt < Date.now()) {
+      localStorage.removeItem(LOGIN_CARD_CACHE_KEY)
+      return false
+    }
+    infoCard.value = { ...infoCard.value, ...parsed.data }
+    return true
+  } catch {
+    return false
+  }
+}
 
 onMounted(() => {
+  infoCardReady.value = restoreInfoCardSnapshot()
+  saveInfoCardSnapshot()
+  setInfoCardAnimation()
   if (localStorage.getItem('yunji_agreed') === '1') {
     hasAgreed.value = true
   } else {
@@ -303,6 +386,14 @@ async function handleLogin() {
 .hero-glow-2 { width: 300px; height: 300px; background: rgba(255, 140, 180, 0.10); top: 70px; left: calc(50% - 130px); }
 .hero-glow-3 { width: 260px; height: 260px; background: rgba(140, 210, 150, 0.12); top: 96px; left: calc(50% + 100px); }
 .hero-avatar { width: 292px; height: 292px; object-fit: contain; position: relative; z-index: 2; filter: drop-shadow(0 16px 34px rgba(0,0,0,0.08)); margin-top: 22px; }
+.login-card-stack { position: relative; }
+.info-card-skeleton { position: absolute; inset: 0 0 auto 0; height: 162px; margin: 0 0 12px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.45); background: rgba(255,255,255,0.42); backdrop-filter: blur(16px); overflow: hidden; opacity: 1; transition: opacity 0.35s ease, transform 0.35s ease; }
+.info-card-ready { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.skeleton-line, .skeleton-chip { position: absolute; background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.58), rgba(255,255,255,0.2)); background-size: 200% 100%; animation: shimmer 1.7s infinite linear; border-radius: 999px; }
+.skeleton-line-title { top: 24px; left: 20px; width: 42%; height: 18px; }
+.skeleton-line-subtitle { top: 55px; left: 20px; width: 66%; height: 12px; }
+.skeleton-metrics { position: absolute; left: 20px; right: 20px; bottom: 18px; display: flex; gap: 10px; }
+.skeleton-chip { flex: 1; height: 36px; border-radius: 14px; }
 .login-card { margin-top: -24px; background: rgba(255,255,255,0.20); backdrop-filter: blur(22px); border-radius: 34px; padding: 36px 30px 34px; width: 100%; box-shadow: none; border: 1px solid rgba(255,255,255,0.20); text-align: center; position: relative; z-index: 2; }
 .login-card-simple { backdrop-filter: blur(16px); background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.18); }
 .brand-head { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 12px; overflow: hidden; }
@@ -345,6 +436,7 @@ async function handleLogin() {
 .link { color: var(--primary); font-weight: 600; }
 @keyframes driftFade { 0% { transform: translate(-36vw, -12vh) rotate(-7deg); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translate(110vw, 18vh) rotate(-7deg); opacity: 0; } }
 @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 0.18; } 50% { opacity: 0.18; } 100% { transform: translateY(-110vh) scale(0.3); opacity: 0; } }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @media (max-width: 480px) {
   .login-shell { width: 96vw; }
   .hero-illustration { height: 240px; margin-bottom: -26px; }
@@ -358,5 +450,6 @@ async function handleLogin() {
   .bg-block { padding: 14px 12px; border-radius: 20px; }
   .bg-block-title { font-size: 0.92rem; }
   .bg-block-sub { font-size: 0.7rem; }
+  .info-card-skeleton { height: 140px; }
 }
 </style>
