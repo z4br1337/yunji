@@ -3,6 +3,7 @@ import * as mock from './mock.js'
 
 const REQUEST_TIMEOUT_MS = 12000
 const requestCache = new Map()
+const inflightRequests = new Map()
 
 function buildCacheKey(path, data, method) {
   return `${method}:${path}:${JSON.stringify(data || {})}`
@@ -25,49 +26,66 @@ async function request(path, data = {}, method = 'POST', options = {}) {
   if (cacheable && requestCache.has(cacheKey)) {
     return requestCache.get(cacheKey).data
   }
+  if (cacheable && inflightRequests.has(cacheKey)) {
+    return inflightRequests.get(cacheKey)
+  }
 
   const token = localStorage.getItem('token') || ''
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-  let res
-  try {
-    res = await fetch(API_BASE_URL + path, {
-      method,
-      headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
-      body: method !== 'GET' ? JSON.stringify(data) : undefined,
-      signal: controller.signal
-    })
-  } catch (e) {
-    if (e?.name === 'AbortError') throw new Error('请求超时，请稍后重试')
-    throw e
-  } finally {
-    clearTimeout(timeoutId)
-  }
-  const contentType = res.headers.get('content-type') || ''
-  let json
-  if (contentType.includes('application/json')) {
-    json = await res.json()
-  } else {
-    const text = await res.text()
-    if (!text.trim()) {
-      if (res.ok) return {}
-      throw new Error(`服务器响应异常 (${res.status})`)
-    }
+
+  const pending = (async () => {
+    let res
     try {
-      json = JSON.parse(text)
-    } catch {
-      if (res.ok) return { ok: true, raw: text }
-      throw new Error(`服务器响应异常 (${res.status})`)
+      res = await fetch(API_BASE_URL + path, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+        body: method !== 'GET' ? JSON.stringify(data) : undefined,
+        signal: controller.signal
+      })
+    } catch (e) {
+      if (e?.name === 'AbortError') throw new Error('请求超时，请稍后重试')
+      throw e
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    let json
+    if (contentType.includes('application/json')) {
+      json = await res.json()
+    } else {
+      const text = await res.text()
+      if (!text.trim()) {
+        if (res.ok) return {}
+        throw new Error(`服务器响应异常 (${res.status})`)
+      }
+      try {
+        json = JSON.parse(text)
+      } catch {
+        if (res.ok) return { ok: true, raw: text }
+        throw new Error(`服务器响应异常 (${res.status})`)
+      }
+    }
+    if (json.code !== 0) throw new Error(json.message || '请求失败')
+    if (cacheable) {
+      requestCache.set(cacheKey, {
+        data: json.data,
+        expireAt: Date.now() + cacheTTL
+      })
+    }
+    return json.data
+  })()
+
+  if (cacheable) {
+    inflightRequests.set(cacheKey, pending)
+    try {
+      return await pending
+    } finally {
+      inflightRequests.delete(cacheKey)
     }
   }
-  if (json.code !== 0) throw new Error(json.message || '请求失败')
-  if (cacheable) {
-    requestCache.set(cacheKey, {
-      data: json.data,
-      expireAt: Date.now() + cacheTTL
-    })
-  }
-  return json.data
+  return pending
 }
 
 export async function register(nickname, username, password) {
@@ -83,6 +101,7 @@ export async function register(nickname, username, password) {
 
 export function clearCache() {
   requestCache.clear()
+  inflightRequests.clear()
 }
 
 export async function login(username, password) {
