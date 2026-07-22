@@ -4,6 +4,7 @@ import * as mock from './mock.js'
 const REQUEST_TIMEOUT_MS = 12000
 const requestCache = new Map()
 const inflightRequests = new Map()
+const staleCache = new Map()
 
 function buildCacheKey(path, data, method) {
   return `${method}:${path}:${JSON.stringify(data || {})}`
@@ -13,6 +14,9 @@ function clearExpiredCache() {
   const now = Date.now()
   for (const [key, item] of requestCache.entries()) {
     if (item.expireAt <= now) requestCache.delete(key)
+  }
+  for (const [key, item] of staleCache.entries()) {
+    if (item.expireAt <= now) staleCache.delete(key)
   }
 }
 
@@ -28,6 +32,23 @@ async function request(path, data = {}, method = 'POST', options = {}) {
   }
   if (cacheable && inflightRequests.has(cacheKey)) {
     return inflightRequests.get(cacheKey)
+  }
+  if (cacheable && staleCache.has(cacheKey)) {
+    const stale = staleCache.get(cacheKey)
+    const bgRefresh = (async () => {
+      try {
+        const fresh = await request(path, data, method, { ...options, cacheable: false })
+        if (fresh !== undefined) {
+          requestCache.set(cacheKey, { data: fresh, expireAt: Date.now() + cacheTTL })
+          staleCache.set(cacheKey, { data: fresh, expireAt: Date.now() + cacheTTL * 12 })
+        }
+      } catch {
+        /* keep stale */
+      }
+    })()
+    inflightRequests.set(`${cacheKey}:bg`, bgRefresh)
+    bgRefresh.finally(() => inflightRequests.delete(`${cacheKey}:bg`))
+    return stale.data
   }
 
   const token = localStorage.getItem('token') || ''
@@ -73,6 +94,10 @@ async function request(path, data = {}, method = 'POST', options = {}) {
         data: json.data,
         expireAt: Date.now() + cacheTTL
       })
+      staleCache.set(cacheKey, {
+        data: json.data,
+        expireAt: Date.now() + cacheTTL * 12
+      })
     }
     return json.data
   })()
@@ -102,6 +127,7 @@ export async function register(nickname, username, password) {
 export function clearCache() {
   requestCache.clear()
   inflightRequests.clear()
+  staleCache.clear()
 }
 
 export async function login(username, password) {
