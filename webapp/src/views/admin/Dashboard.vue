@@ -10,6 +10,9 @@
       <button v-for="tab in tabs" :key="tab.key" class="tab-btn" :class="{ active: activeTab === tab.key }" @click="switchTab(tab.key)">
         {{ tab.label }}
       </button>
+      <button type="button" class="tab-btn archive-tool-btn" :class="{ active: activeTab === 'archiveTool' }" @click="openArchiveTool">
+        档案工具
+      </button>
     </div>
 
     <!-- Achievement Review -->
@@ -318,6 +321,7 @@ const tabs = [
   { key: 'users', label: '用户' }
 ]
 const activeTab = ref('achievements')
+const archiveToolUrl = 'https://daoshengtool.zeabur.app/'
 const loadingTab = ref(false)
 
 const pendingAchs = ref([])
@@ -406,6 +410,12 @@ async function submitModerate() {
     showToast(act === 'transfer_class' ? '班级已转移并已同步最新数据' : '已处理')
   } catch (e) {
     showToast(e.message || '操作失败')
+  }
+}
+
+function openArchiveTool() {
+  if (typeof window !== 'undefined') {
+    window.open(archiveToolUrl, '_blank', 'noopener,noreferrer')
   }
 }
 
@@ -559,6 +569,7 @@ onMounted(() => loadTabData())
 .admin-page { max-width: 800px; margin: 0 auto; padding: 16px; }
 .admin-header { margin-bottom: 16px; }
 .admin-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; border-bottom: 2px solid var(--border); }
+.admin-tabs .archive-tool-btn { margin-left: auto; }
 .tab-btn { padding: 8px 16px; font-size: 0.85rem; background: none; color: var(--text-secondary); border-bottom: 2px solid transparent; transition: var(--transition); white-space: nowrap; margin-bottom: -2px; }
 .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 .tab-btn:hover:not(.active) { color: var(--text-primary); }
