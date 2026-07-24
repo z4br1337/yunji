@@ -19,9 +19,6 @@
         <router-link to="/feed" class="nav-item" active-class="active">
           <span class="nav-icon">首页</span><span class="nav-label">广场</span>
         </router-link>
-        <router-link to="/publish" class="nav-item" active-class="active">
-          <span class="nav-icon">发布</span><span class="nav-label">发布内容</span>
-        </router-link>
         <router-link to="/points-shop" class="nav-item" active-class="active">
           <span class="nav-icon">商店</span><span class="nav-label">萤火商店</span>
         </router-link>
@@ -61,7 +58,6 @@
 
     <nav v-if="isMobile && isLoggedIn && showTabBar" class="tabbar">
       <router-link to="/feed" class="tab-item" active-class="active"><span class="tab-icon">首页</span><span class="tab-label">广场</span></router-link>
-      <router-link to="/publish" class="tab-item" active-class="active"><span class="tab-icon">发布</span><span class="tab-label">发布内容</span></router-link>
       <router-link to="/points-shop" class="tab-item" active-class="active"><span class="tab-icon">商店</span><span class="tab-label">萤火商店</span></router-link>
       <router-link to="/ai-chat" class="tab-item" active-class="active"><span class="tab-icon">问答</span><span class="tab-label">AI问答</span></router-link>
       <router-link to="/growth-book" class="tab-item" active-class="active"><span class="tab-icon">成长</span><span class="tab-label">闪光时刻</span></router-link>
@@ -272,6 +268,28 @@ function onVisibilityChange() {
 .tab-item.active { color: var(--primary); font-weight: 600; }
 .tab-icon { font-size: 0.78rem; line-height: 1; }
 .tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-compose {
+  width: 54px;
+  height: 54px;
+  margin-top: -18px;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+}
+.tab-compose-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2f80ed, #1b74e4);
+  color: #fff;
+  font-size: 1.1rem;
+  box-shadow: 0 10px 20px rgba(27, 116, 228, 0.22);
+}
+.tab-compose .tab-label { margin-top: 1px; font-size: 0.65rem; }
+
 .is-mobile .main-content { padding-bottom: calc(var(--tabbar-h) + 8px); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

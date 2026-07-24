@@ -13,7 +13,6 @@
         </button>
         <div class="topbar-actions">
           <button type="button" class="topbar-btn ghost" @click="goSearch">搜索</button>
-          <button type="button" class="topbar-btn primary" @click="goPublish">发帖</button>
         </div>
       </div>
     </header>
@@ -61,11 +60,13 @@
 
         <div class="composer-card" @click="goPublish">
           <div class="composer-avatar">
-            <img v-if="userAvatar" :src="userAvatar" alt="" />
+            <img v-if="userAvatar" :src="userAvatar" alt="" loading="lazy" decoding="async" />
             <span v-else>{{ userInitial }}</span>
           </div>
-          <div class="composer-input">有什么想分享给同学们的？</div>
-          <button type="button" class="composer-cta" @click.stop="goPublish">发布</button>
+          <div class="composer-input">
+            <span class="composer-input-text">有什么想分享给同学们的？</span>
+            <span class="composer-input-tip">点击发布内容</span>
+          </div>
         </div>
 
         <div class="post-stream">
@@ -400,10 +401,10 @@ watch(
 </script>
 
 <style scoped>
-/* —— 整体：浅灰底 + 三栏信息流（微博式，品牌色保留橙系） —— */
+/* —— 整体：白蓝基调，保留高级感与微博式信息流结构 —— */
 .feed-page {
   min-height: 100%;
-  background: #f0f2f5;
+  background: linear-gradient(180deg, #f8fcff 0%, #eef5ff 100%);
   padding-bottom: 24px;
 }
 
@@ -440,7 +441,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #ff8a1f, #ff6200);
+  background: linear-gradient(145deg, #2f80ed, #1b74e4);
   color: #fff;
   font-size: 0.85rem;
   font-weight: 800;
@@ -448,7 +449,7 @@ watch(
 .brand-name {
   font-size: 1rem;
   font-weight: 800;
-  color: #1a1a1a;
+  color: #16324f;
   letter-spacing: 0.02em;
 }
 .topbar-search {
@@ -470,12 +471,12 @@ watch(
 .topbar-search:hover,
 .topbar-search:focus-visible {
   background: #fff;
-  border-color: rgba(255, 130, 0, 0.35);
-  box-shadow: 0 0 0 3px rgba(255, 130, 0, 0.08);
+  border-color: rgba(27, 116, 228, 0.28);
+  box-shadow: 0 0 0 3px rgba(27, 116, 228, 0.08);
 }
 .search-ico {
   font-size: 1.05rem;
-  color: #ff7a00;
+  color: #1b74e4;
   flex-shrink: 0;
 }
 .search-placeholder {
@@ -505,11 +506,11 @@ watch(
   background: transparent;
   color: #555;
 }
-.topbar-btn.ghost:hover { color: #ff7a00; }
+.topbar-btn.ghost:hover { color: #1b74e4; }
 .topbar-btn.primary {
-  background: linear-gradient(135deg, #ff8a1f, #ff6200);
+  background: linear-gradient(135deg, #2f80ed, #1b74e4);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(255, 98, 0, 0.22);
+  box-shadow: 0 6px 14px rgba(27, 116, 228, 0.22);
 }
 .topbar-btn.primary:hover { filter: brightness(1.05); }
 
@@ -666,14 +667,31 @@ watch(
 .composer-input {
   flex: 1;
   min-width: 0;
-  height: 40px;
+  min-height: 40px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 0 14px;
   border-radius: 999px;
   background: #f5f6f8;
   color: #9aa0a8;
   font-size: 0.9rem;
+}
+.composer-input-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-input-tip {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1b74e4;
+  background: rgba(27, 116, 228, 0.08);
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 .composer-cta {
   flex-shrink: 0;
@@ -986,7 +1004,8 @@ watch(
   .feed-body { padding: 10px 12px 16px; gap: 0; }
   .composer-card { padding: 12px; border-radius: 14px; }
   .composer-cta { display: none; }
-  .composer-input { font-size: 0.86rem; height: 36px; }
+  .composer-input { min-height: 36px; padding: 0 12px; font-size: 0.86rem; }
+  .composer-input-tip { font-size: 0.72rem; padding: 2px 6px; }
   .composer-avatar { width: 36px; height: 36px; }
   .feed-tab { padding: 7px 12px; font-size: 0.82rem; }
 }
