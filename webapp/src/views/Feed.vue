@@ -556,8 +556,8 @@ watch(
 }
 .side-nav-item:hover { background: #f7f8fa; }
 .side-nav-item.active {
-  background: rgba(255, 130, 0, 0.1);
-  color: #ff6200;
+  background: rgba(27, 116, 228, 0.1);
+  color: #1b74e4;
 }
 .side-nav-dot {
   width: 6px;
@@ -566,14 +566,14 @@ watch(
   background: #d0d4db;
   flex-shrink: 0;
 }
-.side-nav-item.active .side-nav-dot { background: #ff6200; }
+.side-nav-item.active .side-nav-dot { background: #1b74e4; }
 .side-activity {
   margin-top: 12px;
   width: 100%;
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 130, 0, 0.12);
-  background: linear-gradient(160deg, #fff9f3, #fff);
+  border: 1px solid rgba(27, 116, 228, 0.12);
+  background: linear-gradient(160deg, #f3f8ff, #ffffff);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
@@ -581,7 +581,7 @@ watch(
 .side-activity-label {
   display: block;
   font-size: 0.72rem;
-  color: #ff7a00;
+  color: #1b74e4;
   font-weight: 700;
   margin-bottom: 4px;
 }
@@ -589,7 +589,7 @@ watch(
   display: block;
   font-size: 0.9rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #16324f;
   line-height: 1.35;
 }
 
@@ -619,7 +619,7 @@ watch(
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 .feed-tab.active {
-  background: linear-gradient(135deg, #ff8a1f, #ff6200);
+  background: linear-gradient(135deg, #2f80ed, #1b74e4);
   color: #fff;
   box-shadow: 0 6px 14px rgba(255, 98, 0, 0.2);
 }
@@ -717,7 +717,7 @@ watch(
   padding: 12px 14px;
   margin-bottom: 12px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 130, 0, 0.12);
+  border: 1px solid rgba(27, 116, 228, 0.12);
   background: #fff;
   text-align: left;
   font-family: inherit;
@@ -727,7 +727,7 @@ watch(
   font-size: 0.72rem;
   font-weight: 800;
   color: #ff6200;
-  background: rgba(255, 130, 0, 0.1);
+  background: rgba(27, 116, 228, 0.1);
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -749,7 +749,7 @@ watch(
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #ff7a00, transparent);
+  background: linear-gradient(90deg, transparent, #1b74e4, transparent);
   animation: feed-pulse 1s ease-in-out infinite;
   z-index: 1;
   pointer-events: none;
@@ -826,7 +826,7 @@ watch(
   cursor: pointer;
 }
 .btn-load-more:hover {
-  border-color: rgba(255, 130, 0, 0.35);
+  border-color: rgba(27, 116, 228, 0.35);
   color: #ff6200;
 }
 
@@ -865,8 +865,8 @@ watch(
 .discover-card {
   padding: 20px 18px;
   border-radius: 16px;
-  background: linear-gradient(165deg, #fff6ec 0%, #ffffff 55%);
-  border: 1px solid rgba(255, 130, 0, 0.1);
+  background: linear-gradient(165deg, #f4f9ff 0%, #ffffff 55%);
+  border: 1px solid rgba(27, 116, 228, 0.1);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
   margin-bottom: 12px;
   text-align: center;
@@ -874,12 +874,12 @@ watch(
 .discover-title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #1a1a1a;
+  color: #16324f;
   margin-bottom: 6px;
 }
 .discover-desc {
   font-size: 0.82rem;
-  color: #7a8088;
+  color: #6d7b8a;
   line-height: 1.5;
   margin-bottom: 14px;
 }
@@ -888,13 +888,13 @@ watch(
   height: 40px;
   border: none;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ff8a1f, #ff6200);
+  background: linear-gradient(135deg, #2f80ed, #1b74e4);
   color: #fff;
   font-weight: 800;
   font-size: 0.9rem;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(255, 98, 0, 0.22);
+  box-shadow: 0 8px 18px rgba(27, 116, 228, 0.22);
 }
 .discover-cta:hover { filter: brightness(1.04); }
 
@@ -925,7 +925,7 @@ watch(
   font-family: inherit;
   cursor: pointer;
 }
-.hot-card-more:hover { color: #ff6200; }
+.hot-card-more:hover { color: #1b74e4; }
 .hot-list { list-style: none; margin: 0; padding: 0; }
 .hot-item {
   display: flex;
@@ -950,9 +950,9 @@ watch(
   background: #f0f2f5;
   flex-shrink: 0;
 }
-.hot-rank.rank-1 { background: #ffefe0; color: #ff6200; }
-.hot-rank.rank-2 { background: #fff4e5; color: #e67e22; }
-.hot-rank.rank-3 { background: #fff8ee; color: #d4a017; }
+.hot-rank.rank-1 { background: #eaf3ff; color: #1b74e4; }
+.hot-rank.rank-2 { background: #eef5ff; color: #2f80ed; }
+.hot-rank.rank-3 { background: #f4f8ff; color: #5b8def; }
 .hot-text {
   flex: 1;
   min-width: 0;
