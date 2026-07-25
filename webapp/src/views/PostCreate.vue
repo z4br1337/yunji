@@ -7,17 +7,26 @@
     <div class="card">
       <!-- Category -->
       <div class="form-group publish-section">
-        <div class="section-head">
-          <label class="form-label">分类</label>
-          <p class="section-tip">先选一个内容方向，方便同学们更快看到你的分享</p>
-        </div>
-        <div class="chip-group">
-          <button v-for="cat in categories" :key="cat.key"
-            class="chip" :class="{ active: category === cat.key }"
-            @click="category = cat.key">
-            {{ cat.label }}
+        <div class="section-head publish-section-head" @click="toggleCategoryPanel">
+          <div>
+            <label class="form-label">分类</label>
+            <p class="section-tip">先选一个内容方向，方便同学们更快看到你的分享</p>
+          </div>
+          <button type="button" class="section-toggle" @click.stop="toggleCategoryPanel">
+            {{ showCategoryPanel ? '收起' : '展开' }}
           </button>
         </div>
+        <transition name="expand-fade">
+          <div v-show="showCategoryPanel">
+            <div class="chip-group">
+              <button v-for="cat in categories" :key="cat.key"
+                class="chip" :class="{ active: category === cat.key }"
+                @click="category = cat.key">
+                {{ cat.label }}
+              </button>
+            </div>
+          </div>
+        </transition>
       </div>
 
       <!-- Content -->
@@ -45,27 +54,36 @@
 
       <!-- Images -->
       <div class="form-group publish-section">
-        <div class="section-head">
-          <label class="form-label">图片（可选，最多9张）</label>
-          <p class="section-tip">支持上传图片，丰富你的内容表现</p>
-        </div>
-        <div class="image-upload-grid">
-          <div v-for="(img, i) in images" :key="i" class="img-preview">
-            <img :src="img.url" />
-            <button class="img-remove" @click="removeImage(i)">×</button>
+        <div class="section-head publish-section-head" @click="toggleImagePanel">
+          <div>
+            <label class="form-label">图片（可选，最多9张）</label>
+            <p class="section-tip">支持上传图片，丰富你的内容表现</p>
           </div>
-          <label v-if="images.length < 9" class="img-add">
-            <span>+</span>
-            <input type="file" accept="image/*" multiple hidden @change="onFileSelect" />
-          </label>
+          <button type="button" class="section-toggle" @click.stop="toggleImagePanel">
+            {{ showImagePanel ? '收起' : '展开' }}
+          </button>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm topic-entry-btn mt-8" @click="openTopicPicker"># 话题</button>
-        <div v-if="selectedTopics.length" class="topic-chips mt-8">
-          <span v-for="(t, i) in selectedTopics" :key="t + i" class="topic-chip">
-            #{{ t }}#
-            <button type="button" class="topic-chip-x" aria-label="移除" @click="removeTopic(i)">×</button>
-          </span>
-        </div>
+        <transition name="expand-fade">
+          <div v-show="showImagePanel">
+            <div class="image-upload-grid">
+              <div v-for="(img, i) in images" :key="i" class="img-preview">
+                <img :src="img.url" />
+                <button class="img-remove" @click="removeImage(i)">×</button>
+              </div>
+              <label v-if="images.length < 9" class="img-add">
+                <span>+</span>
+                <input type="file" accept="image/*" multiple hidden @change="onFileSelect" />
+              </label>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm topic-entry-btn mt-8" @click="openTopicPicker"># 话题</button>
+            <div v-if="selectedTopics.length" class="topic-chips mt-8">
+              <span v-for="(t, i) in selectedTopics" :key="t + i" class="topic-chip">
+                #{{ t }}#
+                <button type="button" class="topic-chip-x" aria-label="移除" @click="removeTopic(i)">×</button>
+              </span>
+            </div>
+          </div>
+        </transition>
       </div>
 
       <!-- Anonymous -->
@@ -80,7 +98,7 @@
         </label>
       </div>
 
-      <button class="btn btn-primary btn-block mt-16" :disabled="submitting" @click="handleSubmit">
+      <button class="btn btn-primary btn-block mt-16 publish-submit" :disabled="submitting" @click="handleSubmit">
         {{ submitting ? '发布中...' : '发布' }}
       </button>
     </div>
@@ -113,12 +131,11 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
-
-const props = defineProps({ embedded: { type: Boolean, default: false } })
 import { POST_CATEGORIES } from '../utils/config.js'
 import { check as sensitiveCheck, highlightSegments } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
 
+const props = defineProps({ embedded: { type: Boolean, default: false } })
 const router = useRouter()
 const showToast = inject('showToast')
 
@@ -132,6 +149,8 @@ const selectedTopics = ref([])
 const showTopicModal = ref(false)
 const topicDraft = ref('')
 const hotSuggest = ref([])
+const showCategoryPanel = ref(true)
+const showImagePanel = ref(true)
 
 const MAX_TOPICS = 5
 const MAX_TOPIC_LEN = 24
@@ -143,6 +162,14 @@ function normalizeTopicName(s) {
     .replace(/\|/g, '')
     .replace(/\n/g, '')
     .slice(0, MAX_TOPIC_LEN)
+}
+
+function toggleCategoryPanel() {
+  showCategoryPanel.value = !showCategoryPanel.value
+}
+
+function toggleImagePanel() {
+  showImagePanel.value = !showImagePanel.value
 }
 
 function addTopicFromHot(t) {
@@ -245,7 +272,26 @@ async function handleSubmit() {
 .page-header h2 { font-size: 1.3rem; }
 .publish-section { background: #fff; border: 1px solid var(--border); border-radius: 20px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); margin-bottom: 14px; }
 .section-head { margin-bottom: 12px; }
+.publish-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
 .section-tip { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+.section-toggle {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: rgba(27, 116, 228, 0.08);
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+}
+.publish-submit { border-radius: 999px; height: 50px; }
 .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   padding: 7px 14px; border-radius: 999px; font-size: 0.85rem;
@@ -305,7 +351,7 @@ async function handleSubmit() {
   padding: 0 1px;
 }
 .sensitive-fallback { margin: 10px 0 0; }
-.topic-entry-btn { width: 100%; border-style: dashed; }
+.topic-entry-btn { width: 100%; border-style: dashed; margin-top: 14px; }
 .topic-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .topic-chip {
   display: inline-flex;
@@ -313,7 +359,7 @@ async function handleSubmit() {
   gap: 4px;
   padding: 4px 10px;
   border-radius: 100px;
-  background: rgba(74, 144, 217, 0.12);
+  background: rgba(27, 116, 228, 0.12);
   color: var(--primary);
   font-size: 0.85rem;
   font-weight: 600;
@@ -341,4 +387,9 @@ async function handleSubmit() {
 .hot-chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
 .topic-suggest-chip:disabled { opacity: 0.45; }
 .flex-1 { flex: 1; }
+
+.expand-fade-enter-active,
+.expand-fade-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.expand-fade-enter-from,
+.expand-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>
