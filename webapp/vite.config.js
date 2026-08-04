@@ -2,6 +2,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const LARGE_ROUTE_CHUNKS = [
+  /PostCreate/, /PublishContent/, /Feed/, /AiChat/, /PostDetail/, /ChatDetail/, /PersonalHome/, /Settings/,
+  /GrowthBookPage/, /SearchPage/, /ChatList/, /ActivityListPage/, /RecentActivityPage/, /EmotionHelp/, /EmotionPostDetail/
+]
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -57,8 +62,16 @@ export default defineConfig({
     cssCodeSplit: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vue-vendor': ['vue', 'vue-router']
+        manualChunks(id) {
+          if (!id.includes('node_modules') && LARGE_ROUTE_CHUNKS.some((re) => re.test(id))) {
+            if (id.includes('/views/admin/')) return 'admin-pages'
+            if (id.includes('/views/')) return 'route-pages'
+          }
+          if (id.includes('node_modules')) {
+            if (id.includes('vue-router')) return 'vue-vendor'
+            if (id.includes('vue')) return 'vue-vendor'
+          }
+          return undefined
         }
       }
     }

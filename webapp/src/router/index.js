@@ -1,41 +1,76 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+const routeLoaders = {
+  Login: () => import('../views/Login.vue'),
+  Register: () => import('../views/Register.vue'),
+  BindStudent: () => import('../views/BindStudent.vue'),
+  ProfileEdit: () => import('../views/ProfileEdit.vue'),
+  ChangePassword: () => import('../views/ChangePassword.vue'),
+  Feed: () => import('../views/Feed.vue'),
+  SearchPage: () => import('../views/SearchPage.vue'),
+  ActivityList: () => import('../views/ActivityListPage.vue'),
+  RecentActivity: () => import('../views/RecentActivityPage.vue'),
+  PublishContent: () => import('../views/PublishContent.vue'),
+  PostCreate: () => import('../views/PostCreate.vue'),
+  PostDetail: () => import('../views/PostDetail.vue'),
+  AchievementCreate: () => import('../views/AchievementCreate.vue'),
+  FileShare: () => import('../views/FileShare.vue'),
+  AiChat: () => import('../views/AiChat.vue'),
+  Settings: () => import('../views/Settings.vue'),
+  PersonalHome: () => import('../views/PersonalHome.vue'),
+  SettingsPreferences: () => import('../views/SettingsPreferences.vue'),
+  MyPosts: () => import('../views/MyPosts.vue'),
+  MyFileShares: () => import('../views/MyFileShares.vue'),
+  PointsShop: () => import('../views/PointsShop.vue'),
+  GrowthBook: () => import('../views/GrowthBookPage.vue'),
+  ChatList: () => import('../views/ChatList.vue'),
+  ChatDetail: () => import('../views/ChatDetail.vue'),
+  EmotionHelp: () => import('../views/EmotionHelp.vue'),
+  EmotionPostDetail: () => import('../views/EmotionPostDetail.vue'),
+  AdminDashboard: () => import('../views/admin/Dashboard.vue'),
+  AdminActivityCreate: () => import('../views/AdminActivityCreate.vue'),
+  EmotionInbox: () => import('../views/admin/EmotionInbox.vue'),
+  EmotionInboxDetail: () => import('../views/admin/EmotionInboxDetail.vue'),
+  AdminUserProfile: () => import('../views/admin/UserProfile.vue'),
+  AdminReviewHistory: () => import('../views/admin/AdminReviewHistory.vue')
+}
+
 const routes = [
   { path: '/', redirect: '/feed' },
-  { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { public: true } },
-  { path: '/register', name: 'Register', component: () => import('../views/Register.vue'), meta: { public: true } },
-  { path: '/bind-student', name: 'BindStudent', component: () => import('../views/BindStudent.vue') },
-  { path: '/profile-edit', name: 'ProfileEdit', component: () => import('../views/ProfileEdit.vue') },
-  { path: '/change-password', name: 'ChangePassword', component: () => import('../views/ChangePassword.vue') },
-  { path: '/feed', name: 'Feed', component: () => import('../views/Feed.vue') },
-  { path: '/search', name: 'SearchPage', component: () => import('../views/SearchPage.vue') },
-  { path: '/activities', name: 'ActivityList', component: () => import('../views/ActivityListPage.vue') },
-  { path: '/activity/:campaignId', name: 'RecentActivity', component: () => import('../views/RecentActivityPage.vue') },
+  { path: '/login', name: 'Login', component: routeLoaders.Login, meta: { public: true } },
+  { path: '/register', name: 'Register', component: routeLoaders.Register, meta: { public: true } },
+  { path: '/bind-student', name: 'BindStudent', component: routeLoaders.BindStudent },
+  { path: '/profile-edit', name: 'ProfileEdit', component: routeLoaders.ProfileEdit },
+  { path: '/change-password', name: 'ChangePassword', component: routeLoaders.ChangePassword },
+  { path: '/feed', name: 'Feed', component: routeLoaders.Feed },
+  { path: '/search', name: 'SearchPage', component: routeLoaders.SearchPage },
+  { path: '/activities', name: 'ActivityList', component: routeLoaders.ActivityList },
+  { path: '/activity/:campaignId', name: 'RecentActivity', component: routeLoaders.RecentActivity },
   { path: '/activity', redirect: '/activities' },
-  { path: '/publish', name: 'PublishContent', component: () => import('../views/PublishContent.vue') },
-  { path: '/post/create', name: 'PostCreate', component: () => import('../views/PostCreate.vue') },
-  { path: '/post/:id', name: 'PostDetail', component: () => import('../views/PostDetail.vue') },
+  { path: '/publish', name: 'PublishContent', component: routeLoaders.PublishContent },
+  { path: '/post/create', name: 'PostCreate', component: routeLoaders.PostCreate },
+  { path: '/post/:id', name: 'PostDetail', component: routeLoaders.PostDetail },
   { path: '/achievements', redirect: '/growth-book' },
-  { path: '/achievement/create', name: 'AchievementCreate', component: () => import('../views/AchievementCreate.vue') },
-  { path: '/file-share', name: 'FileShare', component: () => import('../views/FileShare.vue') },
-  { path: '/ai-chat', name: 'AiChat', component: () => import('../views/AiChat.vue') },
-  { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
-  { path: '/profile/:userId?', name: 'PersonalHome', component: () => import('../views/PersonalHome.vue') },
-  { path: '/settings/preferences', name: 'SettingsPreferences', component: () => import('../views/SettingsPreferences.vue') },
-  { path: '/my-posts', name: 'MyPosts', component: () => import('../views/MyPosts.vue') },
-  { path: '/my-files', name: 'MyFileShares', component: () => import('../views/MyFileShares.vue') },
-  { path: '/points-shop', name: 'PointsShop', component: () => import('../views/PointsShop.vue') },
-  { path: '/growth-book', name: 'GrowthBook', component: () => import('../views/GrowthBookPage.vue') },
-  { path: '/chat', name: 'ChatList', component: () => import('../views/ChatList.vue') },
-  { path: '/chat/:peerId', name: 'ChatDetail', component: () => import('../views/ChatDetail.vue') },
-  { path: '/emotion-help', name: 'EmotionHelp', component: () => import('../views/EmotionHelp.vue') },
-  { path: '/emotion-help/:id', name: 'EmotionPostDetail', component: () => import('../views/EmotionPostDetail.vue') },
-  { path: '/admin', name: 'AdminDashboard', component: () => import('../views/admin/Dashboard.vue'), meta: { admin: true } },
-  { path: '/admin/activity', name: 'AdminActivityCreate', component: () => import('../views/AdminActivityCreate.vue'), meta: { admin: true } },
-  { path: '/admin/emotion-inbox', name: 'EmotionInbox', component: () => import('../views/admin/EmotionInbox.vue'), meta: { admin: true } },
-  { path: '/admin/emotion-inbox/:postId', name: 'EmotionInboxDetail', component: () => import('../views/admin/EmotionInboxDetail.vue'), meta: { admin: true } },
-  { path: '/admin/user/:userId', name: 'AdminUserProfile', component: () => import('../views/admin/UserProfile.vue'), meta: { admin: true } },
-  { path: '/admin/review-history', name: 'AdminReviewHistory', component: () => import('../views/admin/AdminReviewHistory.vue'), meta: { admin: true } }
+  { path: '/achievement/create', name: 'AchievementCreate', component: routeLoaders.AchievementCreate },
+  { path: '/file-share', name: 'FileShare', component: routeLoaders.FileShare },
+  { path: '/ai-chat', name: 'AiChat', component: routeLoaders.AiChat },
+  { path: '/settings', name: 'Settings', component: routeLoaders.Settings },
+  { path: '/profile/:userId?', name: 'PersonalHome', component: routeLoaders.PersonalHome },
+  { path: '/settings/preferences', name: 'SettingsPreferences', component: routeLoaders.SettingsPreferences },
+  { path: '/my-posts', name: 'MyPosts', component: routeLoaders.MyPosts },
+  { path: '/my-files', name: 'MyFileShares', component: routeLoaders.MyFileShares },
+  { path: '/points-shop', name: 'PointsShop', component: routeLoaders.PointsShop },
+  { path: '/growth-book', name: 'GrowthBook', component: routeLoaders.GrowthBook },
+  { path: '/chat', name: 'ChatList', component: routeLoaders.ChatList },
+  { path: '/chat/:peerId', name: 'ChatDetail', component: routeLoaders.ChatDetail },
+  { path: '/emotion-help', name: 'EmotionHelp', component: routeLoaders.EmotionHelp },
+  { path: '/emotion-help/:id', name: 'EmotionPostDetail', component: routeLoaders.EmotionPostDetail },
+  { path: '/admin', name: 'AdminDashboard', component: routeLoaders.AdminDashboard, meta: { admin: true } },
+  { path: '/admin/activity', name: 'AdminActivityCreate', component: routeLoaders.AdminActivityCreate, meta: { admin: true } },
+  { path: '/admin/emotion-inbox', name: 'EmotionInbox', component: routeLoaders.EmotionInbox, meta: { admin: true } },
+  { path: '/admin/emotion-inbox/:postId', name: 'EmotionInboxDetail', component: routeLoaders.EmotionInboxDetail, meta: { admin: true } },
+  { path: '/admin/user/:userId', name: 'AdminUserProfile', component: routeLoaders.AdminUserProfile, meta: { admin: true } },
+  { path: '/admin/review-history', name: 'AdminReviewHistory', component: routeLoaders.AdminReviewHistory, meta: { admin: true } }
 ]
 
 const router = createRouter({
@@ -81,5 +116,24 @@ router.beforeEach((to, from, next) => {
   }
   next()
 })
+
+const prefetchQueue = new Set()
+function prefetchRoute(name) {
+  const loader = routeLoaders[name]
+  if (!loader || prefetchQueue.has(name)) return
+  prefetchQueue.add(name)
+  const run = () => loader().catch(() => {}).finally(() => prefetchQueue.delete(name))
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(run, { timeout: 1500 })
+  } else if (typeof window !== 'undefined') {
+    window.setTimeout(run, 800)
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const warmRoutes = ['Feed', 'PublishContent', 'PostCreate', 'SearchPage', 'AiChat', 'Settings', 'GrowthBook', 'ActivityList']
+  warmRoutes.forEach(prefetchRoute)
+}
+
 
 export default router
