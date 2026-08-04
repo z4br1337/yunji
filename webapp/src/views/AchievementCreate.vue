@@ -169,8 +169,8 @@
         提交后需导生审核，审核通过后将获得对应经验值奖励。
       </div>
 
-      <button type="button" class="btn btn-primary btn-block" :disabled="submitting" @click="handleSubmit">
-        {{ submitting ? '提交中...' : '提交闪光时刻' }}
+      <button type="button" class="btn btn-primary btn-block" :disabled="submitting || isCoolingDown" @click="handleSubmit">
+        {{ submitting ? '提交中...' : isCoolingDown ? `${remainingSeconds} 秒后可再次提交` : '提交闪光时刻' }}
       </button>
     </div>
   </div>
@@ -188,6 +188,7 @@ import {
 } from '../utils/growthPresets.js'
 import { getVirtuePresets, buildVirtueSubmitText } from '../utils/virtuePresets.js'
 import * as api from '../api/index.js'
+import { useSubmitCooldown } from '../utils/submitCooldown.js'
 
 const router = useRouter()
 const showToast = inject('showToast')
@@ -211,6 +212,7 @@ const description = ref('')
 const level = ref(1)
 const images = ref([])
 const submitting = ref(false)
+const { isCoolingDown, remainingSeconds, start: startSubmitCooldown } = useSubmitCooldown()
 
 const currentDimSubs = computed(() => {
   const dim = dimensions.find((d) => d.key === dimension.value)
@@ -276,6 +278,7 @@ function onFileSelect(e) {
 }
 
 async function handleSubmit() {
+  if (submitting.value || isCoolingDown.value) return
   if (!images.value.length) {
     showToast('请提交相关照片（奖状/证明/活动照片）')
     return
@@ -355,6 +358,7 @@ async function handleSubmit() {
       level: outLevel,
       images: uploadedImages,
     })
+    startSubmitCooldown()
     showToast('提交成功，等待导生审核')
     router.back()
   } catch (e) {

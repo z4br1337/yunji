@@ -98,8 +98,8 @@
         </label>
       </div>
 
-      <button class="btn btn-primary btn-block mt-16 publish-submit" :disabled="submitting" @click="handleSubmit">
-        {{ submitting ? '发布中...' : '发布' }}
+      <button class="btn btn-primary btn-block mt-16 publish-submit" :disabled="submitting || isCoolingDown" @click="handleSubmit">
+        {{ submitting ? '发布中...' : isCoolingDown ? `${remainingSeconds} 秒后可再次发布` : '发布' }}
       </button>
     </div>
 
@@ -134,6 +134,7 @@ import { useRouter } from 'vue-router'
 import { POST_CATEGORIES } from '../utils/config.js'
 import { check as sensitiveCheck, highlightSegments } from '../utils/sensitive.js'
 import * as api from '../api/index.js'
+import { useSubmitCooldown } from '../utils/submitCooldown.js'
 
 const props = defineProps({ embedded: { type: Boolean, default: false } })
 const router = useRouter()
@@ -151,6 +152,7 @@ const topicDraft = ref('')
 const hotSuggest = ref([])
 const showCategoryPanel = ref(true)
 const showImagePanel = ref(true)
+const { isCoolingDown, remainingSeconds, start: startSubmitCooldown } = useSubmitCooldown()
 
 const MAX_TOPICS = 5
 const MAX_TOPIC_LEN = 24
@@ -233,6 +235,7 @@ function onFileSelect(e) {
 function removeImage(i) { images.value.splice(i, 1) }
 
 async function handleSubmit() {
+  if (submitting.value || isCoolingDown.value) return
   if (!content.value.trim()) { showToast('请输入内容'); return }
   const checkResult = sensitiveCheck(content.value)
   if (!checkResult.pass) {
@@ -256,6 +259,7 @@ async function handleSubmit() {
     }
 
     const result = await api.createPost(data)
+    startSubmitCooldown()
     showToast(`发布成功！经验+${result.expGain || 0}`)
     props.embedded ? router.replace('/publish') : router.back()
   } catch (e) {
