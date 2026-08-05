@@ -99,7 +99,7 @@
       </div>
 
       <button class="btn btn-primary btn-block mt-16 publish-submit" :disabled="submitting || isCoolingDown" @click="handleSubmit">
-        {{ submitting ? '发布中...' : isCoolingDown ? `${remainingSeconds} 秒后可再次发布` : '发布' }}
+        {{ submitting ? '发布中...' : isCoolingDown ? cooldownMessage || `${remainingSeconds} 秒后可再次发布` : '发布' }}
       </button>
     </div>
 
@@ -152,7 +152,7 @@ const topicDraft = ref('')
 const hotSuggest = ref([])
 const showCategoryPanel = ref(true)
 const showImagePanel = ref(true)
-const { isCoolingDown, remainingSeconds, start: startSubmitCooldown } = useSubmitCooldown()
+const { isCoolingDown, remainingSeconds, cooldownMessage, start: startSubmitCooldown, guardSubmit, getBlockedMessage } = useSubmitCooldown()
 
 const MAX_TOPICS = 5
 const MAX_TOPIC_LEN = 24
@@ -235,7 +235,10 @@ function onFileSelect(e) {
 function removeImage(i) { images.value.splice(i, 1) }
 
 async function handleSubmit() {
-  if (submitting.value || isCoolingDown.value) return
+  if (submitting.value || !guardSubmit()) {
+    showToast(getBlockedMessage())
+    return
+  }
   if (!content.value.trim()) { showToast('请输入内容'); return }
   const checkResult = sensitiveCheck(content.value)
   if (!checkResult.pass) {

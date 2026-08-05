@@ -40,7 +40,7 @@
         <div class="flex gap-8 mt-16">
           <button class="btn btn-ghost" @click="showCreate = false">取消</button>
           <button class="btn btn-primary" :disabled="submitting || isCoolingDown" @click="submitFile">
-            {{ submitting ? '提交中...' : isCoolingDown ? `${remainingSeconds} 秒后可再次提交` : '提交审核' }}
+            {{ submitting ? '提交中...' : isCoolingDown ? cooldownMessage || `${remainingSeconds} 秒后可再次提交` : '提交审核' }}
           </button>
         </div>
       </div>
@@ -115,7 +115,7 @@ const createForm = ref({
   fileError: '',
   useUrl: false
 })
-const { isCoolingDown, remainingSeconds, start: startSubmitCooldown } = useSubmitCooldown()
+const { isCoolingDown, remainingSeconds, cooldownMessage, start: startSubmitCooldown, guardSubmit, getBlockedMessage } = useSubmitCooldown()
 
 function formatTime(ts) {
   if (!ts) return ''
@@ -138,7 +138,10 @@ function onFileSelect(e) {
 }
 
 async function submitFile() {
-  if (submitting.value || isCoolingDown.value) return
+  if (submitting.value || !guardSubmit()) {
+    showToast(getBlockedMessage())
+    return
+  }
   const f = createForm.value
   if (!f.title.trim()) { showToast('请输入标题'); return }
   let fileUrl = ''

@@ -170,7 +170,7 @@
       </div>
 
       <button type="button" class="btn btn-primary btn-block" :disabled="submitting || isCoolingDown" @click="handleSubmit">
-        {{ submitting ? '提交中...' : isCoolingDown ? `${remainingSeconds} 秒后可再次提交` : '提交闪光时刻' }}
+        {{ submitting ? '提交中...' : isCoolingDown ? cooldownMessage || `${remainingSeconds} 秒后可再次提交` : '提交闪光时刻' }}
       </button>
     </div>
   </div>
@@ -212,7 +212,7 @@ const description = ref('')
 const level = ref(1)
 const images = ref([])
 const submitting = ref(false)
-const { isCoolingDown, remainingSeconds, start: startSubmitCooldown } = useSubmitCooldown()
+const { isCoolingDown, remainingSeconds, cooldownMessage, start: startSubmitCooldown, guardSubmit, getBlockedMessage } = useSubmitCooldown()
 
 const currentDimSubs = computed(() => {
   const dim = dimensions.find((d) => d.key === dimension.value)
@@ -278,7 +278,10 @@ function onFileSelect(e) {
 }
 
 async function handleSubmit() {
-  if (submitting.value || isCoolingDown.value) return
+  if (submitting.value || !guardSubmit()) {
+    showToast(getBlockedMessage())
+    return
+  }
   if (!images.value.length) {
     showToast('请提交相关照片（奖状/证明/活动照片）')
     return
