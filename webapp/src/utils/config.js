@@ -88,7 +88,8 @@ export const POST_CATEGORIES = [
   { key: 'cognition', label: '认知升级站' },
   { key: 'knowledge', label: '知识补给站' },
   { key: 'energy', label: '能量加油站' },
-  { key: 'fun', label: '娱乐研究站' }
+  { key: 'fun', label: '娱乐研究站' },
+  { key: 'activity', label: '活动导航站' }
 ]
 
 export const REVIEW_LEVEL_GUIDE = [
