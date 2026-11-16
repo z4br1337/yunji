@@ -580,7 +580,7 @@ export async function adminGetUserList(keyword = '') {
   return request('/admin/user/list', { keyword })
 }
 
-/** action: mute | ban | delete；duration: 1d | 7d | 30d | forever */
+/** action: mute | ban | delete | reset_password；duration: 1d | 7d | 30d | forever */
 export async function adminUserModerate(targetUserId, action, duration) {
   if (LOCAL_TEST_MODE) return mock.mockAdminUserModerate(targetUserId, action, duration)
   return request('/admin/user/moderate', { targetUserId, action, duration })

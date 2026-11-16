@@ -46,6 +46,7 @@ EXP_PER_POST_ACTIVITY_MULTIPLIER = 5
 BOUTIQUE_LIKE_THRESHOLD = 30  # 点赞数超过此值（即 >30）展示为精品帖
 FILE_LIKE_OWNER_SCORE = 10  # 文件每获赞一次，分享者积分+10
 EXP_TO_SCORE_RATIO = 5  # 每5经验值=1积分
+DEFAULT_RESET_PASSWORD = '123456'  # 导生重置密码后的默认密码，提醒用户尽快自行修改
 ACHIEVEMENT_BASE_EXP = 500
 ACHIEVEMENT_LEVEL_MULTIPLIER = 500
 ACHIEVEMENT_MAX_EXP = 2500
@@ -1878,7 +1879,7 @@ def admin_user_moderate(request):
     tid = (body.get('targetUserId') or body.get('userId') or '').strip()
     action = (body.get('action') or '').strip()
     duration = (body.get('duration') or '1d').strip()
-    if not tid or action not in ('mute', 'ban', 'delete'):
+    if not tid or action not in ('mute', 'ban', 'delete', 'reset_password'):
         return err('INVALID_PARAMS', '参数无效')
     try:
         target = User.objects.get(openid=tid)
@@ -1890,11 +1891,21 @@ def admin_user_moderate(request):
         return err('FORBIDDEN', '不可处理自己的账号')
     if not is_super_admin_user(admin) and not _user_in_admin_class(admin, tid):
         return err('FORBIDDEN', '仅可操作本班用户')
+    if action == 'reset_password' and not is_super_admin_user(admin):
+        return err('FORBIDDEN', '仅最高管理员可重置密码')
 
     now = timezone.now()
     delta = _moderate_duration_delta(duration)
 
-    if action == 'mute':
+    if action == 'reset_password':
+        target.password_hash = _hash_password(DEFAULT_RESET_PASSWORD)
+        target.save(update_fields=['password_hash', 'updated_at'])
+        _log_admin_action(admin, 'user_reset_password', 'user', tid, {
+            'nickname': target.nickname,
+            'authorClass': (target.user_class or '').strip(),
+            'username': target.username or '',
+        })
+    elif action == 'mute':
         target.muted_until = now + delta
         target.save(update_fields=['muted_until', 'updated_at'])
         _log_admin_action(admin, 'user_mute', 'user', tid, {

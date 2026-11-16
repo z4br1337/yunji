@@ -153,9 +153,10 @@
                   <option value="delete">删除账号</option>
                   <option value="promote_admin">指定为导生(admin)</option>
                   <option value="transfer_class">转移班级</option>
+                  <option value="reset_password">重置密码</option>
                 </select>
               </label>
-              <label v-if="moderateAction !== 'promote_admin' && moderateAction !== 'transfer_class'" class="moderate-field">
+              <label v-if="moderateAction !== 'promote_admin' && moderateAction !== 'transfer_class' && moderateAction !== 'reset_password'" class="moderate-field">
                 <span class="text-xs text-muted block mb-4">期限</span>
                 <select v-model="moderateDuration" class="form-input" :disabled="moderateAction === 'delete'">
                   <option value="1d">1 天</option>
@@ -176,6 +177,7 @@
             <p v-if="moderateAction === 'delete'" class="text-xs text-muted">删除为软注销，该账号将无法登录；期限选项不适用。</p>
             <p v-else-if="moderateAction === 'promote_admin'" class="text-xs text-muted">仅最高管理员可执行，目标账号将变为导生(admin)。</p>
             <p v-else-if="moderateAction === 'transfer_class'" class="text-xs text-muted">仅最高管理员可执行，可将用户转移到指定班级。</p>
+            <p v-else-if="moderateAction === 'reset_password'" class="text-xs text-muted">仅最高管理员可执行，执行后该账号密码将重置为 123456，请提醒本人尽快登录并修改密码。</p>
           </div>
           <div v-if="moderateUsers.length" class="moderate-pick-list">
             <p class="text-xs text-muted mb-8">点击一行可快速选中</p>
@@ -384,7 +386,9 @@ async function submitModerate() {
       ? '确定将该账号指定为导生(admin)？'
       : act === 'transfer_class'
         ? '确定将该账号转移到指定班级？'
-        : `确定对该账号执行${act === 'mute' ? '禁言' : '封禁'}（${durationLabel(dur)}）？`
+        : act === 'reset_password'
+          ? '确定将该账号密码重置为 123456？重置后该用户可直接用新密码登录。'
+          : `确定对该账号执行${act === 'mute' ? '禁言' : '封禁'}（${durationLabel(dur)}）？`
   if (!window.confirm(tip)) return
   try {
     let result
@@ -407,7 +411,13 @@ async function submitModerate() {
     selectedUserId.value = ''
     moderateTransferClass.value = ''
     await loadTabData()
-    showToast(act === 'transfer_class' ? '班级已转移并已同步最新数据' : '已处理')
+    showToast(
+      act === 'transfer_class'
+        ? '班级已转移并已同步最新数据'
+        : act === 'reset_password'
+          ? '密码已重置为 123456'
+          : '已处理'
+    )
   } catch (e) {
     showToast(e.message || '操作失败')
   }

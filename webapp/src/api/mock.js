@@ -1245,6 +1245,10 @@ export async function mockAdminUserModerate(targetUserId, action, duration) {
     target.accountDeleted = true
     target.mutedUntil = ''
     target.bannedUntil = ''
+  } else if (action === 'reset_password') {
+    if (!isMockSuperAdmin(admin)) throw new Error('仅最高管理员可重置密码')
+    _pushAdminLog('user_reset_password', 'user', targetUserId, { nickname: target.nickname, className: target.class })
+    return { user: safeUser(target) }
   } else {
     throw new Error('无效操作')
   }
