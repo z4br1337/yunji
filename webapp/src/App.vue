@@ -58,7 +58,6 @@
 
     <nav v-if="isMobile && isLoggedIn && showTabBar" class="tabbar">
       <router-link to="/feed" class="tab-item" active-class="active"><span class="tab-icon">首页</span><span class="tab-label">广场</span></router-link>
-      <router-link to="/points-shop" class="tab-item" active-class="active"><span class="tab-icon">商店</span><span class="tab-label">萤火商店</span></router-link>
       <router-link to="/ai-chat" class="tab-item" active-class="active"><span class="tab-icon">问答</span><span class="tab-label">AI问答</span></router-link>
       <router-link to="/growth-book" class="tab-item" active-class="active"><span class="tab-icon">成长</span><span class="tab-label">闪光时刻</span></router-link>
       <router-link to="/settings" class="tab-item" active-class="active"><span class="tab-icon">我的</span><span class="tab-label">个人中心</span></router-link>

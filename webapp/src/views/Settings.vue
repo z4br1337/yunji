@@ -58,31 +58,63 @@
         <span class="arrow">›</span>
       </div>
       <div v-if="!isAdmin" class="menu-item" @click="$router.push('/emotion-help')">
-        <span class="menu-icon">💙</span><span>情感倾诉专线</span><span class="arrow">›</span>
+        <span class="menu-icon-wrap">💙</span>
+        <div class="menu-text">
+          <span class="menu-title">情感倾诉专线</span>
+          <span class="menu-sub">匿名倾诉 · 只对本班导生可见</span>
+        </div>
+        <span class="arrow">›</span>
       </div>
       <div class="menu-item" @click="$router.push('/points-shop')">
-        <span class="menu-icon">🛒</span><span>萤火积分兑换商店</span><span class="arrow">›</span>
+        <span class="menu-icon-wrap">🛒</span>
+        <div class="menu-text">
+          <span class="menu-title">萤火积分兑换商店</span>
+          <span class="menu-sub">经验兑换积分 · 积分兑换周边好物</span>
+        </div>
+        <span class="arrow">›</span>
       </div>
 
       <template v-if="isAdmin">
-        <div class="divider"></div>
         <div class="menu-item" @click="$router.push('/admin/activity')">
-          <span class="menu-icon">🎯</span><span>管理活动</span><span class="arrow">›</span>
+          <span class="menu-icon-wrap">🎯</span>
+          <div class="menu-text">
+            <span class="menu-title">管理活动</span>
+            <span class="menu-sub">发布与管理近期活动</span>
+          </div>
+          <span class="arrow">›</span>
         </div>
         <div class="menu-item" @click="$router.push('/admin')">
-          <span class="menu-icon">⚙️</span><span>管理后台</span><span class="arrow">›</span>
+          <span class="menu-icon-wrap">⚙️</span>
+          <div class="menu-text">
+            <span class="menu-title">管理后台</span>
+            <span class="menu-sub">成果审核 · 内容治理</span>
+          </div>
+          <span class="arrow">›</span>
         </div>
         <div class="menu-item" @click="$router.push('/admin/emotion-inbox')">
-          <span class="menu-icon">📬</span><span>情感倾诉信息</span><span class="arrow">›</span>
+          <span class="menu-icon-wrap">📬</span>
+          <div class="menu-text">
+            <span class="menu-title">情感倾诉信息</span>
+            <span class="menu-sub">本班情感倾诉处理</span>
+          </div>
+          <span class="arrow">›</span>
         </div>
         <div class="menu-item" @click="$router.push('/admin/review-history')">
-          <span class="menu-icon">📜</span><span>处理历史记录</span><span class="arrow">›</span>
+          <span class="menu-icon-wrap">📜</span>
+          <div class="menu-text">
+            <span class="menu-title">处理历史记录</span>
+            <span class="menu-sub">本人处理动作留痕</span>
+          </div>
+          <span class="arrow">›</span>
         </div>
       </template>
 
-      <div class="divider"></div>
       <div class="menu-item menu-danger" @click="handleLogout">
-        <span class="menu-icon">🚪</span><span>退出登录</span>
+        <span class="menu-icon-wrap menu-icon-wrap-danger">🚪</span>
+        <div class="menu-text">
+          <span class="menu-title">退出登录</span>
+          <span class="menu-sub">退出当前账号</span>
+        </div>
       </div>
     </div>
   </div>
@@ -196,14 +228,15 @@ function handleLogout() {
 .level-title {
   font-size: 0.7rem; color: #7EC8E3; opacity: 0.9;
 }
-.menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; cursor: pointer; transition: var(--transition); }
+.menu-item { display: flex; align-items: center; gap: 12px; padding: 16px 12px; cursor: pointer; transition: var(--transition); border-bottom: 1px solid var(--border); }
 .menu-item:hover { background: var(--bg); }
-.menu-item:not(.menu-item-feature) span:nth-child(2) { flex: 1; font-size: 0.95rem; }
 .arrow { color: var(--text-muted); font-size: 1.2rem; }
-.menu-danger span { color: var(--danger); }
-.divider { height: 1px; background: var(--border); margin: 4px 0; }
-.points-log { padding: 0 8px 8px; }
-.log-item { padding: 8px 4px; border-bottom: 1px solid var(--border); }
-.text-success { color: var(--success); }
-.text-danger { color: var(--danger); }
+.menu-danger .menu-title { color: var(--danger); }
+.menu-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-sub { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-icon-wrap { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #E3F2FD, #BBDEFB); display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(74, 144, 217, 0.15); }
+.menu-icon-wrap-danger { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #FCE9EC, #FBCCD6); display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(254, 44, 85, 0.15); }
+.menu-item-feature { background: linear-gradient(135deg, rgba(74, 144, 217, 0.06), rgba(107, 165, 231, 0.04)); border-bottom: 1px solid var(--border); }
+.menu-item-feature:hover { background: linear-gradient(135deg, rgba(74, 144, 217, 0.1), rgba(107, 165, 231, 0.06)); }
+.profile-card-home-entry { position: relative; padding-bottom: 28px; }
 </style>
