@@ -19,9 +19,6 @@
         <router-link to="/feed" class="nav-item" active-class="active">
           <span class="nav-icon">首页</span><span class="nav-label">广场</span>
         </router-link>
-        <router-link to="/points-shop" class="nav-item" active-class="active">
-          <span class="nav-icon">商店</span><span class="nav-label">萤火商店</span>
-        </router-link>
         <router-link to="/ai-chat" class="nav-item" active-class="active">
           <span class="nav-icon">问答</span><span class="nav-label">AI问答</span>
         </router-link>
